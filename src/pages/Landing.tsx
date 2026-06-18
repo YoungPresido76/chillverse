@@ -1,8 +1,11 @@
-import { Link } from 'react-router-dom'
+// src/pages/Landing.tsx
+import { useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import Nav from '../components/Nav'
 import Footer from '../components/Footer'
 import CubeScene from '../components/CubeScene'
 import { useReveal } from '../hooks/useReveal'
+import { useAuth } from '../hooks/useAuth'
 
 const FEATURES = [
   {
@@ -60,6 +63,12 @@ const TESTIMONIALS = [
 
 export default function Landing() {
   useReveal()
+  const navigate = useNavigate()
+  const { session, loading } = useAuth()
+
+  useEffect(() => {
+    if (!loading && session) navigate('/dashboard', { replace: true })
+  }, [loading, session, navigate])
 
   return (
     <>
@@ -139,7 +148,7 @@ export default function Landing() {
             return (
               <div
                 key={f.title}
-                className={`reveal bg-chill-surface border border-chill-border rounded-2xl p-7 transition-all duration-300 hover:-translate-y-[6px] ${a.border} ${a.shadow}`}
+                className={`reveal glass-panel glow-violet-tint rounded-2xl p-7 transition-all duration-300 hover:-translate-y-[6px] ${a.border} ${a.shadow}`}
                 style={{ transitionDelay: `${i * 0.1}s` }}
               >
                 <div className={`w-[50px] h-[50px] rounded-xl flex items-center justify-center text-2xl mb-[18px] ${a.icon}`}>
@@ -176,7 +185,7 @@ export default function Landing() {
           <div className="reveal hidden lg:flex items-center justify-center" style={{ perspective: '700px', transitionDelay: '0.2s' }}>
             <div className="relative">
               <div className="lb-float">
-                <div className="bg-chill-surface border border-chill-borderBright rounded-[22px] p-7 w-80 shadow-[0_40px_80px_rgba(0,0,0,0.7),0_0_80px_rgba(108,80,255,0.2)]">
+                <div className="glass-panel-strong glow-violet-tint rounded-[22px] p-7 w-80 shadow-[0_40px_80px_rgba(0,0,0,0.7),0_0_80px_rgba(108,80,255,0.2)]">
                   <div className="flex items-center justify-between mb-[22px]">
                     <span className="text-[13px] font-bold tracking-wider text-chill-textMuted uppercase font-mono">Top Players</span>
                     <span className="flex items-center gap-1.5 text-[11px] text-chill-green font-semibold">
@@ -207,10 +216,10 @@ export default function Landing() {
                 </div>
               </div>
 
-              <div className="badge-float absolute -top-4.5 -right-12 bg-chill-surface border border-chill-pink/40 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-chill-pink shadow-[0_10px_30px_rgba(0,0,0,0.5)] whitespace-nowrap flex items-center gap-2">
+              <div className="badge-float absolute -top-4.5 -right-12 glass-chip border border-chill-pink/40 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-chill-pink shadow-[0_10px_30px_rgba(0,0,0,0.5)] whitespace-nowrap flex items-center gap-2">
                 ⚡ +2,400 XP gained!
               </div>
-              <div className="badge-float-delay absolute bottom-2.5 -left-16 bg-chill-surface border border-chill-cyan/35 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-chill-cyan shadow-[0_10px_30px_rgba(0,0,0,0.5)] whitespace-nowrap flex items-center gap-2">
+              <div className="badge-float-delay absolute bottom-2.5 -left-16 glass-chip border border-chill-cyan/35 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-chill-cyan shadow-[0_10px_30px_rgba(0,0,0,0.5)] whitespace-nowrap flex items-center gap-2">
                 👥 4 friends online
               </div>
             </div>
@@ -251,7 +260,7 @@ export default function Landing() {
 
         <div className="t-scroll px-6 md:px-16">
           {[...TESTIMONIALS, ...TESTIMONIALS].map((t, i) => (
-            <div key={i} className="bg-chill-surface border border-chill-border rounded-2xl p-6 w-[290px] flex-shrink-0">
+            <div key={i} className="glass-panel glow-violet-tint rounded-2xl p-6 w-[290px] flex-shrink-0">
               <div className="text-chill-amber text-[11px] mb-2.5">★★★★★</div>
               <p className="text-[13px] leading-relaxed text-chill-textSecondary mb-3.5">"{t.text}"</p>
               <div className="flex items-center gap-2.5">
@@ -268,7 +277,7 @@ export default function Landing() {
 
       {/* ── BRANCH CALLOUT ── */}
       <section className="px-6 md:px-16 py-20 max-w-[1300px] mx-auto">
-        <div className="reveal bg-chill-surface border border-chill-cyan/20 rounded-2xl p-8 md:p-12 flex items-center justify-between gap-12 flex-wrap relative overflow-hidden">
+        <div className="reveal glass-panel-strong glow-cyan-tint rounded-2xl p-8 md:p-12 flex items-center justify-between gap-12 flex-wrap relative overflow-hidden">
           <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-chill-cyan/[0.06] blur-3xl" />
           <div className="relative z-10">
             <span className="inline-block mb-3.5 px-3.5 py-1 rounded-full text-[11px] font-bold tracking-wider uppercase bg-chill-cyan/10 text-chill-cyan border border-chill-cyan/25">
