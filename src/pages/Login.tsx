@@ -1,3 +1,4 @@
+// src/pages/Login.tsx
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { signInWithEmail, signInWithGoogle, signInWithDiscord } from '../lib/auth'
@@ -36,7 +37,7 @@ export default function Login() {
     }
 
     showToast('Logged in! Welcome back 🔥', 'success')
-    setTimeout(() => navigate('/'), 1200)
+    setTimeout(() => navigate('/dashboard'), 1200)
   }
 
   async function handleGoogle() {
@@ -54,7 +55,7 @@ export default function Login() {
       <div className="fixed w-[400px] h-[400px] rounded-full bg-chill-violet/[0.13] blur-[100px] -top-20 -left-24 pointer-events-none" />
       <div className="fixed w-[350px] h-[350px] rounded-full bg-chill-pink/[0.07] blur-[100px] -bottom-24 -right-20 pointer-events-none" />
 
-      <div className="relative z-[2] w-full max-w-[460px] bg-chill-surface border border-chill-border rounded-[22px] p-8 md:p-11 shadow-[0_40px_80px_rgba(0,0,0,0.5)]">
+      <div className="relative z-[2] w-full max-w-[460px] glass-panel glow-violet-tint rounded-[22px] p-8 md:p-11 shadow-[0_40px_80px_rgba(0,0,0,0.5)]">
 
         <Link to="/" className="flex items-center gap-2.5 mb-7">
           <span className="text-2xl">🎮</span>
