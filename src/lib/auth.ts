@@ -40,21 +40,36 @@ export async function sendPasswordReset(email: string) {
   })
 }
 
+/** Fresh session lookup, used right before any RLS-gated write so the
+ *  call never relies on a session captured earlier in the flow. */
+export async function getCurrentSession() {
+  return supabase.auth.getSession()
+}
+
 /**
- * Create a profile row for a freshly-registered user.
- * Called after signUp succeeds (and the user has a session/id).
+ * Save the rest of onboarding onto the profile row.
+ *
+ * The on_auth_user_created trigger already creates the row (placeholder
+ * username + default avatar) the instant signUp() fires server-side, so
+ * this is an idempotent upsert rather than an insert — it just fills in
+ * what the trigger couldn't know (the user's chosen username, display
+ * name, etc). Requires an active session: RLS only allows a user to write
+ * their own row, and there is no session yet if email confirmation is
+ * still pending — callers must check for a session before calling this.
  */
-export async function createProfile(userId: string, input: SignupProfileInput) {
-  return supabase.from('profiles').insert({
-    id: userId,
-    username: input.username,
-    display_name: input.displayName || input.username,
-    avatar: input.avatar,
-    country: input.country || null,
-    interests: input.interests,
-    dob: input.dob,
-    connected_platform: input.connectedPlatform,
-  })
+export async function upsertProfile(userId: string, input: SignupProfileInput) {
+  return supabase.from('profiles').upsert(
+    {
+      id: userId,
+      username: input.username,
+      display_name: input.displayName || input.username,
+      country: input.country || null,
+      interests: input.interests,
+      dob: input.dob,
+      connected_platform: input.connectedPlatform,
+    },
+    { onConflict: 'id' }
+  )
 }
 
 /** Quick check used during signup to give a fast "username taken" hint. */
