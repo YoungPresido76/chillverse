@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, lazy, Suspense } from 'react'
 import { Routes, Route, useNavigate } from 'react-router-dom'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
@@ -8,23 +8,24 @@ import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
 import Dashboard from './pages/Dashboard'
 import ComingSoon from './pages/ComingSoon'
+import Games from './pages/Games'
 import AppLayout from './components/AppLayout'
 import ProtectedRoute from './components/ProtectedRoute'
 import { supabase } from './lib/supabase'
+
+// These pages will be created; lazy-load so missing files don't crash the app
+const Profile = lazy(() => import('./pages/Profile'))
+const Chat = lazy(() => import('./pages/Chat'))
 
 export default function App() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    // Listen for authentication changes globally
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // If the user signed in successfully (e.g. from Google OAuth hash token parsing)
       if (event === 'SIGNED_IN' && session) {
-        // Force navigate to dashboard, which securely clears the long hash from the URL
         navigate('/dashboard', { replace: true })
       }
     })
-
     return () => subscription.unsubscribe()
   }, [navigate])
 
@@ -40,6 +41,23 @@ export default function App() {
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/coming-soon" element={<ComingSoon />} />
+        <Route path="/games" element={<Games />} />
+        <Route
+          path="/profile"
+          element={
+            <Suspense fallback={<div style={{ color: 'var(--text-dim)', padding: 40, textAlign: 'center' }}>Loading…</div>}>
+              <Profile />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/chat"
+          element={
+            <Suspense fallback={<div style={{ color: 'var(--text-dim)', padding: 40, textAlign: 'center' }}>Loading…</div>}>
+              <Chat />
+            </Suspense>
+          }
+        />
       </Route>
     </Routes>
   )
