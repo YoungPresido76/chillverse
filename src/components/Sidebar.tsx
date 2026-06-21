@@ -1,44 +1,31 @@
 // src/components/Sidebar.tsx
-import { Link, useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
-import { LayoutDashboard, Wand2, ShoppingBag, Trophy, MessageCircle, User, Settings, Bell, X } from 'lucide-react'
+import {
+  Home, Clapperboard, Gamepad2, ShoppingBag, Trophy,
+  MessageCircle, User, Settings, Bell, X, Flame, Zap,
+} from 'lucide-react'
 import { ripple } from '../lib/ripple'
-
-// TODO: replace with real unread counts
-const MALL_BADGE_COUNT = 3
-const CHAT_BADGE_COUNT = 5
-const NOTIFICATIONS_BADGE_COUNT = 12
 
 interface NavItem {
   label: string
   to: string
   icon: LucideIcon
-  badge?: number
+  badge?: number | null
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Studio', to: '/coming-soon?feature=Studio', icon: Wand2 },
-  { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
-  { label: 'Mall', to: '/coming-soon?feature=Mall', icon: ShoppingBag, badge: MALL_BADGE_COUNT },
-  { label: 'Achievements', to: '/coming-soon?feature=Achievements', icon: Trophy },
-  { label: 'Chat', to: '/coming-soon?feature=Chat', icon: MessageCircle, badge: CHAT_BADGE_COUNT },
-  { label: 'Profile', to: '/coming-soon?feature=Profile', icon: User },
-  { label: 'Settings', to: '/coming-soon?feature=Settings', icon: Settings },
-  { label: 'Notifications', to: '/coming-soon?feature=Notifications', icon: Bell, badge: NOTIFICATIONS_BADGE_COUNT },
+  { label: 'Studio',        to: '/coming-soon?feature=Studio',       icon: Clapperboard, badge: null },
+  { label: 'Dashboard',     to: '/dashboard',                         icon: Home,         badge: null },
+  { label: 'Games',         to: '/games',                             icon: Gamepad2,     badge: null },
+  { label: 'Mall',          to: '/coming-soon?feature=Mall',          icon: ShoppingBag,  badge: 3    },
+  { label: 'Achievements',  to: '/coming-soon?feature=Achievements',  icon: Trophy,       badge: null },
+  { label: 'Chat',          to: '/chat',                              icon: MessageCircle,badge: 5    },
+  { label: 'Profile',       to: '/profile',                           icon: User,         badge: null },
+  { label: 'Settings',      to: '/coming-soon?feature=Settings',      icon: Settings,     badge: null },
+  { label: 'Notifications', to: '/coming-soon?feature=Notifications', icon: Bell,         badge: 12   },
 ]
 
-interface SidebarProps {
-  open: boolean
-  onClose: () => void
-}
-
-/**
- * Checks whether a nav item matches the current location exactly —
- * path AND query string (for /coming-soon?feature=X entries). This is the
- * correctness fix vs. the source mockup, which tracked the active item with
- * local useState and would show the wrong item highlighted after navigating
- * away and back.
- */
 function isItemActive(item: NavItem, pathname: string, search: string): boolean {
   const [path, query] = item.to.split('?')
   if (path !== pathname) return false
@@ -46,75 +33,152 @@ function isItemActive(item: NavItem, pathname: string, search: string): boolean 
   return search === `?${query}`
 }
 
+interface SidebarProps {
+  open: boolean
+  onClose: () => void
+}
+
 export default function Sidebar({ open, onClose }: SidebarProps) {
   const { pathname, search } = useLocation()
+  const navigate = useNavigate()
+
+  function handleNavClick(e: React.MouseEvent<HTMLButtonElement>, to: string) {
+    ripple(e)
+    navigate(to)
+    onClose()
+  }
 
   return (
     <>
+      {/* Overlay */}
       {open && (
         <div
-          className="fixed inset-0 z-[340] bg-black/60 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-[340] md:hidden"
+          style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(5px)' }}
           onClick={onClose}
         />
       )}
 
       <aside
-        className={`glass-panel-strong glow-violet-tint fixed top-0 left-0 z-[350] h-screen w-[260px] flex flex-col p-5 transition-transform duration-300 md:translate-x-0 ${
+        className={`sidebar-shell fixed top-0 left-0 z-[350] h-screen w-[280px] flex flex-col transition-transform duration-[350ms] md:translate-x-0 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
+        style={{ transitionTimingFunction: 'cubic-bezier(0.4,0,0.2,1)' }}
       >
-        <div className="flex items-center justify-between mb-8">
-          <Link to="/dashboard" className="flex items-center gap-2.5">
-            <span className="text-2xl">🎮</span>
-            <span className="text-lg font-bold text-gradient-2">Chillverse</span>
-          </Link>
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-4">
+          <span
+            style={{
+              fontSize: 20, fontWeight: 800,
+              background: 'linear-gradient(135deg, var(--accent), var(--accent2))',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}
+          >
+            Chillverse
+          </span>
           <button
             type="button"
             onClick={onClose}
-            className="md:hidden text-chill-textMuted hover:text-chill-text transition-colors"
+            className="md:hidden"
+            style={{
+              width: 32, height: 32,
+              borderRadius: 8,
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              color: 'var(--text-dim)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer',
+            }}
           >
-            <X size={20} />
+            <X size={14} />
           </button>
         </div>
 
-        <nav className="flex-1 flex flex-col gap-1.5 overflow-y-auto">
+        {/* Nav */}
+        <nav className="flex-1 flex flex-col gap-1 px-4 overflow-y-auto">
           {NAV_ITEMS.map((item) => {
             const active = isItemActive(item, pathname, search)
             const Icon = item.icon
             return (
-              <Link
+              <button
                 key={item.label}
-                to={item.to}
-                onClick={(e) => {
-                  ripple(e)
-                  onClose()
-                }}
-                className={`relative overflow-hidden flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                  active
-                    ? 'bg-chill-violet/15 text-chill-violetSoft border border-chill-violet/30'
-                    : 'text-chill-textSecondary hover:bg-white/5 hover:text-chill-text'
+                type="button"
+                onClick={(e) => handleNavClick(e, item.to)}
+                className={`ripple-wrap flex items-center gap-3 px-[13px] py-[11px] rounded-[12px] cursor-pointer w-full text-left border transition-all duration-200 ${
+                  active ? 'nav-item-active' : 'border-transparent'
                 }`}
+                style={{
+                  fontSize: 14, fontWeight: 500,
+                  color: active ? '#fff' : 'var(--text-dim)',
+                  background: active ? undefined : 'transparent',
+                }}
+                onMouseEnter={e => {
+                  if (!active) {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
+                    e.currentTarget.style.color = 'var(--text)'
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!active) {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.color = 'var(--text-dim)'
+                  }
+                }}
               >
-                <Icon size={18} />
+                <span className="nav-icon-wrap">
+                  <Icon size={16} />
+                </span>
                 <span className="flex-1">{item.label}</span>
-                {item.badge !== undefined && (
-                  <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-chill-pink/20 text-chill-pink">
-                    {item.badge}
-                  </span>
+                {item.badge != null && (
+                  <span className="badge-orange">{item.badge}</span>
                 )}
-              </Link>
+              </button>
             )
           })}
         </nav>
 
-        <Link
-          to="/coming-soon?feature=Go%20Premium"
-          onClick={(e) => ripple(e)}
-          className="glass-chip relative overflow-hidden mt-4 rounded-xl p-4 text-center hover:border-chill-amber/40 transition-all"
-        >
-          <div className="text-sm font-bold text-chill-amber mb-1">⭐ Go Premium</div>
-          <div className="text-[11px] text-chill-textMuted">Unlock exclusive perks</div>
-        </Link>
+        {/* Premium Box */}
+        <div className="p-3 pb-5">
+          <button
+            type="button"
+            onClick={(e) => { ripple(e); navigate('/coming-soon?feature=Go%20Premium') }}
+            className="ripple-wrap w-full text-left"
+            style={{
+              background: 'linear-gradient(135deg, rgba(30,10,0,0.9), rgba(40,18,0,0.9))',
+              border: '1px solid rgba(255,107,0,0.3)',
+              borderRadius: 'var(--radius)',
+              padding: 16,
+              cursor: 'pointer',
+              transition: 'border-color 0.2s, transform 0.2s',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderColor = 'rgba(255,107,0,0.55)'
+              e.currentTarget.style.transform = 'translateY(-1px)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderColor = 'rgba(255,107,0,0.3)'
+              e.currentTarget.style.transform = 'translateY(0)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--accent)', fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
+              GO PREMIUM <Flame size={11} />
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
+              Unlock All Features
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 }}>
+              Get access to exclusive content and perks
+            </div>
+            <span
+              className="btn-primary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '6px 12px', borderRadius: 8 }}
+            >
+              <Zap size={11} /> Upgrade Now
+            </span>
+          </button>
+        </div>
       </aside>
     </>
   )

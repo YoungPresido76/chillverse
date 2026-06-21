@@ -6,15 +6,11 @@ import Topbar from './Topbar'
 
 const ROUTE_TITLES: Record<string, string> = {
   '/dashboard': 'Dashboard',
+  '/profile':   'Profile',
+  '/chat':      'Chat',
+  '/games':     'Games',
 }
 
-/**
- * Shared shell for every authenticated page — ambient background glow,
- * the sidebar drawer, the topbar, and the active child route via <Outlet />.
- * Sidebar open/close state lives here (not in individual pages) so it's
- * forward-compatible with the README's planned Mall/Achievements/Profile/
- * Leaderboard pages without rebuilding the shell later.
- */
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { pathname } = useLocation()
@@ -26,18 +22,31 @@ export default function AppLayout() {
       : ROUTE_TITLES[pathname] || 'Dashboard'
 
   return (
-    <div className="min-h-screen relative">
-      <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-        <div className="glow glow-violet" />
-        <div className="glow glow-cyan" />
-        <div className="glow glow-pink" />
-        <div className="glow glow-orange" />
+    <div className="min-h-screen relative" style={{ background: 'var(--bg)' }}>
+      {/* Ambient bubbles */}
+      <div className="bubble-bg">
+        <div
+          className="bubble"
+          style={{ width: 420, height: 420, background: '#ff6b00', left: '-10%', top: '10%', animationDuration: '22s' }}
+        />
+        <div
+          className="bubble"
+          style={{ width: 300, height: 300, background: '#9b6dff', right: '5%', top: '30%', animationDuration: '28s', animationDelay: '-8s' }}
+        />
+        <div
+          className="bubble"
+          style={{ width: 250, height: 250, background: '#4f8ef7', left: '40%', bottom: '15%', animationDuration: '18s', animationDelay: '-4s' }}
+        />
+        <div
+          className="bubble"
+          style={{ width: 180, height: 180, background: '#3ecf8e', right: '25%', top: '5%', animationDuration: '32s', animationDelay: '-12s' }}
+        />
       </div>
 
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <Topbar title={title} onMenuClick={() => setSidebarOpen(true)} />
 
-      <main className="md:pl-[260px] pt-[92px] px-5 md:px-8 pb-12">
+      <main className="md:pl-[280px] pt-[68px] px-5 md:px-8 pb-12 relative z-10">
         <Outlet />
       </main>
     </div>

@@ -7,20 +7,16 @@ interface ProtectedRouteProps {
   children: ReactNode
 }
 
-/**
- * Gate for authenticated-only routes. Renders a minimal glass-styled
- * spinner while the session is still resolving, then either renders its
- * children (session exists) or bounces the visitor to /login.
- */
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { session, loading } = useAuth()
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
-        <div className="glass-panel glow-violet-tint rounded-[22px] p-10">
-          <span className="block w-9 h-9 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+        <div className="neu-card" style={{ padding: 40 }}>
+          <span style={{ display: 'block', width: 36, height: 36, borderRadius: '50%', border: '2px solid var(--surface3)', borderTopColor: 'var(--accent)', animation: 'spin 0.8s linear infinite' }} />
         </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     )
   }
@@ -30,4 +26,4 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   return <>{children}</>
-    }
+}

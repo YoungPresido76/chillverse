@@ -1,46 +1,75 @@
 // src/components/Topbar.tsx
 import { Link } from 'react-router-dom'
-import { Menu, Bell, MessageCircle } from 'lucide-react'
+import { Bell, MessageCircle } from 'lucide-react'
 
 interface TopbarProps {
   title: string
   onMenuClick: () => void
 }
 
-/**
- * Fixed top bar for authenticated pages. Title is supplied by AppLayout
- * (derived from the route), not hardcoded here, so it stays correct on
- * both /dashboard and every /coming-soon?feature=X destination.
- */
 export default function Topbar({ title, onMenuClick }: TopbarProps) {
   return (
-    <header className="glass-panel fixed top-0 right-0 left-0 md:left-[260px] z-[300] flex items-center justify-between gap-4 px-5 md:px-8 py-4">
-      <div className="flex items-center gap-4 min-w-0">
+    <header className="topbar-shell">
+      <div className="flex items-center gap-3">
+        {/* 3-span hamburger */}
         <button
           type="button"
           onClick={onMenuClick}
-          className="md:hidden text-chill-text hover:text-chill-violetSoft transition-colors"
+          className="md:hidden flex flex-col gap-[5px] p-2"
           aria-label="Open menu"
         >
-          <Menu size={22} />
+          <span style={{ display: 'block', height: 2, width: 18, background: 'var(--text-dim)', borderRadius: 2 }} />
+          <span style={{ display: 'block', height: 2, width: 13, background: 'var(--text-dim)', borderRadius: 2 }} />
+          <span style={{ display: 'block', height: 2, width: 16, background: 'var(--text-dim)', borderRadius: 2 }} />
         </button>
-        <h1 className="text-lg md:text-xl font-bold tracking-tight truncate">{title}</h1>
+        <h1 style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)' }}>{title}</h1>
       </div>
 
-      <div className="flex items-center gap-2.5 flex-shrink-0">
+      <div className="flex items-center gap-2">
+        {/* Bell */}
         <Link
           to="/coming-soon?feature=Notifications"
-          className="w-10 h-10 rounded-full flex items-center justify-center text-chill-textSecondary hover:text-chill-text hover:bg-white/5 transition-all"
           aria-label="Notifications"
+          style={{
+            position: 'relative',
+            width: 38, height: 38,
+            borderRadius: 10,
+            background: 'var(--surface)',
+            boxShadow: '3px 3px 8px var(--neu-dark), -2px -2px 6px var(--neu-light)',
+            color: 'var(--text-dim)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'color 0.2s',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-dim)')}
         >
-          <Bell size={19} />
+          <Bell size={17} />
+          {/* notification dot */}
+          <span style={{
+            position: 'absolute', top: 7, right: 7,
+            width: 6, height: 6, borderRadius: '50%',
+            background: 'var(--accent)',
+            border: '1.5px solid var(--bg)',
+          }} />
         </Link>
+
+        {/* MessageCircle */}
         <Link
-          to="/coming-soon?feature=Chat"
-          className="w-10 h-10 rounded-full flex items-center justify-center text-chill-textSecondary hover:text-chill-text hover:bg-white/5 transition-all"
+          to="/chat"
           aria-label="Chat"
+          style={{
+            width: 38, height: 38,
+            borderRadius: 10,
+            background: 'var(--surface)',
+            boxShadow: '3px 3px 8px var(--neu-dark), -2px -2px 6px var(--neu-light)',
+            color: 'var(--text-dim)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'color 0.2s',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-dim)')}
         >
-          <MessageCircle size={19} />
+          <MessageCircle size={17} />
         </Link>
       </div>
     </header>
