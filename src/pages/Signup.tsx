@@ -1,7 +1,7 @@
 // src/pages/Signup.tsx
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Rocket, CheckCircle2, Check } from 'lucide-react'
+import { Rocket, Check } from 'lucide-react'
 import { signUpWithEmail, signInWithGoogle, upsertProfile, getCurrentSession } from '../lib/auth'
 import { interestIcons } from '../lib/icons'
 

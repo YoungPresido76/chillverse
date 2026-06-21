@@ -1,6 +1,6 @@
 // src/pages/Profile.tsx
-import { useState, useEffect, useRef } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Settings, MoreHorizontal, Camera,
   Edit3, Users, UserPlus, Swords, X, Zap, Flame,
@@ -26,7 +26,12 @@ function getRank(xp: number) {
   return RANKS.find(r => xp >= r.min && xp <= r.max) ?? RANKS[0]
 }
 
-const RANK_ICONS: Record<string, React.ComponentType<{ size?: number; style?: React.CSSProperties }>> = {
+import type { LucideProps } from 'lucide-react'
+import type { ForwardRefExoticComponent, RefAttributes } from 'react'
+
+type LucideIcon = ForwardRefExoticComponent<Omit<LucideProps, 'ref'> & RefAttributes<SVGSVGElement>>
+
+const RANK_ICONS: Record<string, LucideIcon> = {
   Newcomer: Sprout,
   Scout:    Zap,
   Warrior:  Sword,
@@ -438,8 +443,6 @@ export default function Profile() {
   }
 
   if (!currentUser) return null
-
-  const xpPct = Math.min(100, Math.round(((currentUser.xp % 1000) / 1000) * 100))
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: 100 }}>

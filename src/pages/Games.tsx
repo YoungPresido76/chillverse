@@ -1,5 +1,7 @@
 // src/pages/Games.tsx
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import type { LucideProps } from 'lucide-react'
+import type { ForwardRefExoticComponent, RefAttributes } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Zap, Brain, Layers, BookOpen, Grid3X3, Flag,
@@ -9,6 +11,8 @@ import {
 } from 'lucide-react'
 import { ripple } from '../lib/ripple'
 
+type LucideIcon = ForwardRefExoticComponent<Omit<LucideProps, 'ref'> & RefAttributes<SVGSVGElement>>
+
 // ─── Types ──────────────────────────────────────────────────
 type GameId = 'neon-blitz' | 'grid-ghost' | 'flux-sort' | 'trivia-clash' | 'tac-zone' | 'flag-rush'
 type Difficulty = 'Easy' | 'Medium' | 'Hard'
@@ -17,7 +21,7 @@ interface GameResult { gameId: GameId; gameName: string; score: number; ts: numb
 
 interface GameCard {
   id: GameId; name: string; tagline: string
-  icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>
+  icon: LucideIcon
   accent: string; difficulty: Difficulty
 }
 
@@ -126,7 +130,7 @@ function GameOver({ score, label, onReplay, onBack }: { score: number; label: st
 // ═══════════════════════════════════════════════════════════
 type Dir = 'up' | 'down' | 'left' | 'right'
 const ALL_DIRS: Dir[] = ['up', 'down', 'left', 'right']
-const DIR_ICONS: Record<Dir, React.ComponentType<{ size?: number }>> = {
+const DIR_ICONS: Record<Dir, LucideIcon> = {
   up: ArrowUp, down: ArrowDown, left: ArrowLeftIcon, right: ArrowRight,
 }
 
@@ -137,12 +141,11 @@ function NeonBlitz({ onEnd }: { onEnd: (score: number) => void }) {
   const [mistakes, setMistakes] = useState(0)
   const [flash, setFlash] = useState<'none' | 'green' | 'red'>('none')
   const [elapsed, setElapsed] = useState(0)
-  const [plays, setPlays] = useState(0)
   const durationRef = useRef(1200)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const elapsedRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const nextArrow = useCallback(() => {
+  function nextArrow() {
     setCurrent(ALL_DIRS[Math.floor(Math.random() * 4)])
     setFlash('none')
     if (timerRef.current) clearTimeout(timerRef.current)
@@ -155,11 +158,11 @@ function NeonBlitz({ onEnd }: { onEnd: (score: number) => void }) {
         return next
       })
     }, durationRef.current)
-  }, [])
+  }
 
   function start() {
     setScore(0); setMistakes(0); setElapsed(0); durationRef.current = 1200
-    setPlays(p => p + 1); setPhase('play')
+    setPhase('play')
     if (elapsedRef.current) clearInterval(elapsedRef.current)
     elapsedRef.current = setInterval(() => setElapsed(s => s + 1), 1000)
     nextArrow()
@@ -402,7 +405,6 @@ function FluxSort({ onEnd }: { onEnd: (score: number) => void }) {
   const [score, setScore] = useState(0)
   const [timeLeft, setTimeLeft] = useState(20)
   const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null)
-  const [plays, setPlays] = useState(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const round = FLUX_ROUNDS[roundIdx]
@@ -420,7 +422,7 @@ function FluxSort({ onEnd }: { onEnd: (score: number) => void }) {
   }
 
   function start() {
-    setScore(0); setRoundIdx(0); setItemIdx(0); setPlays(p => p + 1)
+    setScore(0); setRoundIdx(0); setItemIdx(0)
     setPhase('play'); startTimer()
   }
 
@@ -522,7 +524,6 @@ function TriviaClash({ onEnd }: { onEnd: (score: number) => void }) {
   const [score, setScore] = useState(0)
   const [timeLeft, setTimeLeft] = useState(15)
   const [selected, setSelected] = useState<number | null>(null)
-  const [plays, setPlays] = useState(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startTimeRef = useRef(0)
 
@@ -531,7 +532,7 @@ function TriviaClash({ onEnd }: { onEnd: (score: number) => void }) {
     setTimeLeft(15); startTimeRef.current = Date.now()
     timerRef.current = setInterval(() => {
       setTimeLeft(t => {
-        if (t <= 1) { advance(null); return 15 }
+        if (t <= 1) { advance(); return 15 }
         return t - 1
       })
     }, 1000)
@@ -540,10 +541,10 @@ function TriviaClash({ onEnd }: { onEnd: (score: number) => void }) {
   function start() {
     const shuffled = [...TRIVIA_POOL].sort(() => Math.random() - 0.5).slice(0, 10)
     setQuestions(shuffled); setQIdx(0); setScore(0); setSelected(null)
-    setPlays(p => p + 1); setPhase('play'); startTimer()
+    setPhase('play'); startTimer()
   }
 
-  function advance(picked: number | null) {
+  function advance() {
     if (timerRef.current) clearInterval(timerRef.current)
     setTimeout(() => {
       setSelected(null)
@@ -562,7 +563,7 @@ function TriviaClash({ onEnd }: { onEnd: (score: number) => void }) {
       const bonus = elapsed < 5 ? 50 : elapsed < 10 ? 25 : 0
       setScore(s => s + 100 + bonus)
     }
-    advance(idx)
+    advance()
   }
 
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current) }, [])
@@ -680,11 +681,10 @@ function TacZone({ onEnd }: { onEnd: (score: number) => void }) {
   const [aiTurn, setAiTurn] = useState(false)
   const [result, setResult] = useState<{ winner: TacCell; line: number[] | null } | null>(null)
   const [scores, setScores] = useState({ W: 0, D: 0, L: 0 })
-  const [plays, setPlays] = useState(0)
 
   function start() {
     setBoard(Array(9).fill(null)); setResult(null); setAiTurn(false)
-    setPlays(p => p + 1); setPhase('play')
+    setPhase('play')
   }
 
   function endGame(b: TacCell[]) {
@@ -819,7 +819,6 @@ function FlagRush({ onEnd }: { onEnd: (score: number) => void }) {
   const [score, setScore] = useState(0)
   const [timeLeft, setTimeLeft] = useState(10)
   const [selected, setSelected] = useState<number | null>(null)
-  const [plays, setPlays] = useState(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startTimeRef = useRef(0)
 
@@ -837,7 +836,7 @@ function FlagRush({ onEnd }: { onEnd: (score: number) => void }) {
   function start() {
     const shuffled = [...FLAGS].sort(() => Math.random() - 0.5).slice(0, 15)
     setPool(shuffled); setIdx(0); setScore(0); setSelected(null)
-    setPlays(p => p + 1); setPhase('play'); startTimer()
+    setPhase('play'); startTimer()
   }
 
   function advance() {

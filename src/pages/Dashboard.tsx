@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
   Gamepad2, ShoppingBag, Film, Swords, Brain,
-  MessageCircle, Bot, Flame, Zap, Clapperboard,
+  Bot, Flame, Zap, Clapperboard,
   Trophy, User, ChevronRight,
 } from 'lucide-react'
 import { useProfile } from '../hooks/useProfile'
@@ -11,9 +11,7 @@ import { getXpProgress } from '../lib/level'
 import { ripple } from '../lib/ripple'
 
 // TODO: replace with real unread / live counts
-const MALL_NEW_ITEMS = 3
 const CHAT_UNREAD = 5
-const LIVE_PLAYERS = 482
 
 interface QuickAction {
   label: string
