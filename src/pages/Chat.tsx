@@ -270,10 +270,6 @@ export default function Chat() {
     return 'Chat'
   }
 
-  function roomInitial(room: ChatRoom): string {
-    return roomLabel(room).charAt(0).toUpperCase()
-  }
-
   const filtered = rooms.filter(r => !search || roomLabel(r).toLowerCase().includes(search.toLowerCase()))
   const totalUnread = rooms.reduce((s, r) => s + r.unread, 0)
 

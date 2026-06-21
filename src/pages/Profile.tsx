@@ -1,8 +1,7 @@
 // src/pages/Profile.tsx
 import { useState, useEffect } from 'react'
+import type React from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { LucideProps } from 'lucide-react'
-import type { ForwardRefExoticComponent, RefAttributes } from 'react'
 import {
   ArrowLeft, Settings, Edit3, Users, UserPlus,
   Zap, Flame, Sprout, Shield, Moon, Crown, Sword,
@@ -13,7 +12,8 @@ import { supabase } from '../lib/supabase'
 import { getRecentSessions } from '../lib/gameSession'
 import { ripple } from '../lib/ripple'
 
-type LucideIcon = ForwardRefExoticComponent<Omit<LucideProps, 'ref'> & RefAttributes<SVGSVGElement>>
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type LucideIcon = React.ComponentType<any>
 
 // ─── Rank system ─────────────────────────────────────────────
 const RANKS = [
@@ -36,9 +36,8 @@ const GAME_LABELS: Record<string, string> = {
   neon_blitz: 'Neon Blitz', grid_ghost: 'Grid Ghost', flux_sort: 'Flux Sort',
   trivia_clash: 'Trivia Clash', tac_zone: 'Tac Zone', flag_rush: 'Flag Rush',
 }
-function activityIcon(game: string): React.ComponentType<{ size?: number; style?: React.CSSProperties }> {
+function activityIcon(game: string): LucideIcon {
   if (game === 'studio') return Clapperboard
-  if (['tac_zone', 'neon_blitz', 'grid_ghost', 'flux_sort', 'flag_rush'].includes(game)) return Gamepad2
   if (game === 'trivia_clash') return Trophy
   return Gamepad2
 }

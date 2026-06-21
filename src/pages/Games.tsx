@@ -5,7 +5,7 @@ import type { ForwardRefExoticComponent, RefAttributes } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Zap, Brain, Layers, BookOpen, Grid3X3, Flag,
-  ChevronRight, X, Trophy, ArrowLeft,
+  ChevronRight, X, ArrowLeft,
   ArrowUp, ArrowDown, ArrowLeftIcon, ArrowRight,
   Check, Circle, Clock, Lock,
 } from 'lucide-react'
@@ -19,7 +19,6 @@ type LucideIcon = ForwardRefExoticComponent<Omit<LucideProps, 'ref'> & RefAttrib
 // ─── Constants ──────────────────────────────────────────────
 const GAME_OPEN_HOUR  = 5   // 5:00 AM
 const GAME_CLOSE_HOUR = 20  // 8:00 PM
-const TOTAL_PLAY_HOURS = 5
 const MAX_PLAYS_PER_GAME = 7
 
 // ─── Types ──────────────────────────────────────────────────
@@ -289,12 +288,10 @@ function NeonBlitz({ onEnd }: { onEnd: (score: number, dur: number, detail: Reco
 function GridGhost({ onEnd }: { onEnd: (score: number, dur: number, detail: Record<string, string | number>) => void }) {
   const [phase, setPhase] = useState<'start' | 'countdown' | 'flash' | 'recall' | 'result' | 'over'>('start')
   const [level, setLevel] = useState(1)
-  const [round, setRound] = useState(1) // 3 rounds per level
+  const [round, setRound] = useState(1)
   const [score, setScore] = useState(0)
-  const [sequence, setSequence] = useState<number[]>([])    // full flash sequence (may repeat)
-  const [pattern, setPattern] = useState<number[]>([])       // unique cells to recall
+  const [pattern, setPattern] = useState<number[]>([])
   const [tapped, setTapped] = useState<number[]>([])
-  const [flashIdx, setFlashIdx] = useState(-1)              // which index in sequence is currently lit
   const [cellFlash, setCellFlash] = useState<Record<number, 'flash' | 'correct' | 'wrong'>>({})
   const [countdown, setCountdown] = useState(3)
   const [roundMsg, setRoundMsg] = useState('')
@@ -322,12 +319,10 @@ function GridGhost({ onEnd }: { onEnd: (score: number, dur: number, detail: Reco
     const flashNext = () => {
       if (i >= seq.length) {
         setCellFlash({})
-        setFlashIdx(-1)
         setPhase('recall')
         return
       }
       const cell = seq[i]
-      setFlashIdx(cell)
       setCellFlash({ [cell]: 'flash' })
       flashTimerRef.current = setTimeout(() => {
         setCellFlash({})
@@ -342,8 +337,8 @@ function GridGhost({ onEnd }: { onEnd: (score: number, dur: number, detail: Reco
 
   function startRound(lvl: number, rnd: number) {
     const { seq, unique } = buildSequence(lvl)
-    setSequence(seq); setPattern(unique)
-    setTapped([]); setCellFlash({}); setFlashIdx(-1)
+    setPattern(unique)
+    setTapped([]); setCellFlash({})
     setLevel(lvl); setRound(rnd)
     setCountdown(3); setPhase('countdown')
     let c = 3
