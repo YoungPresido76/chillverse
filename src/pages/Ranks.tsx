@@ -12,7 +12,7 @@ import {
 } from '../lib/ranks'
 
 // ─── Tab type ────────────────────────────────────────
-type Tab = 'my-rank' | 'leaderboard' | 'all-ranks'
+type Tab = 'my-rank' | 'all-ranks'
 
 // ─── Reward icon map ─────────────────────────────────
 function RewardIcon({ type }: { type: string }) {
@@ -154,6 +154,7 @@ interface LeaderboardEntry {
   xp: number
   level: number
   streak: number
+  avatar: string | null
 }
 
 function LeaderboardRow({ entry, position, isMe }: { entry: LeaderboardEntry; position: number; isMe: boolean }) {
@@ -183,11 +184,15 @@ function LeaderboardRow({ entry, position, isMe }: { entry: LeaderboardEntry; po
       <div style={{
         width: 38, height: 38, borderRadius: 11, flexShrink: 0,
         background: `linear-gradient(135deg, ${tier.color}60, ${tier.color}30)`,
+        overflow: 'hidden',
+        boxShadow: `0 0 10px ${tier.glowColor}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 16, fontWeight: 800, color: '#fff',
-        boxShadow: `0 0 10px ${tier.glowColor}`,
       }}>
-        {name.charAt(0).toUpperCase()}
+        {entry.avatar
+          ? <img src={entry.avatar} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          : name.charAt(0).toUpperCase()
+        }
       </div>
 
       {/* Name + rank */}
@@ -217,6 +222,7 @@ export default function Ranks() {
   const navigate = useNavigate()
   const { profile } = useProfile()
   const [tab, setTab] = useState<Tab>('my-rank')
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [lbLoading, setLbLoading] = useState(false)
 
@@ -227,18 +233,18 @@ export default function Ranks() {
 
   // Load leaderboard when that tab is opened
   useEffect(() => {
-    if (tab !== 'leaderboard') return
+    if (!showLeaderboard) return
     setLbLoading(true)
     supabase
       .from('profiles')
-      .select('id, display_name, username, xp, level, streak')
+      .select('id, display_name, username, xp, level, streak, avatar')
       .order('xp', { ascending: false })
       .limit(50)
       .then(({ data }) => {
         setLeaderboard((data as LeaderboardEntry[]) ?? [])
         setLbLoading(false)
       })
-  }, [tab])
+  }, [showLeaderboard])
 
   // Which tiers has the user unlocked
   const unlockedIds = new Set(RANK_TIERS.filter(t => userXp >= t.xpRequired).map(t => t.id))
@@ -339,9 +345,8 @@ export default function Ranks() {
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, background: 'var(--surface)', borderRadius: 16, padding: 5, boxShadow: '3px 3px 10px var(--neu-dark), -2px -2px 8px var(--neu-light)' }}>
         {([
-          { id: 'my-rank',     label: 'My Rank',     icon: <Star size={14} /> },
-          { id: 'leaderboard', label: 'Leaderboard', icon: <Trophy size={14} /> },
-          { id: 'all-ranks',   label: 'All Ranks',   icon: <Shield size={14} /> },
+          { id: 'my-rank',   label: 'My Rank',   icon: <Star size={14} /> },
+          { id: 'all-ranks', label: 'All Ranks', icon: <Shield size={14} /> },
         ] as { id: Tab; label: string; icon: React.ReactNode }[]).map(t => (
           <button
             key={t.id}
@@ -360,6 +365,21 @@ export default function Ranks() {
             {t.icon} {t.label}
           </button>
         ))}
+        {/* Leaderboard — opens inner page */}
+        <button
+          onClick={(e) => { ripple(e as any); setShowLeaderboard(true) }}
+          className="ripple-wrap"
+          style={{
+            flex: 1, padding: '10px 8px', borderRadius: 12, border: 'none', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            fontSize: 12, fontWeight: 700,
+            background: 'transparent',
+            color: 'var(--text-dim)',
+            transition: 'all 0.2s',
+          }}
+        >
+          <Trophy size={14} /> Leaderboard
+        </button>
       </div>
 
       {/* ── MY RANK tab ─────────────────────────────── */}
@@ -454,15 +474,28 @@ export default function Ranks() {
         </div>
       )}
 
-      {/* ── LEADERBOARD tab ─────────────────────────── */}
-      {tab === 'leaderboard' && (
-        <div style={{ animation: 'feedIn 0.3s ease-out both' }}>
+      {/* ── LEADERBOARD inner page ──────────────────── */}
+      {showLeaderboard && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'var(--bg, #0e0e12)', overflowY: 'auto', animation: 'feedIn 0.25s ease-out both' }}>
+          <div style={{ maxWidth: 680, margin: '0 auto', padding: '20px 16px 48px' }}>
+
+            {/* Back button */}
+            <div style={{ marginBottom: 20 }}>
+              <button
+                onClick={() => setShowLeaderboard(false)}
+                style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--surface)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)', boxShadow: '2px 2px 6px var(--neu-dark),-1px -1px 4px var(--neu-light)' }}
+              >
+                <ArrowLeft size={15} />
+              </button>
+            </div>
+
+            <div style={{ animation: 'feedIn 0.3s ease-out both' }}>
 
           {/* Banner */}
           <div style={{
             position: 'relative',
             width: '100%',
-            height: 'clamp(110px, 22vw, 160px)',
+            height: 'clamp(160px, 35vw, 220px)',
             borderRadius: 16,
             overflow: 'hidden',
             marginBottom: 20,
@@ -475,7 +508,7 @@ export default function Ranks() {
                 width: '100%',
                 height: '100%',
                 objectFit: 'cover',
-                objectPosition: 'center top',
+                objectPosition: 'center 30%',
                 display: 'block',
               }}
             />
@@ -516,11 +549,15 @@ export default function Ranks() {
                           width: 44, height: 44, borderRadius: 13, marginBottom: 6,
                           background: `linear-gradient(135deg, ${tier.color}50, ${tier.color}20)`,
                           border: `2px solid ${tier.color}70`,
+                          overflow: 'hidden',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           fontSize: 20, fontWeight: 800, color: '#fff',
                           boxShadow: `0 0 16px ${tier.glowColor}`,
                         }}>
-                          {name.charAt(0).toUpperCase()}
+                          {entry.avatar
+                            ? <img src={entry.avatar} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            : name.charAt(0).toUpperCase()
+                          }
                         </div>
                         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 2, maxWidth: 70, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
                         <div style={{
@@ -556,6 +593,8 @@ export default function Ranks() {
               )}
             </>
           )}
+            </div>
+          </div>
         </div>
       )}
 
