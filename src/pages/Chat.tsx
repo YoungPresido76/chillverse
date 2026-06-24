@@ -1,9 +1,10 @@
 // src/pages/Chat.tsx
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import {
-  ArrowLeft, Phone, Video, Search, MoreVertical,
-  Smile, Paperclip, Send, X, Trash2, Reply,
-  Image, FileText, Music, Camera, MessageCircle,
+  ArrowLeft, Search, MoreVertical,
+  Smile, Send, X, Trash2, Reply,
+  MessageCircle, UserPlus, ShieldOff, UserCheck,
+  ChevronRight,
 } from 'lucide-react'
 import { ripple } from '../lib/ripple'
 import { supabase } from '../lib/supabase'
@@ -33,6 +34,13 @@ interface Message {
   replyPreview?: string
   reactions: { emoji: string; user_id: string }[]
   senderName?: string
+  senderUsername?: string
+}
+interface SearchedProfile {
+  id: string
+  username: string
+  display_name: string | null
+  avatar: string
 }
 
 const EMOJIS = ['😂','🔥','💀','👑','😍','🎮','💯','🙌','😅','🤯','❤️','👀','🫡','💪','🏆']
@@ -62,6 +70,102 @@ function Avatar({ name, size = 40, radius = 13 }: { name: string; size?: number;
   )
 }
 
+// ─── Player Profile Modal ────────────────────────────────────
+interface PlayerProfileModalProps {
+  profile: SearchedProfile | { id: string; username: string; display_name: string | null; avatar: string }
+  myId: string | null
+  onClose: () => void
+  onStartChat?: (userId: string) => void
+}
+
+function PlayerProfileModal({ profile, myId, onClose, onStartChat }: PlayerProfileModalProps) {
+  const [followStatus, setFollowStatus] = useState<'none' | 'following' | 'blocked'>('none')
+  const [actionLoading, setActionLoading] = useState(false)
+
+  useEffect(() => {
+    if (!myId || profile.id === myId) return
+    const check = async () => {
+      const { data: follows } = await supabase.from('follows')
+        .select('id').eq('follower_id', myId).eq('following_id', profile.id).maybeSingle()
+      if (follows) { setFollowStatus('following'); return }
+      const { data: blocks } = await supabase.from('blocks')
+        .select('id').eq('blocker_id', myId).eq('blocked_id', profile.id).maybeSingle()
+      if (blocks) setFollowStatus('blocked')
+    }
+    check()
+  }, [myId, profile.id])
+
+  async function handleFollow() {
+    if (!myId || actionLoading) return
+    setActionLoading(true)
+    if (followStatus === 'following') {
+      await supabase.from('follows').delete().eq('follower_id', myId).eq('following_id', profile.id)
+      setFollowStatus('none')
+    } else {
+      await supabase.from('follows').insert({ follower_id: myId, following_id: profile.id })
+      setFollowStatus('following')
+    }
+    setActionLoading(false)
+  }
+
+  async function handleBlock() {
+    if (!myId || actionLoading) return
+    setActionLoading(true)
+    if (followStatus === 'blocked') {
+      await supabase.from('blocks').delete().eq('blocker_id', myId).eq('blocked_id', profile.id)
+      setFollowStatus('none')
+    } else {
+      // also unfollow if was following
+      await supabase.from('follows').delete().eq('follower_id', myId).eq('following_id', profile.id)
+      await supabase.from('blocks').insert({ blocker_id: myId, blocked_id: profile.id })
+      setFollowStatus('blocked')
+    }
+    setActionLoading(false)
+  }
+
+  const isOwnProfile = profile.id === myId
+  const displayLabel = profile.display_name || profile.username
+
+  return (
+    <>
+      <div style={{ position:'fixed', inset:0, zIndex:200, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(4px)' }} onClick={onClose} />
+      <div style={{ position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)', zIndex:201, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.09)', borderRadius:22, padding:24, width: Math.min(300, window.innerWidth - 32), boxShadow:'0 20px 60px rgba(0,0,0,0.7)' }}>
+        <button type="button" onClick={onClose} style={{ position:'absolute', top:14, right:14, background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)' }}>
+          <X size={16} />
+        </button>
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:12, marginBottom:20 }}>
+          <Avatar name={displayLabel} size={64} radius={18} />
+          <div style={{ textAlign:'center' }}>
+            <div style={{ fontSize:16, fontWeight:700, color:'var(--text)' }}>{displayLabel}</div>
+            <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:3 }}>@{profile.username}</div>
+          </div>
+        </div>
+        {!isOwnProfile && (
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            <button type="button" onClick={handleFollow} disabled={actionLoading || followStatus === 'blocked'}
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 16px', borderRadius:12, border:'none', cursor: actionLoading || followStatus === 'blocked' ? 'not-allowed' : 'pointer', background: followStatus === 'following' ? 'rgba(62,207,142,0.15)' : 'linear-gradient(135deg,var(--accent),var(--accent2))', color: followStatus === 'following' ? '#3ecf8e' : '#fff', fontSize:13, fontWeight:600, opacity: followStatus === 'blocked' ? 0.4 : 1, transition:'all 0.15s' }}>
+              {followStatus === 'following' ? <><UserCheck size={14} /> Following</> : <><UserPlus size={14} /> Follow</>}
+            </button>
+            {onStartChat && (
+              <button type="button" onClick={() => { onStartChat(profile.id); onClose() }}
+                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 16px', borderRadius:12, border:'1px solid rgba(255,255,255,0.1)', background:'transparent', color:'var(--text-dim)', fontSize:13, fontWeight:600, cursor:'pointer', transition:'all 0.15s' }}>
+                <MessageCircle size={14} /> Message
+              </button>
+            )}
+            <button type="button" onClick={handleBlock} disabled={actionLoading}
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 16px', borderRadius:12, border:'none', cursor: actionLoading ? 'not-allowed' : 'pointer', background: followStatus === 'blocked' ? 'rgba(255,107,107,0.15)' : 'rgba(255,107,107,0.08)', color: followStatus === 'blocked' ? '#ff6b6b' : 'var(--text-muted)', fontSize:13, fontWeight:600, transition:'all 0.15s' }}>
+              <ShieldOff size={14} /> {followStatus === 'blocked' ? 'Unblock' : 'Block'}
+            </button>
+          </div>
+        )}
+        {isOwnProfile && (
+          <div style={{ textAlign:'center', fontSize:12, color:'var(--text-muted)', fontStyle:'italic' }}>This is you</div>
+        )}
+      </div>
+    </>
+  )
+}
+
 export default function Chat() {
   const { session } = useAuth()
   const myId = session?.user?.id ?? null
@@ -72,24 +176,29 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([])
   const [msgsLoading, setMsgsLoading] = useState(false)
 
-  // ── On mobile: showConv=false means list view, true means conversation view
-  // ── On tablet/desktop: both panels show side by side
   const [showConv, setShowConv] = useState(false)
-
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
-  const [search, setSearch] = useState('')
+
+  // Search state — split: room search vs player search
+  const [roomSearch, setRoomSearch] = useState('')
+  const [playerSearch, setPlayerSearch] = useState('')
+  const [playerResults, setPlayerResults] = useState<SearchedProfile[]>([])
+  const [playerSearching, setPlayerSearching] = useState(false)
+
   const [emojiOpen, setEmojiOpen] = useState(false)
-  const [attachOpen, setAttachOpen] = useState(false)
   const [ctxMsg, setCtxMsg] = useState<Message | null>(null)
   const [ctxPos, setCtxPos] = useState({ x: 0, y: 0 })
   const [emojiForMsg, setEmojiForMsg] = useState<string | null>(null)
   const [replyTo, setReplyTo] = useState<Message | null>(null)
-  const [profileOpen, setProfileOpen] = useState(false)
+
+  // Player profile modal
+  const [viewProfile, setViewProfile] = useState<SearchedProfile | null>(null)
+
   const msgEnd = useRef<HTMLDivElement>(null)
   const subRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const playerSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Detect if we're on a narrow screen (phone) vs wide (tablet/desktop)
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   useEffect(() => {
     const handler = () => setIsMobile(window.innerWidth < 768)
@@ -98,10 +207,7 @@ export default function Chat() {
   }, [])
 
   // ── Load rooms ──────────────────────────────────────────────
-  useEffect(() => {
-    if (!myId) return
-    loadRooms()
-  }, [myId])
+  useEffect(() => { if (myId) loadRooms() }, [myId])
 
   async function loadRooms() {
     setRoomsLoading(true)
@@ -141,51 +247,147 @@ export default function Chat() {
     setRoomsLoading(false)
   }
 
+  // ── Player search (debounced) ────────────────────────────────
+  useEffect(() => {
+    if (playerSearchTimer.current) clearTimeout(playerSearchTimer.current)
+    if (!playerSearch.trim()) { setPlayerResults([]); return }
+    setPlayerSearching(true)
+    playerSearchTimer.current = setTimeout(async () => {
+      const q = playerSearch.trim().toLowerCase()
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, username, display_name, avatar')
+        .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
+        .limit(8)
+      setPlayerResults(data ?? [])
+      setPlayerSearching(false)
+    }, 350)
+    return () => { if (playerSearchTimer.current) clearTimeout(playerSearchTimer.current) }
+  }, [playerSearch])
+
   // ── Open room ───────────────────────────────────────────────
-  async function openRoom(room: ChatRoom) {
+  const openRoom = useCallback(async (room: ChatRoom) => {
     setActiveRoom(room)
-    setShowConv(true)   // on mobile this hides the list; on tablet both show
+    setShowConv(true)
     setMessages([]); setMsgsLoading(true)
     setReplyTo(null); setText('')
+    setEmojiOpen(false)
 
     const { data, error } = await supabase
       .from('messages')
       .select('id, sender_id, content, created_at, deleted, reply_to_id')
       .eq('room_id', room.id)
       .order('created_at', { ascending: true })
-      .limit(50)
+      .limit(80)
 
     if (error || !data) { setMsgsLoading(false); return }
 
+    // Collect all unique sender IDs not in members to resolve names
+    const unknownIds = [...new Set(data.map(m => m.sender_id).filter(Boolean)
+      .filter(id => !room.members.find(mb => mb.user_id === id)))] as string[]
+
+    let extraProfiles: RoomMember[] = []
+    if (unknownIds.length > 0) {
+      const { data: pData } = await supabase
+        .from('profiles').select('id, username, display_name, avatar').in('id', unknownIds)
+      extraProfiles = (pData ?? []).map(p => ({
+        user_id: p.id,
+        profile: { username: p.username, display_name: p.display_name, avatar: p.avatar },
+      }))
+    }
+    const allMembers = [...room.members, ...extraProfiles]
+
     const enriched: Message[] = await Promise.all(data.map(async (m) => {
-      const senderMember = room.members.find(mb => mb.user_id === m.sender_id)
+      const senderMember = allMembers.find(mb => mb.user_id === m.sender_id)
       const senderName = senderMember ? (senderMember.profile.display_name || senderMember.profile.username) : 'Unknown'
+      const senderUsername = senderMember ? senderMember.profile.username : undefined
       const { data: reactions } = await supabase.from('message_reactions').select('emoji, user_id').eq('message_id', m.id)
       let replyPreview: string | undefined
       if (m.reply_to_id) {
         const { data: replyMsg } = await supabase.from('messages').select('content').eq('id', m.reply_to_id).single()
         replyPreview = replyMsg?.content
       }
-      return { ...m, deleted: m.deleted ?? false, reactions: reactions ?? [], senderName, replyPreview }
+      return { ...m, deleted: m.deleted ?? false, reactions: reactions ?? [], senderName, senderUsername, replyPreview }
     }))
 
     setMessages(enriched)
     setMsgsLoading(false)
 
+    // ── Real-time subscription ──────────────────────────────
     if (subRef.current) supabase.removeChannel(subRef.current)
     subRef.current = supabase
-      .channel(`room:${room.id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `room_id=eq.${room.id}` }, (payload) => {
+      .channel(`room:${room.id}:${Date.now()}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+        filter: `room_id=eq.${room.id}`
+      }, async (payload) => {
         const raw = payload.new as { id: string; sender_id: string; content: string; created_at: string; deleted: boolean; reply_to_id: string | null }
-        const senderMember = room.members.find(mb => mb.user_id === raw.sender_id)
-        const senderName = senderMember ? (senderMember.profile.display_name || senderMember.profile.username) : 'Unknown'
-        setMessages(ms => [...ms, { ...raw, reactions: [], senderName }])
+
+        // Resolve sender name (may be a new global chat participant not in original members)
+        let senderName = 'Unknown'
+        let senderUsername: string | undefined
+        const memberMatch = allMembers.find(mb => mb.user_id === raw.sender_id)
+        if (memberMatch) {
+          senderName = memberMatch.profile.display_name || memberMatch.profile.username
+          senderUsername = memberMatch.profile.username
+        } else {
+          const { data: pData } = await supabase.from('profiles').select('username, display_name').eq('id', raw.sender_id).single()
+          if (pData) {
+            senderName = pData.display_name || pData.username
+            senderUsername = pData.username
+          }
+        }
+
+        setMessages(ms => {
+          // Deduplicate — if msg already added (optimistic send), skip
+          if (ms.find(m => m.id === raw.id)) return ms
+          return [...ms, { ...raw, reactions: [], senderName, senderUsername }]
+        })
       })
       .subscribe()
-  }
+  }, [])
 
   useEffect(() => { msgEnd.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages.length])
   useEffect(() => () => { if (subRef.current) supabase.removeChannel(subRef.current) }, [])
+
+  // ── Start private DM with a user ────────────────────────────
+  async function startDmWith(targetUserId: string) {
+    if (!myId || targetUserId === myId) return
+    // Check if DM room already exists
+    const { data: myRooms } = await supabase
+      .from('room_members').select('room_id').eq('user_id', myId)
+    const { data: theirRooms } = await supabase
+      .from('room_members').select('room_id').eq('user_id', targetUserId)
+
+    if (myRooms && theirRooms) {
+      const myIds = new Set(myRooms.map(r => r.room_id))
+      const common = theirRooms.find(r => myIds.has(r.room_id))
+      if (common) {
+        const existing = rooms.find(r => r.id === common.room_id)
+        if (existing) { openRoom(existing); return }
+      }
+    }
+
+    // Create new DM room
+    const { data: newRoom } = await supabase
+      .from('chat_rooms').insert({ type: 'dm', name: null }).select('id').single()
+    if (!newRoom) return
+    await supabase.from('room_members').insert([
+      { room_id: newRoom.id, user_id: myId },
+      { room_id: newRoom.id, user_id: targetUserId },
+    ])
+    await loadRooms()
+    // After reload, open the new room
+    setTimeout(() => {
+      setRooms(prev => {
+        const found = prev.find(r => r.id === newRoom.id)
+        if (found) openRoom(found)
+        return prev
+      })
+    }, 600)
+  }
 
   // ── Send ────────────────────────────────────────────────────
   async function sendMsg() {
@@ -193,8 +395,20 @@ export default function Chat() {
     setSending(true)
     const payload: Record<string, unknown> = { room_id: activeRoom.id, sender_id: myId, content: text.trim() }
     if (replyTo) payload.reply_to_id = replyTo.id
-    const { error } = await supabase.from('messages').insert(payload)
-    if (!error) { setText(''); setReplyTo(null) }
+    const { data: inserted, error } = await supabase.from('messages').insert(payload).select('id, sender_id, content, created_at, deleted, reply_to_id').single()
+    if (!error && inserted) {
+      // Optimistically add own message immediately without waiting for realtime
+      const myMember = activeRoom.members.find(mb => mb.user_id === myId)
+      const senderName = myMember ? (myMember.profile.display_name || myMember.profile.username) : 'Me'
+      const senderUsername = myMember?.profile.username
+      setMessages(ms => {
+        if (ms.find(m => m.id === inserted.id)) return ms
+        return [...ms, { ...inserted, deleted: false, reactions: [], senderName, senderUsername, replyPreview: replyTo?.content }]
+      })
+      setText(''); setReplyTo(null)
+    } else if (!error) {
+      setText(''); setReplyTo(null)
+    }
     setSending(false)
   }
 
@@ -209,7 +423,7 @@ export default function Chat() {
       if (m.id !== msgId) return m
       const exists = m.reactions.find(r => r.emoji === emoji && r.user_id === myId)
       if (exists) return m
-      return { ...m, reactions: [...m.reactions, { emoji, user_id: myId }] }
+      return { ...m, reactions: [...m.reactions, { emoji, user_id: myId ?? '' }] }
     }))
     setEmojiForMsg(null)
   }
@@ -235,27 +449,30 @@ export default function Chat() {
     return 'Chat'
   }
 
-  const filtered = rooms.filter(r => !search || roomLabel(r).toLowerCase().includes(search.toLowerCase()))
+  // Open sender profile from a message click
+  function openSenderProfile(msg: Message) {
+    if (!msg.sender_id) return
+    const member = activeRoom?.members.find(mb => mb.user_id === msg.sender_id)
+    if (member) {
+      setViewProfile({ id: msg.sender_id, username: member.profile.username, display_name: member.profile.display_name, avatar: member.profile.avatar })
+    } else if (msg.senderUsername) {
+      setViewProfile({ id: msg.sender_id, username: msg.senderUsername, display_name: msg.senderName ?? null, avatar: '' })
+    }
+  }
+
+  const filteredRooms = rooms.filter(r => !roomSearch || roomLabel(r).toLowerCase().includes(roomSearch.toLowerCase()))
   const totalUnread = rooms.reduce((s, r) => s + r.unread, 0)
 
-  // ── Layout logic ─────────────────────────────────────────────
-  // Mobile: show list OR conversation full screen (never both)
-  // Tablet+: show both side by side always
   const showList = !isMobile || !showConv
   const showChat = !isMobile || showConv
 
   return (
     <div style={{ display:'flex', height:'calc(100vh - 60px)', overflow:'hidden', background:'var(--bg)', position:'relative' }}>
 
-      {/* ── Contact list ── */}
+      {/* ── Contact list + player search ── */}
       {showList && (
-        <div style={{
-          width: isMobile ? '100%' : 320,
-          flexShrink: 0,
-          background:'var(--surface)',
-          borderRight: isMobile ? 'none' : '1px solid rgba(255,255,255,0.05)',
-          display:'flex', flexDirection:'column', overflow:'hidden',
-        }}>
+        <div style={{ width: isMobile ? '100%' : 320, flexShrink:0, background:'var(--surface)', borderRight: isMobile ? 'none' : '1px solid rgba(255,255,255,0.05)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+
           {/* Header */}
           <div style={{ padding:'16px 16px 10px' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
@@ -265,12 +482,54 @@ export default function Chat() {
               </div>
               <IBtn><MoreVertical size={15} /></IBtn>
             </div>
-            <div style={{ display:'flex', alignItems:'center', gap:8, background:'var(--surface2)', boxShadow:'inset 2px 2px 6px var(--neu-dark)', borderRadius:12, border:'1px solid rgba(255,255,255,0.05)', padding:'8px 12px' }}>
+
+            {/* Room search */}
+            <div style={{ display:'flex', alignItems:'center', gap:8, background:'var(--surface2)', boxShadow:'inset 2px 2px 6px var(--neu-dark)', borderRadius:12, border:'1px solid rgba(255,255,255,0.05)', padding:'8px 12px', marginBottom:8 }}>
               <Search size={14} style={{ color:'var(--text-muted)', flexShrink:0 }} />
-              <input type="text" placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)}
+              <input type="text" placeholder="Search chats…" value={roomSearch} onChange={e => setRoomSearch(e.target.value)}
                 style={{ flex:1, background:'transparent', border:'none', outline:'none', fontSize:13, color:'var(--text)' }} />
             </div>
+
+            {/* Player search */}
+            <div style={{ display:'flex', alignItems:'center', gap:8, background:'var(--surface2)', boxShadow:'inset 2px 2px 6px var(--neu-dark)', borderRadius:12, border:'1px solid rgba(255,255,255,0.05)', padding:'8px 12px' }}>
+              <Search size={14} style={{ color:'#4f8ef7', flexShrink:0 }} />
+              <input type="text" placeholder="Find players by username…" value={playerSearch} onChange={e => setPlayerSearch(e.target.value)}
+                style={{ flex:1, background:'transparent', border:'none', outline:'none', fontSize:13, color:'var(--text)' }} />
+              {playerSearch && (
+                <button type="button" onClick={() => { setPlayerSearch(''); setPlayerResults([]) }} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)', padding:0, display:'flex' }}>
+                  <X size={13} />
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* Player search results */}
+          {playerSearch.trim() && (
+            <div style={{ borderBottom:'1px solid rgba(255,255,255,0.05)', paddingBottom:6 }}>
+              <div style={{ padding:'4px 16px 6px', fontSize:10, fontWeight:600, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Players</div>
+              {playerSearching ? (
+                <div style={{ display:'flex', justifyContent:'center', padding:16 }}>
+                  <span style={{ width:20, height:20, border:'2px solid var(--surface3)', borderTopColor:'#4f8ef7', borderRadius:'50%', display:'block', animation:'spin 0.8s linear infinite' }} />
+                </div>
+              ) : playerResults.length === 0 ? (
+                <div style={{ padding:'8px 16px', fontSize:12, color:'var(--text-muted)' }}>No players found</div>
+              ) : (
+                playerResults.map(p => (
+                  <button key={p.id} type="button" onClick={() => setViewProfile(p)}
+                    style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 16px', width:'100%', background:'transparent', border:'none', cursor:'pointer', textAlign:'left', transition:'background 0.12s' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
+                    <Avatar name={p.display_name || p.username} size={36} radius={10} />
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.display_name || p.username}</div>
+                      <div style={{ fontSize:11, color:'var(--text-muted)' }}>@{p.username}</div>
+                    </div>
+                    <ChevronRight size={13} style={{ color:'var(--text-muted)', flexShrink:0 }} />
+                  </button>
+                ))
+              )}
+            </div>
+          )}
 
           {/* Room list */}
           <div style={{ flex:1, overflowY:'auto' }}>
@@ -278,16 +537,16 @@ export default function Chat() {
               <div style={{ display:'flex', justifyContent:'center', padding:40 }}>
                 <span style={{ width:28, height:28, border:'2px solid var(--surface3)', borderTopColor:'var(--accent)', borderRadius:'50%', display:'block', animation:'spin 0.8s linear infinite' }} />
               </div>
-            ) : filtered.length === 0 ? (
+            ) : filteredRooms.length === 0 ? (
               <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', padding:40, gap:12 }}>
                 <MessageCircle size={40} style={{ color:'var(--text-muted)' }} />
                 <p style={{ fontSize:14, fontWeight:600, color:'var(--text-dim)', textAlign:'center' }}>No chats yet</p>
                 <p style={{ fontSize:12, color:'var(--text-muted)', textAlign:'center', lineHeight:1.5 }}>Start a conversation from someone's profile.</p>
               </div>
             ) : (
-              filtered.map(room => (
+              filteredRooms.map(room => (
                 <button key={room.id} type="button" onClick={(e) => { ripple(e); openRoom(room) }} className="ripple-wrap"
-                  style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px', width:'100%', cursor:'pointer', borderBottom:'1px solid rgba(255,255,255,0.04)', background: activeRoom?.id === room.id && !isMobile ? 'rgba(255,255,255,0.07)' : 'transparent', border:'none', textAlign:'left', transition:'background 0.15s' }}
+                  style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px', width:'100%', cursor:'pointer', background: activeRoom?.id === room.id && !isMobile ? 'rgba(255,255,255,0.07)' : 'transparent', border:'none', borderBottom:'1px solid rgba(255,255,255,0.04)', textAlign:'left', transition:'background 0.15s' }}
                   onMouseEnter={e => { if (activeRoom?.id !== room.id) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
                   onMouseLeave={e => { if (activeRoom?.id !== room.id) e.currentTarget.style.background = 'transparent' }}>
                   <Avatar name={roomLabel(room)} size={44} />
@@ -313,21 +572,18 @@ export default function Chat() {
         <div style={{ flex:1, display:'flex', flexDirection:'column', background:'var(--bg)', minWidth:0, position:'relative' }}>
           {activeRoom ? (
             <>
-              {/* Conv topbar */}
+              {/* Conv topbar — NO phone/video buttons */}
               <div style={{ display:'flex', alignItems:'center', gap:10, padding:'0 16px', height:56, flexShrink:0, background:'rgba(17,17,19,0.90)', backdropFilter:'blur(14px)', borderBottom:'1px solid rgba(255,255,255,0.05)' }}>
-                {/* Back arrow — always visible on mobile, also on tablet when convo is open */}
                 <IBtn onClick={() => { setShowConv(false); if (!isMobile) setActiveRoom(null) }}>
                   <ArrowLeft size={15} />
                 </IBtn>
-                <button type="button" onClick={() => setProfileOpen(v => !v)} style={{ display:'flex', alignItems:'center', gap:10, flex:1, background:'transparent', border:'none', cursor:'pointer', textAlign:'left', minWidth:0 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:10, flex:1, minWidth:0 }}>
                   <Avatar name={roomLabel(activeRoom)} size={34} radius={10} />
                   <div style={{ minWidth:0 }}>
                     <div style={{ fontSize:14, fontWeight:700, color:'var(--text)' }}>{roomLabel(activeRoom)}</div>
                     <div style={{ fontSize:11, color:'var(--text-muted)' }}>{activeRoom.members.length} members</div>
                   </div>
-                </button>
-                <IBtn><Phone size={15} /></IBtn>
-                <IBtn><Video size={15} /></IBtn>
+                </div>
               </div>
 
               {/* Messages */}
@@ -346,18 +602,33 @@ export default function Chat() {
                     const isMine = msg.sender_id === myId
                     return (
                       <div key={msg.id} style={{ display:'flex', flexDirection:'column', alignItems: isMine ? 'flex-end' : 'flex-start', marginBottom:4 }}>
-                        {!isMine && <span style={{ fontSize:10, color:'var(--text-muted)', marginBottom:2, paddingLeft:2 }}>{msg.senderName}</span>}
+                        {/* Sender name — clickable for others, clickable for self too */}
+                        {!msg.deleted && (
+                          <button
+                            type="button"
+                            onClick={() => openSenderProfile(msg)}
+                            style={{ background:'none', border:'none', cursor: msg.sender_id ? 'pointer' : 'default', padding:0, marginBottom:2, paddingLeft: isMine ? 0 : 2 }}>
+                            <span style={{ fontSize:10, color: isMine ? 'var(--accent)' : '#4f8ef7', fontWeight:600, textDecoration:'underline', textDecorationColor:'transparent', transition:'text-decoration-color 0.15s' }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLSpanElement).style.textDecorationColor = isMine ? 'var(--accent)' : '#4f8ef7' }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLSpanElement).style.textDecorationColor = 'transparent' }}>
+                              {isMine ? 'You' : msg.senderName}
+                            </span>
+                          </button>
+                        )}
+
                         {msg.replyPreview && !msg.deleted && (
-                          <div style={{ fontSize:11, color:'var(--text-dim)', padding:'4px 10px', background:'rgba(255,255,255,0.04)', borderRadius:8, borderLeft:`2px solid ${isMine ? 'var(--accent)' : 'var(--blue)'}`, marginBottom:4, maxWidth:260, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                          <div style={{ fontSize:11, color:'var(--text-dim)', padding:'4px 10px', background:'rgba(255,255,255,0.04)', borderRadius:8, borderLeft:`2px solid ${isMine ? 'var(--accent)' : '#4f8ef7'}`, marginBottom:4, maxWidth:260, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                             {msg.replyPreview}
                           </div>
                         )}
+
                         <div
                           onContextMenu={e => { if (!msg.deleted) { e.preventDefault(); setCtxMsg(msg); setCtxPos({ x: e.clientX, y: e.clientY }) }}}
-                          onDoubleClick={() => { if (!msg.deleted) { setReplyTo(msg) }}}
+                          onDoubleClick={() => { if (!msg.deleted) setReplyTo(msg) }}
                           style={{ maxWidth:'78%', padding:'9px 13px', borderRadius:16, background: isMine ? 'var(--accent)' : 'var(--surface)', color: isMine ? '#fff' : 'var(--text)', boxShadow: isMine ? '0 2px 12px rgba(255,107,0,0.25)' : '2px 2px 8px var(--neu-dark),-1px -1px 4px var(--neu-light)', borderBottomRightRadius: isMine ? 4 : 16, borderBottomLeftRadius: isMine ? 16 : 4, fontSize:13.5, lineHeight:1.45, fontStyle: msg.deleted ? 'italic' : 'normal', opacity: msg.deleted ? 0.6 : 1, cursor:'context-menu', userSelect:'none' }}>
                           {msg.deleted ? 'Message deleted' : msg.content}
                         </div>
+
                         <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:3 }}>
                           <span style={{ fontSize:10, color:'var(--text-muted)' }}>{formatTime(msg.created_at)}</span>
                           {!msg.deleted && (
@@ -366,6 +637,7 @@ export default function Chat() {
                             </button>
                           )}
                         </div>
+
                         {msg.reactions.length > 0 && (
                           <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginTop:4 }}>
                             {Object.entries(
@@ -383,6 +655,7 @@ export default function Chat() {
                             ))}
                           </div>
                         )}
+
                         {emojiForMsg === msg.id && (
                           <div style={{ display:'flex', gap:4, flexWrap:'wrap', padding:8, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:14, boxShadow:'0 12px 40px rgba(0,0,0,0.5)', marginTop:4, maxWidth:220 }}>
                             {EMOJIS.map(em => (
@@ -408,9 +681,8 @@ export default function Chat() {
                 </div>
               )}
 
-              {/* Input bar */}
+              {/* Input bar — text + emoji + send ONLY, no attachments */}
               <div style={{ display:'flex', alignItems:'flex-end', gap:8, padding:'10px 12px', background:'rgba(17,17,19,0.92)', backdropFilter:'blur(14px)', borderTop:'1px solid rgba(255,255,255,0.05)' }}>
-                <IBtn onClick={(e) => { ripple(e); setAttachOpen(v => !v) }}><Paperclip size={15} /></IBtn>
                 <IBtn onClick={() => setEmojiOpen(v => !v)}><Smile size={15} /></IBtn>
                 <div style={{ flex:1, background:'var(--surface)', boxShadow:'inset 2px 2px 6px var(--neu-dark)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:14, padding:'9px 12px', display:'flex', alignItems:'flex-end' }}>
                   <textarea rows={1} value={text} onChange={e => setText(e.target.value)} onKeyDown={handleKey} placeholder="Type a message…"
@@ -422,7 +694,7 @@ export default function Chat() {
                 </button>
               </div>
 
-              {/* Global emoji picker */}
+              {/* Emoji picker */}
               {emojiOpen && (
                 <div style={{ position:'absolute', bottom:70, right:14, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:16, padding:12, display:'flex', flexWrap:'wrap', gap:4, boxShadow:'0 12px 40px rgba(0,0,0,0.5)', maxWidth:230, zIndex:50 }}>
                   {EMOJIS.map(em => (
@@ -431,32 +703,33 @@ export default function Chat() {
                 </div>
               )}
 
-              {/* Attach sheet */}
-              {attachOpen && (
-                <div style={{ position:'absolute', bottom:70, left:14, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:16, padding:8, boxShadow:'0 12px 40px rgba(0,0,0,0.5)', zIndex:50 }}>
-                  {[{Icon: Image, label:'Photo'},{Icon: FileText, label:'File'},{Icon: Music, label:'Audio'},{Icon: Camera, label:'Camera'}].map(({Icon, label}) => (
-                    <button key={label} type="button" onClick={() => setAttachOpen(false)}
-                      style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', width:'100%', background:'none', border:'none', cursor:'pointer', color:'var(--text-dim)', fontSize:13, borderRadius:10 }}
-                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = 'var(--text)' }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-dim)' }}>
-                      <Icon size={16} /> {label}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Context menu */}
+              {/* Context menu — React / Reply / Block / Delete */}
               {ctxMsg && (
                 <>
                   <div style={{ position:'fixed', inset:0, zIndex:90 }} onClick={() => setCtxMsg(null)} />
-                  <div style={{ position:'fixed', left: Math.min(ctxPos.x, window.innerWidth - 170), top: Math.min(ctxPos.y, window.innerHeight - 140), zIndex:100, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:14, overflow:'hidden', boxShadow:'0 12px 40px rgba(0,0,0,0.5)', minWidth:160 }}>
+                  <div style={{ position:'fixed', left: Math.min(ctxPos.x, window.innerWidth - 175), top: Math.min(ctxPos.y, window.innerHeight - 180), zIndex:100, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:14, overflow:'hidden', boxShadow:'0 12px 40px rgba(0,0,0,0.5)', minWidth:165 }}>
                     {[
-                      { icon: <Smile size={14} />, label:'React',  action: () => { setEmojiForMsg(ctxMsg.id); setCtxMsg(null) } },
-                      { icon: <Reply size={14} />, label:'Reply',  action: () => { setReplyTo(ctxMsg); setCtxMsg(null) } },
+                      { icon: <Smile size={14} />, label:'React', action: () => { setEmojiForMsg(ctxMsg.id); setCtxMsg(null) } },
+                      { icon: <Reply size={14} />, label:'Reply', action: () => { setReplyTo(ctxMsg); setCtxMsg(null) } },
+                      ...(ctxMsg.sender_id !== myId ? [{
+                        icon: <UserPlus size={14} />,
+                        label: 'View Profile',
+                        action: () => { openSenderProfile(ctxMsg); setCtxMsg(null) }
+                      }] : []),
+                      ...(ctxMsg.sender_id !== myId ? [{
+                        icon: <ShieldOff size={14} />,
+                        label: 'Block',
+                        action: async () => {
+                          if (myId && ctxMsg.sender_id) {
+                            await supabase.from('blocks').upsert({ blocker_id: myId, blocked_id: ctxMsg.sender_id })
+                          }
+                          setCtxMsg(null)
+                        }
+                      }] : []),
                       ...(ctxMsg.sender_id === myId ? [{ icon: <Trash2 size={14} />, label:'Delete', action: () => deleteMsg(ctxMsg.id) }] : []),
                     ].map(({ icon, label, action }) => (
                       <button key={label} type="button" onClick={action}
-                        style={{ display:'flex', alignItems:'center', gap:10, padding:'11px 16px', width:'100%', background:'none', border:'none', cursor:'pointer', fontSize:13, color: label === 'Delete' ? '#ff6b6b' : 'var(--text-dim)' }}
+                        style={{ display:'flex', alignItems:'center', gap:10, padding:'11px 16px', width:'100%', background:'none', border:'none', cursor:'pointer', fontSize:13, color: label === 'Delete' || label === 'Block' ? '#ff6b6b' : 'var(--text-dim)' }}
                         onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
                         onMouseLeave={e => { e.currentTarget.style.background = 'none' }}>
                         {icon} {label}
@@ -465,25 +738,8 @@ export default function Chat() {
                   </div>
                 </>
               )}
-
-              {/* Profile popover */}
-              {profileOpen && (
-                <>
-                  <div style={{ position:'fixed', inset:0, zIndex:90 }} onClick={() => setProfileOpen(false)} />
-                  <div style={{ position:'absolute', top:64, right:14, zIndex:100, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:18, padding:18, width:220, boxShadow:'0 12px 40px rgba(0,0,0,0.5)' }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:14 }}>
-                      <Avatar name={roomLabel(activeRoom)} size={48} radius={14} />
-                      <div>
-                        <div style={{ fontSize:14, fontWeight:700, color:'var(--text)' }}>{roomLabel(activeRoom)}</div>
-                        <div style={{ fontSize:11, color:'var(--text-muted)' }}>{activeRoom.members.length} members</div>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
             </>
           ) : (
-            // Desktop/tablet placeholder when no room selected
             !isMobile && (
               <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:14 }}>
                 <MessageCircle size={48} style={{ color:'var(--text-muted)' }} />
@@ -493,6 +749,16 @@ export default function Chat() {
             )
           )}
         </div>
+      )}
+
+      {/* Player profile modal */}
+      {viewProfile && (
+        <PlayerProfileModal
+          profile={viewProfile}
+          myId={myId}
+          onClose={() => setViewProfile(null)}
+          onStartChat={startDmWith}
+        />
       )}
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
