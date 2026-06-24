@@ -457,6 +457,44 @@ export default function Ranks() {
       {/* ── LEADERBOARD tab ─────────────────────────── */}
       {tab === 'leaderboard' && (
         <div style={{ animation: 'feedIn 0.3s ease-out both' }}>
+
+          {/* Banner */}
+          <div style={{
+            position: 'relative',
+            width: '100%',
+            height: 'clamp(110px, 22vw, 160px)',
+            borderRadius: 16,
+            overflow: 'hidden',
+            marginBottom: 20,
+          }}>
+            <img
+              src="https://gnobzfxtxrtcxfhhfjni.supabase.co/storage/v1/object/public/profile-pics/Normal%20tier/Leadboard.png"
+              alt="Leaderboard banner"
+              loading="lazy"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                objectPosition: 'center top',
+                display: 'block',
+              }}
+            />
+            {/* Overlay */}
+            <div style={{
+              position: 'absolute', inset: 0,
+              background: 'linear-gradient(90deg, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.25) 60%, rgba(0,0,0,0.05) 100%)',
+              display: 'flex', flexDirection: 'column', justifyContent: 'center',
+              padding: '0 20px',
+            }}>
+              <div style={{ fontSize: 'clamp(13px, 3.5vw, 17px)', fontWeight: 800, color: '#fff', letterSpacing: 0.2, marginBottom: 4 }}>
+                Leaderboard
+              </div>
+              <div style={{ fontSize: 'clamp(10px, 2.5vw, 13px)', color: 'rgba(255,255,255,0.65)', fontStyle: 'italic' }}>
+                While you rest, others rise.
+              </div>
+            </div>
+          </div>
+
           {lbLoading ? (
             <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>
               <div style={{ width: 32, height: 32, borderRadius: '50%', border: '2px solid var(--surface3)', borderTopColor: userTier.color, animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
@@ -468,7 +506,6 @@ export default function Ranks() {
               {leaderboard.length >= 3 && (
                 <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 8, marginBottom: 24, height: 120 }}>
                   {[leaderboard[1], leaderboard[0], leaderboard[2]].map((entry, i) => {
-                    const _pos = i === 0 ? 2 : i === 1 ? 1 : 3; void _pos;
                     const heights = [88, 120, 72]
                     const tier = getUserRankTier(entry.xp)
                     const name = entry.display_name || entry.username
