@@ -1,11 +1,11 @@
 // src/components/Sidebar.tsx
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Trophy, useLocation, useNavigate } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
-import {
+import { Trophy,
   Home, Flame, Gamepad2, ShoppingBag, Trophy,
   MessageCircle, User, Settings, Bell, X, Zap,
 } from 'lucide-react'
-import { ripple } from '../lib/ripple'
+import { Trophy, ripple } from '../lib/ripple'
 
 interface NavItem {
   label: string
@@ -19,7 +19,8 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard',     to: '/dashboard',                         icon: Home,         badge: null },
   { label: 'Games',         to: '/games',                             icon: Gamepad2,     badge: null },
   { label: 'Mall',          to: '/coming-soon?feature=Mall',          icon: ShoppingBag,  badge: 3    },
-  { label: 'Achievements',  to: '/coming-soon?feature=Achievements',  icon: Trophy,       badge: null },
+  { label: 'Ranks',         to: '/ranks',                             icon: Trophy,       badge: null },
+  { label: 'Achievements',  to: '/coming-soon?feature=Achievements',  icon: Shield,       badge: null },
   { label: 'Chat',          to: '/chat',                              icon: MessageCircle,badge: 5    },
   { label: 'Profile',       to: '/profile',                           icon: User,         badge: null },
   { label: 'Settings',      to: '/settings',                          icon: Settings,     badge: null },
