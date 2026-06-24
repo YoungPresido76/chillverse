@@ -1,10 +1,10 @@
 // src/pages/Settings.tsx
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, ChevronRight, User, LogOut, UserPlus, Trash2,
-  Calendar, Cake, Tag, Palette, Sparkles, Zap, Globe,
-  Circle, Moon, EyeOff, Crown, Check, Lock, X,
+  Calendar, Cake, Tag, Globe,
+  Circle, Moon, EyeOff, Check,
 } from 'lucide-react'
 import { ripple } from '../lib/ripple'
 import { useProfile } from '../hooks/useProfile'
