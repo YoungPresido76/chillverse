@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Move, Brain, Layers, BookOpen, Grid3X3, Flag,
   Eye, Calculator, LayoutGrid, ArrowLeft, Clock, Lock, ChevronRight,
+  type LucideIcon,
 } from 'lucide-react'
 import { ripple } from '../lib/ripple'
 import { getPlaysToday, saveGameSession, savePlayerRank, getAllPlayerRanks } from '../lib/gameSession'
@@ -51,7 +52,7 @@ interface GameMeta {
   tagline: string
   accent: string
   unlimitedPlays?: boolean
-  icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>
+  icon: LucideIcon
 }
 
 const GAMES: GameMeta[] = [
