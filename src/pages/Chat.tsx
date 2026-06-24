@@ -1,10 +1,11 @@
 // src/pages/Chat.tsx
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Search, MoreVertical,
   Smile, Send, X, Trash2, Reply,
   MessageCircle, UserPlus, ShieldOff, UserCheck,
-  ChevronRight,
+  ChevronRight, ExternalLink,
 } from 'lucide-react'
 import { ripple } from '../lib/ripple'
 import { supabase } from '../lib/supabase'
@@ -79,6 +80,7 @@ interface PlayerProfileModalProps {
 }
 
 function PlayerProfileModal({ profile, myId, onClose, onStartChat }: PlayerProfileModalProps) {
+  const navigate = useNavigate()
   const [followStatus, setFollowStatus] = useState<'none' | 'following' | 'blocked'>('none')
   const [actionLoading, setActionLoading] = useState(false)
 
@@ -152,6 +154,10 @@ function PlayerProfileModal({ profile, myId, onClose, onStartChat }: PlayerProfi
                 <MessageCircle size={14} /> Message
               </button>
             )}
+            <button type="button" onClick={() => { onClose(); navigate(`/profile/${profile.id}`) }}
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 16px', borderRadius:12, border:'1px solid rgba(79,142,247,0.3)', background:'rgba(79,142,247,0.08)', color:'#4f8ef7', fontSize:13, fontWeight:600, cursor:'pointer', transition:'all 0.15s' }}>
+              <ExternalLink size={14} /> View Full Profile
+            </button>
             <button type="button" onClick={handleBlock} disabled={actionLoading}
               style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 16px', borderRadius:12, border:'none', cursor: actionLoading ? 'not-allowed' : 'pointer', background: followStatus === 'blocked' ? 'rgba(255,107,107,0.15)' : 'rgba(255,107,107,0.08)', color: followStatus === 'blocked' ? '#ff6b6b' : 'var(--text-muted)', fontSize:13, fontWeight:600, transition:'all 0.15s' }}>
               <ShieldOff size={14} /> {followStatus === 'blocked' ? 'Unblock' : 'Block'}
@@ -159,7 +165,12 @@ function PlayerProfileModal({ profile, myId, onClose, onStartChat }: PlayerProfi
           </div>
         )}
         {isOwnProfile && (
-          <div style={{ textAlign:'center', fontSize:12, color:'var(--text-muted)', fontStyle:'italic' }}>This is you</div>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            <button type="button" onClick={() => { onClose(); navigate('/profile') }}
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 16px', borderRadius:12, border:'1px solid rgba(79,142,247,0.3)', background:'rgba(79,142,247,0.08)', color:'#4f8ef7', fontSize:13, fontWeight:600, cursor:'pointer', transition:'all 0.15s' }}>
+              <ExternalLink size={14} /> View My Profile
+            </button>
+          </div>
         )}
       </div>
     </>
