@@ -1,7 +1,7 @@
 // src/pages/Ranks.tsx
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Trophy, Zap, Star, ChevronRight, Crown, Shield, Lock } from 'lucide-react'
+import { ArrowLeft, Trophy, Star, ChevronRight, Crown, Shield, Lock } from 'lucide-react'
 import { useProfile } from '../hooks/useProfile'
 import { supabase } from '../lib/supabase'
 import { ripple } from '../lib/ripple'
@@ -468,7 +468,7 @@ export default function Ranks() {
               {leaderboard.length >= 3 && (
                 <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 8, marginBottom: 24, height: 120 }}>
                   {[leaderboard[1], leaderboard[0], leaderboard[2]].map((entry, i) => {
-                    const pos = i === 0 ? 2 : i === 1 ? 1 : 3
+                    const _pos = i === 0 ? 2 : i === 1 ? 1 : 3; void _pos;
                     const heights = [88, 120, 72]
                     const tier = getUserRankTier(entry.xp)
                     const name = entry.display_name || entry.username
