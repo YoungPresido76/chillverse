@@ -20,6 +20,7 @@ const Chat          = lazy(() => import('./pages/Chat'))
 const Streak        = lazy(() => import('./pages/Streak'))
 const Settings      = lazy(() => import('./pages/Settings'))
 const Ranks         = lazy(() => import('./pages/Ranks'))
+const Watch         = lazy(() => import('./pages/Watch'))
 
 const Fallback = () => (
   <div style={{ color: 'var(--text-dim)', padding: 40, textAlign: 'center' }}>Loading…</div>
@@ -46,6 +47,9 @@ export default function App() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/privacy"         element={<Privacy />} />
       <Route path="/terms"           element={<Terms />} />
+
+      {/* Standalone full-screen experience — no sidebar/topbar chrome */}
+      <Route path="/watch" element={<ProtectedRoute><Suspense fallback={<Fallback />}><Watch /></Suspense></ProtectedRoute>} />
 
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route path="/dashboard" element={<Dashboard />} />
