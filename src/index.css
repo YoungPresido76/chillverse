@@ -354,3 +354,38 @@
 .t-scroll { display: flex; gap: 18px; overflow-x: auto; padding-bottom: 10px; scroll-snap-type: x mandatory; }
 .t-scroll::-webkit-scrollbar { display: none; }
 .t-scroll > * { scroll-snap-align: start; }
+
+/* ── Tablet & responsive fixes ─────────────────────────────── */
+/* Topbar on tablet: keep proper width accounting for no sidebar offset */
+@media (max-width: 1023px) {
+  .topbar-shell {
+    left: 0 !important;
+  }
+}
+
+/* Tablet grid adjustments — 2 cols on tablet instead of cramped 3 */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .grid.sm\:grid-cols-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Settings page and other full-width pages on tablet */
+@media (min-width: 768px) and (max-width: 1023px) {
+  main {
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
+  }
+
+  /* Prevent profile/settings cards from being too wide-spaced */
+  .max-w-\[800px\] {
+    max-width: 680px;
+  }
+}
+
+/* Sidebar width clamp already set in component; ensure it shows correctly on tablet */
+@media (min-width: 1024px) {
+  .sidebar-shell {
+    transform: translateX(0) !important;
+  }
+}
