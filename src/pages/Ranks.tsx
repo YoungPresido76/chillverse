@@ -189,8 +189,8 @@ function LeaderboardRow({ entry, position, isMe }: { entry: LeaderboardEntry; po
         fontSize: 16, fontWeight: 800, color: '#fff',
         boxShadow: `0 0 10px ${tier.glowColor}`,
       }}>
-        {entry.avatar
-          ? <img src={entry.avatar} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        {entry.avatar && entry.avatar.startsWith('http')
+          ? <img src={entry.avatar} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
           : name.charAt(0).toUpperCase()
         }
       </div>
@@ -475,8 +475,8 @@ export default function Ranks() {
 
       {/* ── LEADERBOARD inner page ──────────────────── */}
       {showLeaderboard && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'var(--bg, #0e0e12)', overflowY: 'auto', animation: 'feedIn 0.25s ease-out both' }}>
-          <div style={{ maxWidth: 680, margin: '0 auto', padding: '20px 16px 48px' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg, #0e0e12)', overflowY: 'auto', animation: 'feedIn 0.25s ease-out both' }}>
+          <div style={{ maxWidth: 680, margin: '0 auto', padding: '60px 16px 48px' }}>
 
             <div style={{ marginBottom: 20 }}>
               <button
@@ -487,7 +487,7 @@ export default function Ranks() {
               </button>
             </div>
 
-            <div style={{ position: 'relative', width: '100%', height: 'clamp(160px, 35vw, 220px)', borderRadius: 16, overflow: 'hidden', marginBottom: 20 }}>
+            <div style={{ position: 'relative', width: '100%', height: 'clamp(160px, 35vw, 220px)', borderRadius: 16, overflow: 'hidden', marginBottom: 32 }}>
               <img
                 src="https://gnobzfxtxrtcxfhhfjni.supabase.co/storage/v1/object/public/profile-pics/Normal%20tier/Leadboard.png"
                 alt="Leaderboard banner"
@@ -517,8 +517,8 @@ export default function Ranks() {
                         <div key={entry.id} style={{ flex: 1, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end' }}>
                           <div style={{ fontSize: 18, marginBottom: 4 }}>{['🥈','🥇','🥉'][i]}</div>
                           <div style={{ width: 44, height: 44, borderRadius: 13, marginBottom: 6, background: `linear-gradient(135deg, ${tier.color}50, ${tier.color}20)`, border: `2px solid ${tier.color}70`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 800, color: '#fff', boxShadow: `0 0 16px ${tier.glowColor}` }}>
-                            {entry.avatar
-                              ? <img src={entry.avatar} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            {entry.avatar && entry.avatar.startsWith('http')
+                              ? <img src={entry.avatar} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                               : name.charAt(0).toUpperCase()
                             }
                           </div>
