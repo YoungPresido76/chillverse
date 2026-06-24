@@ -1,13 +1,16 @@
 // src/pages/Games.tsx
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Move, Brain, Layers, BookOpen, Grid3X3, Flag,
-  Eye, Calculator, LayoutGrid, ArrowLeft, Clock, Lock, ChevronRight,
+  Eye, Calculator, LayoutGrid, ArrowLeft, Clock, Lock, ChevronRight, Zap,
   type LucideIcon,
 } from 'lucide-react'
 import { ripple } from '../lib/ripple'
-import { getPlaysToday, saveGameSession, savePlayerRank, getAllPlayerRanks } from '../lib/gameSession'
+import {
+  getPlaysToday, saveGameSession, savePlayerRank, getAllPlayerRanks,
+  getGlobalSessionInfo,
+} from '../lib/gameSession'
 import type { GameKey } from '../lib/gameSession'
 import { useAuth } from '../hooks/useAuth'
 import type { GameRank } from './games/types'
@@ -27,8 +30,9 @@ import LiarsGrid from './games/LiarsGrid'
 
 // ─── Constants ───────────────────────────────────────────────
 const GAME_OPEN_HOUR  = 5
-const GAME_CLOSE_HOUR = 20
-const MAX_PLAYS = 7   // TacZone is unlimited
+const GAME_CLOSE_HOUR = 21   // 9 PM
+const MAX_PLAYS       = 7    // per-game limit (TacZone unlimited)
+const GLOBAL_LIMIT    = 10   // total sessions across all games
 
 function isOpen() {
   const h = new Date().getHours()
@@ -37,6 +41,16 @@ function isOpen() {
 function minsLeft() {
   const close = new Date(); close.setHours(GAME_CLOSE_HOUR, 0, 0, 0)
   return Math.max(0, Math.floor((close.getTime() - Date.now()) / 60000))
+}
+
+/** Format epoch ms into HH:MM countdown string */
+function formatCountdown(resetAt: number): string {
+  const ms = Math.max(0, resetAt - Date.now())
+  const totalSec = Math.ceil(ms / 1000)
+  const h   = Math.floor(totalSec / 3600)
+  const m   = Math.floor((totalSec % 3600) / 60)
+  const s   = totalSec % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
 // ─── Game registry ───────────────────────────────────────────
@@ -61,7 +75,7 @@ const GAMES: GameMeta[] = [
   { id: 'rapid-sort',      dbKey: 'rapid_sort',      name: 'Rapid Sort',             tagline: 'Sort items into categories fast!',                 accent: '#ff4d8b', icon: Layers       },
   { id: 'trivia-clash',    dbKey: 'trivia_clash',    name: 'Trivia Clash',           tagline: 'Drop knowledge. Wreck the scoreboard.',            accent: '#ff9a3c', icon: BookOpen     },
   { id: 'tac-zone',        dbKey: 'tac_zone',        name: 'Tac Zone',               tagline: 'Three in a row. No mercy.',                       accent: '#3ecf8e', icon: Grid3X3, unlimitedPlays: true },
-  { id: 'flag-rush',       dbKey: 'flag_rush',       name: 'Flag Rush',              tagline: "Flags don't lie. Can you read them?",             accent: '#4f8ef7', icon: Flag         },
+  { id: 'flag-rush',       dbKey: 'flag_rush',       name: 'Flag Rush',              tagline: "Flags don't lie. Can you read them?",              accent: '#4f8ef7', icon: Flag         },
   { id: 'two-truths',      dbKey: 'two_truths',      name: 'Two Truths, One False',  tagline: 'Spot the lie among three claims.',                 accent: '#9b6dff', icon: Eye          },
   { id: 'speed-math',      dbKey: 'speed_math',      name: 'Speed Math',             tagline: 'Solve as many equations as you can.',              accent: '#3ecf8e', icon: Calculator   },
   { id: 'liars-grid',      dbKey: 'liars_grid',      name: "Liar's Grid",            tagline: 'Find the one wrong equation. One is lying.',       accent: '#ff4f4f', icon: LayoutGrid   },
@@ -71,19 +85,20 @@ const DEFAULT_STREAK_STATE = { rank: 'beginner' as GameRank, currentStreak: 0, a
 
 // ─── Lobby Card ───────────────────────────────────────────────
 function LobbyCard({
-  game, rank, streak, playsToday, zoneOpen, onPlay,
+  game, rank, streak, playsToday, zoneOpen, globalLimitReached, onPlay,
 }: {
   game: GameMeta
   rank: GameRank
   streak: number
   playsToday: number
   zoneOpen: boolean
+  globalLimitReached: boolean
   onPlay: () => void
 }) {
   const Icon = game.icon
   const rankCfg = getRankConfig(rank)
-  const maxed = !game.unlimitedPlays && playsToday >= MAX_PLAYS
-  const locked = !zoneOpen || maxed
+  const maxed  = !game.unlimitedPlays && playsToday >= MAX_PLAYS
+  const locked = !zoneOpen || maxed || globalLimitReached
 
   return (
     <button
@@ -98,7 +113,7 @@ function LobbyCard({
         transition: 'opacity 0.2s',
       }}
     >
-      {maxed && (
+      {maxed && !globalLimitReached && (
         <div style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(255,107,0,0.15)', border: '1px solid rgba(255,107,0,0.3)', borderRadius: 8, padding: '2px 7px', fontSize: 9, fontWeight: 700, color: 'var(--accent)' }}>
           MAX PLAYS
         </div>
@@ -133,7 +148,7 @@ function LobbyCard({
         }
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: locked ? 'var(--text-muted)' : game.accent }}>
           {locked ? <Lock size={11} /> : <ChevronRight size={12} />}
-          {locked ? (maxed ? 'Limit reached' : 'Closed') : 'Play'}
+          {locked ? (maxed ? 'Limit reached' : globalLimitReached ? 'Daily max' : 'Closed') : 'Play'}
         </div>
       </div>
     </button>
@@ -145,23 +160,52 @@ export default function Games() {
   const navigate = useNavigate()
   const { session } = useAuth()
   const [activeGame, setActiveGame] = useState<GameId | null>(null)
-  const [results, setResults] = useState<GameEndPayload[]>([])
+  const [results, setResults]       = useState<GameEndPayload[]>([])
   const [playsToday, setPlaysToday] = useState<Partial<Record<GameId, number>>>({})
-  const [ranks, setRanks] = useState<Partial<Record<GameId, GameRank>>>({})
-  const [streaks, setStreaks] = useState<Partial<Record<GameId, number>>>({})
+  const [ranks, setRanks]           = useState<Partial<Record<GameId, GameRank>>>({})
+  const [streaks, setStreaks]       = useState<Partial<Record<GameId, number>>>({})
   const [allTimeStreaks, setAllTimeStreaks] = useState<Partial<Record<GameId, number>>>({})
-  const [zoneOpen, setZoneOpen] = useState(isOpen())
+  const [zoneOpen, setZoneOpen]     = useState(isOpen())
   const [minutesLeft, setMinutesLeft] = useState(minsLeft())
 
+  // Global session state
+  const [globalCount, setGlobalCount]   = useState(0)
+  const [globalResetAt, setGlobalResetAt] = useState(0)
+  const [countdown, setCountdown]       = useState('')
+
+  const userId = session?.user?.id ?? ''
+
+  // ── Sync global session info from localStorage ──────────────
+  const refreshGlobalInfo = useCallback(() => {
+    if (!userId) return
+    const info = getGlobalSessionInfo(userId)
+    setGlobalCount(info.count)
+    setGlobalResetAt(info.resetAt)
+  }, [userId])
+
+  // Tick every second for countdown + zone open check
   useEffect(() => {
-    const iv = setInterval(() => { setZoneOpen(isOpen()); setMinutesLeft(minsLeft()) }, 60000)
+    refreshGlobalInfo()
+    const iv = setInterval(() => {
+      setZoneOpen(isOpen())
+      setMinutesLeft(minsLeft())
+      refreshGlobalInfo()
+    }, 1000)
     return () => clearInterval(iv)
-  }, [])
+  }, [refreshGlobalInfo])
+
+  // Update countdown string
+  useEffect(() => {
+    if (globalResetAt > 0) {
+      setCountdown(formatCountdown(globalResetAt))
+    } else {
+      setCountdown('')
+    }
+  }, [globalResetAt, globalCount])
 
   // Load plays + persisted ranks from Supabase
   useEffect(() => {
-    if (!session?.user) return
-    const userId = session.user.id
+    if (!userId) return
 
     Promise.all(GAMES.map(g => getPlaysToday(userId, g.dbKey))).then(counts => {
       const map: Partial<Record<GameId, number>> = {}
@@ -170,20 +214,20 @@ export default function Games() {
     })
 
     getAllPlayerRanks(userId).then(rows => {
-      const rankMap: Partial<Record<GameId, GameRank>> = {}
-      const streakMap: Partial<Record<GameId, number>> = {}
-      const allTimeMap: Partial<Record<GameId, number>> = {}
+      const rankMap:    Partial<Record<GameId, GameRank>> = {}
+      const streakMap:  Partial<Record<GameId, number>>   = {}
+      const allTimeMap: Partial<Record<GameId, number>>   = {}
       GAMES.forEach(g => {
         const row = rows[g.dbKey]
-        rankMap[g.id] = row?.rank ?? DEFAULT_STREAK_STATE.rank
-        streakMap[g.id] = row?.current_streak ?? 0
+        rankMap[g.id]    = row?.rank ?? DEFAULT_STREAK_STATE.rank
+        streakMap[g.id]  = row?.current_streak ?? 0
         allTimeMap[g.id] = row?.all_time_streak ?? 0
       })
       setRanks(rankMap)
       setStreaks(streakMap)
       setAllTimeStreaks(allTimeMap)
     })
-  }, [session])
+  }, [userId])
 
   async function handleResult(payload: GameEndPayload) {
     const game = GAMES.find(g => g.id === payload.gameId)
@@ -191,7 +235,6 @@ export default function Games() {
 
     setResults(r => [...r, payload])
     setPlaysToday(p => ({ ...p, [payload.gameId]: (p[payload.gameId as GameId] ?? 0) + 1 }))
-    // Optimistic local rank/streak update
     setRanks(r => ({ ...r, [payload.gameId]: payload.rank }))
     setStreaks(s => ({ ...s, [payload.gameId]: payload.streak }))
     setAllTimeStreaks(a => ({
@@ -199,8 +242,7 @@ export default function Games() {
       [payload.gameId]: Math.max(payload.streak, a[payload.gameId as GameId] ?? 0),
     }))
 
-    if (!session?.user) return
-    const userId = session.user.id
+    if (!userId) return
 
     await saveGameSession(userId, {
       game: game.dbKey,
@@ -212,7 +254,6 @@ export default function Games() {
       metadata: payload.detail as Record<string, unknown>,
     })
 
-    // Persist rank (no-demotion enforced inside savePlayerRank)
     await savePlayerRank(
       userId,
       game.dbKey,
@@ -220,7 +261,12 @@ export default function Games() {
       payload.streak,
       Math.max(payload.streak, allTimeStreaks[payload.gameId as GameId] ?? 0),
     )
+
+    // Refresh global limit after save
+    refreshGlobalInfo()
   }
+
+  const globalLimitReached = globalCount >= GLOBAL_LIMIT
 
   const gameProps = {
     rank: (activeGame ? (ranks[activeGame] ?? 'beginner') : 'beginner') as GameRank,
@@ -240,7 +286,7 @@ export default function Games() {
   if (activeGame === 'liars-grid')     return <LiarsGrid     {...gameProps} />
 
   // Lobby
-  const hoursLeft = Math.floor(minutesLeft / 60)
+  const hoursLeft     = Math.floor(minutesLeft / 60)
   const minsRemainder = minutesLeft % 60
 
   return (
@@ -253,19 +299,44 @@ export default function Games() {
 
       <div style={{ maxWidth: 720, margin: '0 auto', paddingBottom: 48 }}>
 
+        {/* ── Global session limit reached banner ── */}
+        {globalLimitReached && (
+          <div style={{ background: 'rgba(155,109,255,0.08)', border: '1px solid rgba(155,109,255,0.28)', borderRadius: 16, padding: '16px 18px', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <Lock size={18} style={{ color: '#9b6dff', flexShrink: 0 }} />
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 800, color: '#9b6dff', marginBottom: 2 }}>
+                  Daily limit reached · Resets in <span style={{ fontFamily: 'monospace', letterSpacing: 1 }}>{countdown}</span>
+                </p>
+                <p style={{ fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.5 }}>
+                  You've played {GLOBAL_LIMIT} sessions today. Come back after the cooldown — or upgrade to Pro for unlimited play.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); navigate('/coming-soon?feature=Go%20Premium') }}
+              className="ripple-wrap"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'linear-gradient(135deg,#9b6dff,#4f8ef7)', color: '#fff', border: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+            >
+              <Zap size={12} /> Upgrade to Pro
+            </button>
+          </div>
+        )}
+
         {/* Zone closed banner */}
-        {!zoneOpen && (
+        {!zoneOpen && !globalLimitReached && (
           <div style={{ background: 'rgba(245,197,66,0.08)', border: '1px solid rgba(245,197,66,0.25)', borderRadius: 16, padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
             <Lock size={18} style={{ color: 'var(--gold)', flexShrink: 0 }} />
             <div>
               <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--gold)', marginBottom: 2 }}>Game Zone is closed</p>
-              <p style={{ fontSize: 12, color: 'var(--text-dim)' }}>Opens at {GAME_OPEN_HOUR}:00 AM daily · 5 hours of gameplay available</p>
+              <p style={{ fontSize: 12, color: 'var(--text-dim)' }}>Opens {GAME_OPEN_HOUR}:00 AM · Closes 9:00 PM daily</p>
             </div>
           </div>
         )}
 
         {/* Closing soon */}
-        {zoneOpen && minutesLeft < 60 && (
+        {zoneOpen && minutesLeft < 60 && !globalLimitReached && (
           <div style={{ background: 'rgba(255,79,79,0.08)', border: '1px solid rgba(255,79,79,0.25)', borderRadius: 16, padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
             <Clock size={18} style={{ color: 'var(--red)', flexShrink: 0 }} />
             <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--red)' }}>Game Zone closes in {minutesLeft} minutes!</p>
@@ -277,14 +348,16 @@ export default function Games() {
           <div className="neu-card" style={{ padding: '22px 20px', marginBottom: 0 }}>
             <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', marginBottom: 4 }}>Game Zone</h1>
             <p style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 12 }}>
-              Open {GAME_OPEN_HOUR}:00–{GAME_CLOSE_HOUR}:00 daily · {MAX_PLAYS} plays/game · Tac Zone unlimited
+              Open {GAME_OPEN_HOUR}:00–21:00 daily · {MAX_PLAYS} plays/game · {GLOBAL_LIMIT} total sessions
             </p>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <span className="chip">
                 <Clock size={11} />
                 {zoneOpen ? `${hoursLeft}h ${minsRemainder}m left` : 'Closed now'}
               </span>
-              <span className="chip">🎮 <strong>{results.length}</strong> sessions today</span>
+              <span className="chip">
+                🎮 <strong>{globalCount}</strong>/{GLOBAL_LIMIT} sessions today
+              </span>
               {results.length > 0 && (
                 <span className="chip">🏆 <strong>{Math.max(...results.map(r => r.score))}</strong> top score</span>
               )}
@@ -304,18 +377,19 @@ export default function Games() {
                 streak={streaks[game.id] ?? 0}
                 playsToday={playsToday[game.id] ?? 0}
                 zoneOpen={zoneOpen}
+                globalLimitReached={globalLimitReached}
                 onPlay={() => setActiveGame(game.id)}
               />
             ))}
           </div>
         </section>
 
-        {/* Recent results */}
+        {/* Recent results — persists across game tab exits */}
         <section className="su d3">
           <p className="section-label">Recent Results</p>
           {results.length === 0 ? (
             <div className="neu-card-sm" style={{ padding: '32px 20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-              No games played yet. Pick one above!
+              No games played yet this session. Pick one above!
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
