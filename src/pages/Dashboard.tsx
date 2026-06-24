@@ -218,7 +218,7 @@ export default function Dashboard() {
   const QUICK_ACTIONS: QuickAction[] = [
     { label: 'Play Games', sub: onlineCount != null ? `${onlineCount} online` : '…',  to: '/games',                          bg: 'linear-gradient(135deg,#9b6dff,#4f8ef7)', icon: Gamepad2   },
     { label: 'Mall',       sub: 'New drops',    to: '/coming-soon?feature=Mall',       bg: 'linear-gradient(135deg,#ff6b00,#ff9a3c)', icon: ShoppingBag },
-    { label: 'Watch',      sub: 'Trending now', to: '/coming-soon?feature=Watch',      bg: 'linear-gradient(135deg,#ff4d8b,#ff6b6b)', icon: Film        },
+    { label: 'Watch',      sub: 'Trending now', to: '/watch',      bg: 'linear-gradient(135deg,#ff4d8b,#ff6b6b)', icon: Film        },
   ]
 
   // Preview: use live rooms if loaded, else fall back to placeholder rows
