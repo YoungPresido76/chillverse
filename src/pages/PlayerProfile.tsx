@@ -1,5 +1,5 @@
-// src/pages/PlayerProfile.tsx
 import { useState, useEffect } from 'react'
+import React from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, UserPlus, UserCheck, ShieldOff,
@@ -10,9 +10,9 @@ import {
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { getRecentSessions } from '../lib/gameSession'
-import type React from 'react'
 
-type LucideIcon = React.ComponentType<{ size?: number; style?: React.CSSProperties }>
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type LucideIcon = React.ComponentType<any>
 
 const RANKS = [
   { min: 0,      max: 999,      title: 'Newcomer', color: '#888899' },
