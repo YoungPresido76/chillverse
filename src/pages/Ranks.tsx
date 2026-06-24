@@ -185,9 +185,9 @@ function LeaderboardRow({ entry, position, isMe }: { entry: LeaderboardEntry; po
         width: 38, height: 38, borderRadius: 11, flexShrink: 0,
         background: `linear-gradient(135deg, ${tier.color}60, ${tier.color}30)`,
         overflow: 'hidden',
-        boxShadow: `0 0 10px ${tier.glowColor}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 16, fontWeight: 800, color: '#fff',
+        boxShadow: `0 0 10px ${tier.glowColor}`,
       }}>
         {entry.avatar
           ? <img src={entry.avatar} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -365,7 +365,6 @@ export default function Ranks() {
             {t.icon} {t.label}
           </button>
         ))}
-        {/* Leaderboard — opens inner page */}
         <button
           onClick={(e) => { ripple(e as any); setShowLeaderboard(true) }}
           className="ripple-wrap"
@@ -479,7 +478,6 @@ export default function Ranks() {
         <div style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'var(--bg, #0e0e12)', overflowY: 'auto', animation: 'feedIn 0.25s ease-out both' }}>
           <div style={{ maxWidth: 680, margin: '0 auto', padding: '20px 16px 48px' }}>
 
-            {/* Back button */}
             <div style={{ marginBottom: 20 }}>
               <button
                 onClick={() => setShowLeaderboard(false)}
@@ -489,111 +487,61 @@ export default function Ranks() {
               </button>
             </div>
 
-            <div style={{ animation: 'feedIn 0.3s ease-out both' }}>
-
-          {/* Banner */}
-          <div style={{
-            position: 'relative',
-            width: '100%',
-            height: 'clamp(160px, 35vw, 220px)',
-            borderRadius: 16,
-            overflow: 'hidden',
-            marginBottom: 20,
-          }}>
-            <img
-              src="https://gnobzfxtxrtcxfhhfjni.supabase.co/storage/v1/object/public/profile-pics/Normal%20tier/Leadboard.png"
-              alt="Leaderboard banner"
-              loading="lazy"
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                objectPosition: 'center 30%',
-                display: 'block',
-              }}
-            />
-            {/* Overlay */}
-            <div style={{
-              position: 'absolute', inset: 0,
-              background: 'linear-gradient(90deg, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.25) 60%, rgba(0,0,0,0.05) 100%)',
-              display: 'flex', flexDirection: 'column', justifyContent: 'center',
-              padding: '0 20px',
-            }}>
-              <div style={{ fontSize: 'clamp(13px, 3.5vw, 17px)', fontWeight: 800, color: '#fff', letterSpacing: 0.2, marginBottom: 4 }}>
-                Leaderboard
-              </div>
-              <div style={{ fontSize: 'clamp(10px, 2.5vw, 13px)', color: 'rgba(255,255,255,0.65)', fontStyle: 'italic' }}>
-                While you rest, others rise.
+            <div style={{ position: 'relative', width: '100%', height: 'clamp(160px, 35vw, 220px)', borderRadius: 16, overflow: 'hidden', marginBottom: 20 }}>
+              <img
+                src="https://gnobzfxtxrtcxfhhfjni.supabase.co/storage/v1/object/public/profile-pics/Normal%20tier/Leadboard.png"
+                alt="Leaderboard banner"
+                loading="lazy"
+                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 30%', display: 'block' }}
+              />
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.25) 60%, rgba(0,0,0,0.05) 100%)', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 20px' }}>
+                <div style={{ fontSize: 'clamp(13px, 3.5vw, 17px)', fontWeight: 800, color: '#fff', marginBottom: 4 }}>Leaderboard</div>
+                <div style={{ fontSize: 'clamp(10px, 2.5vw, 13px)', color: 'rgba(255,255,255,0.65)', fontStyle: 'italic' }}>While you rest, others rise.</div>
               </div>
             </div>
-          </div>
 
-          {lbLoading ? (
-            <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>
-              <div style={{ width: 32, height: 32, borderRadius: '50%', border: '2px solid var(--surface3)', borderTopColor: userTier.color, animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-              Loading leaderboard…
-            </div>
-          ) : (
-            <>
-              {/* Top 3 podium */}
-              {leaderboard.length >= 3 && (
-                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 8, marginBottom: 24, height: 120 }}>
-                  {[leaderboard[1], leaderboard[0], leaderboard[2]].map((entry, i) => {
-                    const heights = [88, 120, 72]
-                    const tier = getUserRankTier(entry.xp)
-                    const name = entry.display_name || entry.username
-                    return (
-                      <div key={entry.id} style={{ flex: 1, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end' }}>
-                        <div style={{ fontSize: 18, marginBottom: 4 }}>{['🥈','🥇','🥉'][i]}</div>
-                        <div style={{
-                          width: 44, height: 44, borderRadius: 13, marginBottom: 6,
-                          background: `linear-gradient(135deg, ${tier.color}50, ${tier.color}20)`,
-                          border: `2px solid ${tier.color}70`,
-                          overflow: 'hidden',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 20, fontWeight: 800, color: '#fff',
-                          boxShadow: `0 0 16px ${tier.glowColor}`,
-                        }}>
-                          {entry.avatar
-                            ? <img src={entry.avatar} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            : name.charAt(0).toUpperCase()
-                          }
+            {lbLoading ? (
+              <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', border: '2px solid var(--surface3)', borderTopColor: userTier.color, animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+                Loading leaderboard…
+              </div>
+            ) : (
+              <>
+                {leaderboard.length >= 3 && (
+                  <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 8, marginBottom: 24, height: 120 }}>
+                    {[leaderboard[1], leaderboard[0], leaderboard[2]].map((entry, i) => {
+                      const heights = [88, 120, 72]
+                      const tier = getUserRankTier(entry.xp)
+                      const name = entry.display_name || entry.username
+                      return (
+                        <div key={entry.id} style={{ flex: 1, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end' }}>
+                          <div style={{ fontSize: 18, marginBottom: 4 }}>{['🥈','🥇','🥉'][i]}</div>
+                          <div style={{ width: 44, height: 44, borderRadius: 13, marginBottom: 6, background: `linear-gradient(135deg, ${tier.color}50, ${tier.color}20)`, border: `2px solid ${tier.color}70`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 800, color: '#fff', boxShadow: `0 0 16px ${tier.glowColor}` }}>
+                            {entry.avatar
+                              ? <img src={entry.avatar} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              : name.charAt(0).toUpperCase()
+                            }
+                          </div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 2, maxWidth: 70, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                          <div style={{ width: '100%', height: heights[i], borderRadius: '10px 10px 0 0', background: `linear-gradient(180deg, ${tier.color}30, ${tier.color}10)`, border: `1px solid ${tier.color}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 2 }}>
+                            <div style={{ fontSize: 13, fontWeight: 800, color: tier.color, fontFamily: 'monospace' }}>{fmtXP(entry.xp)}</div>
+                            <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>XP</div>
+                          </div>
                         </div>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 2, maxWidth: 70, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
-                        <div style={{
-                          width: '100%', height: heights[i], borderRadius: '10px 10px 0 0',
-                          background: `linear-gradient(180deg, ${tier.color}30, ${tier.color}10)`,
-                          border: `1px solid ${tier.color}40`,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          flexDirection: 'column', gap: 2,
-                        }}>
-                          <div style={{ fontSize: 13, fontWeight: 800, color: tier.color, fontFamily: 'monospace' }}>{fmtXP(entry.xp)}</div>
-                          <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>XP</div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-
-              {/* Full list */}
-              {leaderboard.map((entry, i) => (
-                <LeaderboardRow
-                  key={entry.id}
-                  entry={entry}
-                  position={i + 1}
-                  isMe={entry.id === profile?.id}
-                />
-              ))}
-
-              {leaderboard.length === 0 && (
-                <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)', fontSize: 13 }}>
-                  No players yet. Be the first!
-                </div>
-              )}
-            </>
-          )}
-            </div>
+                      )
+                    })}
+                  </div>
+                )}
+                {leaderboard.map((entry, i) => (
+                  <LeaderboardRow key={entry.id} entry={entry} position={i + 1} isMe={entry.id === profile?.id} />
+                ))}
+                {leaderboard.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)', fontSize: 13 }}>
+                    No players yet. Be the first!
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
       )}
