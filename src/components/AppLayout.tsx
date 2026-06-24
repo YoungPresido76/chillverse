@@ -9,7 +9,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/profile':   'Profile',
   '/chat':      'Chat',
   '/games':     'Games',
-  '/ranks':     'Leaderboard',
+  '/ranks':     'Rank',
 }
 
 export default function AppLayout() {
