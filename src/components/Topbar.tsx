@@ -11,12 +11,13 @@ export default function Topbar({ title, onMenuClick }: TopbarProps) {
   return (
     <header className="topbar-shell">
       <div className="flex items-center gap-3">
-        {/* 3-span hamburger */}
+        {/* Hamburger — visible on mobile AND tablet (below lg = 1024px) */}
         <button
           type="button"
           onClick={onMenuClick}
-          className="md:hidden flex flex-col gap-[5px] p-2"
+          className="lg:hidden flex flex-col gap-[5px] p-2"
           aria-label="Open menu"
+          style={{ cursor: 'pointer', background: 'none', border: 'none' }}
         >
           <span style={{ display: 'block', height: 2, width: 18, background: 'var(--text-dim)', borderRadius: 2 }} />
           <span style={{ display: 'block', height: 2, width: 13, background: 'var(--text-dim)', borderRadius: 2 }} />
@@ -44,7 +45,6 @@ export default function Topbar({ title, onMenuClick }: TopbarProps) {
           onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-dim)')}
         >
           <Bell size={17} />
-          {/* notification dot */}
           <span style={{
             position: 'absolute', top: 7, right: 7,
             width: 6, height: 6, borderRadius: '50%',
