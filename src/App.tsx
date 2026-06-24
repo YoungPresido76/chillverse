@@ -19,6 +19,7 @@ const PlayerProfile = lazy(() => import('./pages/PlayerProfile'))
 const Chat          = lazy(() => import('./pages/Chat'))
 const Streak        = lazy(() => import('./pages/Streak'))
 const Settings      = lazy(() => import('./pages/Settings'))
+const Ranks         = lazy(() => import('./pages/Ranks'))
 
 const Fallback = () => (
   <div style={{ color: 'var(--text-dim)', padding: 40, textAlign: 'center' }}>Loading…</div>
@@ -55,6 +56,7 @@ export default function App() {
         <Route path="/chat"               element={<Suspense fallback={<Fallback />}><Chat /></Suspense>} />
         <Route path="/streak"    element={<Suspense fallback={<Fallback />}><Streak /></Suspense>} />
         <Route path="/settings"  element={<Suspense fallback={<Fallback />}><Settings /></Suspense>} />
+        <Route path="/ranks"     element={<Suspense fallback={<Fallback />}><Ranks /></Suspense>} />
       </Route>
     </Routes>
   )
