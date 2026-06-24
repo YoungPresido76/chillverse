@@ -366,38 +366,57 @@ export default function Chat() {
   // ── Start private DM with a user ────────────────────────────
   async function startDmWith(targetUserId: string) {
     if (!myId || targetUserId === myId) return
-    // Check if DM room already exists
+
+    // Find shared DM rooms only (not global) between the two users
     const { data: myRooms } = await supabase
-      .from('room_members').select('room_id').eq('user_id', myId)
+      .from('room_members')
+      .select('room_id, chat_rooms(type)')
+      .eq('user_id', myId)
     const { data: theirRooms } = await supabase
-      .from('room_members').select('room_id').eq('user_id', targetUserId)
+      .from('room_members')
+      .select('room_id, chat_rooms(type)')
+      .eq('user_id', targetUserId)
 
     if (myRooms && theirRooms) {
-      const myIds = new Set(myRooms.map(r => r.room_id))
-      const common = theirRooms.find(r => myIds.has(r.room_id))
-      if (common) {
-        const existing = rooms.find(r => r.id === common.room_id)
-        if (existing) { openRoom(existing); return }
+      const myDmIds = new Set(
+        myRooms
+          .filter((r: Record<string, unknown>) => (r.chat_rooms as { type: string } | null)?.type === 'dm')
+          .map((r: Record<string, unknown>) => r.room_id as string)
+      )
+      const commonDm = theirRooms.find((r: Record<string, unknown>) =>
+        (r.chat_rooms as { type: string } | null)?.type === 'dm' && myDmIds.has(r.room_id as string)
+      )
+      if (commonDm) {
+        await loadRooms()
+        setTimeout(() => {
+          setRooms(prev => {
+            const found = prev.find(r => r.id === (commonDm.room_id as string))
+            if (found) openRoom(found)
+            return prev
+          })
+        }, 400)
+        return
       }
     }
 
-    // Create new DM room
-    const { data: newRoom } = await supabase
+    // Create brand new DM room
+    const { data: newRoom, error } = await supabase
       .from('chat_rooms').insert({ type: 'dm', name: null }).select('id').single()
-    if (!newRoom) return
+    if (error || !newRoom) return
+
     await supabase.from('room_members').insert([
       { room_id: newRoom.id, user_id: myId },
       { room_id: newRoom.id, user_id: targetUserId },
     ])
+
     await loadRooms()
-    // After reload, open the new room
     setTimeout(() => {
       setRooms(prev => {
         const found = prev.find(r => r.id === newRoom.id)
         if (found) openRoom(found)
         return prev
       })
-    }, 600)
+    }, 400)
   }
 
   // ── Send ────────────────────────────────────────────────────
@@ -611,34 +630,46 @@ export default function Chat() {
                 ) : (
                   messages.map(msg => {
                     const isMine = msg.sender_id === myId
+                    const senderLabel = isMine ? 'You' : (msg.senderName || 'Unknown')
                     return (
-                      <div key={msg.id} style={{ display:'flex', flexDirection:'column', alignItems: isMine ? 'flex-end' : 'flex-start', marginBottom:4 }}>
-                        {/* Sender name — clickable for others, clickable for self too */}
-                        {!msg.deleted && (
-                          <button
-                            type="button"
-                            onClick={() => openSenderProfile(msg)}
-                            style={{ background:'none', border:'none', cursor: msg.sender_id ? 'pointer' : 'default', padding:0, marginBottom:2, paddingLeft: isMine ? 0 : 2 }}>
-                            <span style={{ fontSize:10, color: isMine ? 'var(--accent)' : '#4f8ef7', fontWeight:600, textDecoration:'underline', textDecorationColor:'transparent', transition:'text-decoration-color 0.15s' }}
-                              onMouseEnter={e => { (e.currentTarget as HTMLSpanElement).style.textDecorationColor = isMine ? 'var(--accent)' : '#4f8ef7' }}
-                              onMouseLeave={e => { (e.currentTarget as HTMLSpanElement).style.textDecorationColor = 'transparent' }}>
-                              {isMine ? 'You' : msg.senderName}
-                            </span>
-                          </button>
-                        )}
+                      <div key={msg.id} style={{ display:'flex', flexDirection: isMine ? 'row-reverse' : 'row', alignItems:'flex-end', gap:8, marginBottom:6 }}>
 
-                        {msg.replyPreview && !msg.deleted && (
-                          <div style={{ fontSize:11, color:'var(--text-dim)', padding:'4px 10px', background:'rgba(255,255,255,0.04)', borderRadius:8, borderLeft:`2px solid ${isMine ? 'var(--accent)' : '#4f8ef7'}`, marginBottom:4, maxWidth:260, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                            {msg.replyPreview}
+                        {/* Avatar circle — clickable, opens profile modal */}
+                        <button
+                          type="button"
+                          onClick={() => openSenderProfile(msg)}
+                          style={{ background:'none', border:'none', padding:0, cursor:'pointer', flexShrink:0, alignSelf:'flex-end' }}
+                          title={senderLabel}>
+                          <Avatar name={senderLabel} size={30} radius={10} />
+                        </button>
+
+                        {/* Bubble + meta */}
+                        <div style={{ display:'flex', flexDirection:'column', alignItems: isMine ? 'flex-end' : 'flex-start', maxWidth:'75%' }}>
+
+                          {/* Name above bubble */}
+                          {!msg.deleted && (
+                            <button
+                              type="button"
+                              onClick={() => openSenderProfile(msg)}
+                              style={{ background:'none', border:'none', cursor:'pointer', padding:0, marginBottom:3 }}>
+                              <span style={{ fontSize:10, fontWeight:700, color: isMine ? 'var(--accent)' : '#4f8ef7' }}>
+                                {senderLabel}
+                              </span>
+                            </button>
+                          )}
+
+                          {msg.replyPreview && !msg.deleted && (
+                            <div style={{ fontSize:11, color:'var(--text-dim)', padding:'4px 10px', background:'rgba(255,255,255,0.04)', borderRadius:8, borderLeft:`2px solid ${isMine ? 'var(--accent)' : '#4f8ef7'}`, marginBottom:4, maxWidth:'100%', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                              {msg.replyPreview}
+                            </div>
+                          )}
+
+                          <div
+                            onContextMenu={e => { if (!msg.deleted) { e.preventDefault(); setCtxMsg(msg); setCtxPos({ x: e.clientX, y: e.clientY }) }}}
+                            onDoubleClick={() => { if (!msg.deleted) setReplyTo(msg) }}
+                            style={{ padding:'9px 13px', borderRadius:16, background: isMine ? 'var(--accent)' : 'var(--surface)', color: isMine ? '#fff' : 'var(--text)', boxShadow: isMine ? '0 2px 12px rgba(255,107,0,0.25)' : '2px 2px 8px var(--neu-dark),-1px -1px 4px var(--neu-light)', borderBottomRightRadius: isMine ? 4 : 16, borderBottomLeftRadius: isMine ? 16 : 4, fontSize:13.5, lineHeight:1.45, fontStyle: msg.deleted ? 'italic' : 'normal', opacity: msg.deleted ? 0.6 : 1, cursor:'context-menu', userSelect:'none', wordBreak:'break-word' }}>
+                            {msg.deleted ? 'Message deleted' : msg.content}
                           </div>
-                        )}
-
-                        <div
-                          onContextMenu={e => { if (!msg.deleted) { e.preventDefault(); setCtxMsg(msg); setCtxPos({ x: e.clientX, y: e.clientY }) }}}
-                          onDoubleClick={() => { if (!msg.deleted) setReplyTo(msg) }}
-                          style={{ maxWidth:'78%', padding:'9px 13px', borderRadius:16, background: isMine ? 'var(--accent)' : 'var(--surface)', color: isMine ? '#fff' : 'var(--text)', boxShadow: isMine ? '0 2px 12px rgba(255,107,0,0.25)' : '2px 2px 8px var(--neu-dark),-1px -1px 4px var(--neu-light)', borderBottomRightRadius: isMine ? 4 : 16, borderBottomLeftRadius: isMine ? 16 : 4, fontSize:13.5, lineHeight:1.45, fontStyle: msg.deleted ? 'italic' : 'normal', opacity: msg.deleted ? 0.6 : 1, cursor:'context-menu', userSelect:'none' }}>
-                          {msg.deleted ? 'Message deleted' : msg.content}
-                        </div>
 
                         <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:3 }}>
                           <span style={{ fontSize:10, color:'var(--text-muted)' }}>{formatTime(msg.created_at)}</span>
@@ -674,7 +705,8 @@ export default function Chat() {
                             ))}
                           </div>
                         )}
-                      </div>
+                        </div>{/* end inner column */}
+                      </div>{/* end outer row */}
                     )
                   })
                 )}

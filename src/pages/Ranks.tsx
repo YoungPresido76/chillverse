@@ -476,9 +476,10 @@ export default function Ranks() {
       {/* ── LEADERBOARD inner page ──────────────────── */}
       {showLeaderboard && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg, #0e0e12)', overflowY: 'auto', animation: 'feedIn 0.25s ease-out both' }}>
-          <div style={{ maxWidth: 680, margin: '0 auto', padding: '60px 16px 48px' }}>
+          <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 16px 48px' }}>
 
-            <div style={{ marginBottom: 20 }}>
+            {/* Back button — sticky so it never overlaps the banner */}
+            <div style={{ position: 'sticky', top: 0, zIndex: 10, paddingTop: 16, paddingBottom: 12, background: 'var(--bg, #0e0e12)' }}>
               <button
                 onClick={() => setShowLeaderboard(false)}
                 style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--surface)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)', boxShadow: '2px 2px 6px var(--neu-dark),-1px -1px 4px var(--neu-light)' }}
