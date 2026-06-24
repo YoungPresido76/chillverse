@@ -217,11 +217,59 @@ export default function Chat() {
     return () => window.removeEventListener('resize', handler)
   }, [])
 
+  // ── Ensure global chat room exists & user is a member ──────
+  async function ensureGlobalRoom(): Promise<string | null> {
+    if (!myId) return null
+
+    // Find the global room (type = 'global', name = 'Global Chat')
+    const { data: globalRooms } = await supabase
+      .from('chat_rooms')
+      .select('id')
+      .eq('type', 'global')
+      .eq('name', 'Global Chat')
+      .limit(1)
+
+    let globalRoomId: string
+
+    if (!globalRooms || globalRooms.length === 0) {
+      // Create it — first user in wins; duplicates are fine, we'll just use whichever appears
+      const { data: created, error: createErr } = await supabase
+        .from('chat_rooms')
+        .insert({ type: 'global', name: 'Global Chat', created_by: myId })
+        .select('id')
+        .single()
+      if (createErr || !created) return null
+      globalRoomId = created.id
+    } else {
+      globalRoomId = globalRooms[0].id
+    }
+
+    // Make sure this user is a member
+    const { data: existingMembership } = await supabase
+      .from('room_members')
+      .select('user_id')
+      .eq('room_id', globalRoomId)
+      .eq('user_id', myId)
+      .maybeSingle()
+
+    if (!existingMembership) {
+      await supabase
+        .from('room_members')
+        .insert({ room_id: globalRoomId, user_id: myId })
+    }
+
+    return globalRoomId
+  }
+
   // ── Load rooms ──────────────────────────────────────────────
   useEffect(() => { if (myId) loadRooms() }, [myId])
 
   async function loadRooms() {
     setRoomsLoading(true)
+
+    // Ensure user is always in the global room
+    await ensureGlobalRoom()
+
     const { data: memberRows, error: memErr } = await supabase
       .from('room_members').select('room_id').eq('user_id', myId)
 
@@ -254,7 +302,12 @@ export default function Chat() {
       built.push({ id: room.id, type: room.type, name: room.name, members, lastMsg: lastMsg?.content ?? '', lastMsgTime: lastMsg ? formatTime(lastMsg.created_at) : '', unread: 0 })
     }
 
-    setRooms(built)
+    // Pin global chat room first, then DMs sorted by last message time
+    const globalRoom = built.find(r => r.type === 'global')
+    const dmRooms = built.filter(r => r.type !== 'global')
+    const sorted = globalRoom ? [globalRoom, ...dmRooms] : dmRooms
+
+    setRooms(sorted)
     setRoomsLoading(false)
   }
 
@@ -482,6 +535,7 @@ export default function Chat() {
   }
 
   function roomLabel(room: ChatRoom): string {
+    if (room.type === 'global') return 'Global Chat'
     if (room.name) return room.name
     const other = room.members.find(m => m.user_id !== myId)
     if (other) return other.profile.display_name || other.profile.username
@@ -583,24 +637,39 @@ export default function Chat() {
                 <p style={{ fontSize:12, color:'var(--text-muted)', textAlign:'center', lineHeight:1.5 }}>Start a conversation from someone's profile.</p>
               </div>
             ) : (
-              filteredRooms.map(room => (
-                <button key={room.id} type="button" onClick={(e) => { ripple(e); openRoom(room) }} className="ripple-wrap"
-                  style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px', width:'100%', cursor:'pointer', background: activeRoom?.id === room.id && !isMobile ? 'rgba(255,255,255,0.07)' : 'transparent', border:'none', borderBottom:'1px solid rgba(255,255,255,0.04)', textAlign:'left', transition:'background 0.15s' }}
-                  onMouseEnter={e => { if (activeRoom?.id !== room.id) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
-                  onMouseLeave={e => { if (activeRoom?.id !== room.id) e.currentTarget.style.background = 'transparent' }}>
-                  <Avatar name={roomLabel(room)} size={44} />
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:3 }}>
-                      <span style={{ fontSize:14, fontWeight:600, color:'var(--text)' }}>{roomLabel(room)}</span>
-                      <span style={{ fontSize:11, color:'var(--text-muted)', flexShrink:0, marginLeft:8 }}>{room.lastMsgTime}</span>
+              filteredRooms.map(room => {
+                const isGlobal = room.type === 'global'
+                return (
+                  <button key={room.id} type="button" onClick={(e) => { ripple(e); openRoom(room) }} className="ripple-wrap"
+                    style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px', width:'100%', cursor:'pointer', background: activeRoom?.id === room.id && !isMobile ? 'rgba(79,142,247,0.08)' : isGlobal ? 'rgba(79,142,247,0.04)' : 'transparent', border:'none', borderBottom: isGlobal ? '2px solid rgba(79,142,247,0.15)' : '1px solid rgba(255,255,255,0.04)', textAlign:'left', transition:'background 0.15s' }}
+                    onMouseEnter={e => { if (activeRoom?.id !== room.id) e.currentTarget.style.background = isGlobal ? 'rgba(79,142,247,0.10)' : 'rgba(255,255,255,0.03)' }}
+                    onMouseLeave={e => { if (activeRoom?.id !== room.id) e.currentTarget.style.background = isGlobal ? 'rgba(79,142,247,0.04)' : 'transparent' }}>
+                    {/* Globe avatar for global chat, regular avatar for DMs */}
+                    {isGlobal ? (
+                      <div style={{ width:44, height:44, borderRadius:13, flexShrink:0, background:'linear-gradient(135deg,#4f8ef7,#9b6dff)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, boxShadow:'0 0 14px rgba(79,142,247,0.35)' }}>
+                        🌍
+                      </div>
+                    ) : (
+                      <Avatar name={roomLabel(room)} size={44} />
+                    )}
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:3 }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
+                          <span style={{ fontSize:14, fontWeight:700, color: isGlobal ? '#4f8ef7' : 'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{roomLabel(room)}</span>
+                          {isGlobal && (
+                            <span style={{ fontSize:9, fontWeight:800, color:'#fff', background:'linear-gradient(135deg,#4f8ef7,#9b6dff)', borderRadius:5, padding:'1px 6px', flexShrink:0 }}>GLOBAL</span>
+                          )}
+                        </div>
+                        <span style={{ fontSize:11, color:'var(--text-muted)', flexShrink:0, marginLeft:8 }}>{room.lastMsgTime}</span>
+                      </div>
+                      <span style={{ fontSize:12, color:'var(--text-muted)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', display:'block' }}>
+                        {isGlobal && !room.lastMsg ? '👋 Say hello to everyone!' : room.lastMsg || 'No messages yet'}
+                      </span>
                     </div>
-                    <span style={{ fontSize:12, color:'var(--text-muted)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', display:'block' }}>
-                      {room.lastMsg || 'No messages yet'}
-                    </span>
-                  </div>
-                  {room.unread > 0 && <span style={{ fontSize:10, fontWeight:700, color:'#fff', background:'var(--accent)', borderRadius:10, padding:'2px 6px', flexShrink:0 }}>{room.unread}</span>}
-                </button>
-              ))
+                    {room.unread > 0 && <span style={{ fontSize:10, fontWeight:700, color:'#fff', background:'var(--accent)', borderRadius:10, padding:'2px 6px', flexShrink:0 }}>{room.unread}</span>}
+                  </button>
+                )
+              })
             )}
           </div>
         </div>
@@ -617,10 +686,18 @@ export default function Chat() {
                   <ArrowLeft size={15} />
                 </IBtn>
                 <div style={{ display:'flex', alignItems:'center', gap:10, flex:1, minWidth:0 }}>
-                  <Avatar name={roomLabel(activeRoom)} size={34} radius={10} />
+                  {activeRoom.type === 'global' ? (
+                    <div style={{ width:34, height:34, borderRadius:10, flexShrink:0, background:'linear-gradient(135deg,#4f8ef7,#9b6dff)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18 }}>
+                      🌍
+                    </div>
+                  ) : (
+                    <Avatar name={roomLabel(activeRoom)} size={34} radius={10} />
+                  )}
                   <div style={{ minWidth:0 }}>
-                    <div style={{ fontSize:14, fontWeight:700, color:'var(--text)' }}>{roomLabel(activeRoom)}</div>
-                    <div style={{ fontSize:11, color:'var(--text-muted)' }}>{activeRoom.members.length} members</div>
+                    <div style={{ fontSize:14, fontWeight:700, color: activeRoom.type === 'global' ? '#4f8ef7' : 'var(--text)' }}>{roomLabel(activeRoom)}</div>
+                    <div style={{ fontSize:11, color:'var(--text-muted)' }}>
+                      {activeRoom.type === 'global' ? '🌐 Open to all Chillverse players' : `${activeRoom.members.length} members`}
+                    </div>
                   </div>
                 </div>
               </div>

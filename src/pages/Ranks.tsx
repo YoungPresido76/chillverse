@@ -478,8 +478,8 @@ export default function Ranks() {
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg, #0e0e12)', overflowY: 'auto', animation: 'feedIn 0.25s ease-out both' }}>
           <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 16px 48px' }}>
 
-            {/* Back button — sticky so it never overlaps the banner */}
-            <div style={{ position: 'sticky', top: 0, zIndex: 10, paddingTop: 16, paddingBottom: 12, background: 'var(--bg, #0e0e12)' }}>
+            {/* Back button — sticky, always on top with its own background strip */}
+            <div style={{ position: 'sticky', top: 0, zIndex: 20, paddingTop: 16, paddingBottom: 10, background: 'var(--bg, #0e0e12)' }}>
               <button
                 onClick={() => setShowLeaderboard(false)}
                 style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--surface)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)', boxShadow: '2px 2px 6px var(--neu-dark),-1px -1px 4px var(--neu-light)' }}
@@ -488,17 +488,14 @@ export default function Ranks() {
               </button>
             </div>
 
-            <div style={{ position: 'relative', width: '100%', height: 'clamp(160px, 35vw, 220px)', borderRadius: 16, overflow: 'hidden', marginBottom: 32 }}>
+            {/* Banner — sits in normal flow BELOW the sticky back button, never over it */}
+            <div style={{ width: '100%', height: 'clamp(130px, 28vw, 190px)', borderRadius: 16, overflow: 'hidden', marginBottom: 28, flexShrink: 0 }}>
               <img
                 src="https://gnobzfxtxrtcxfhhfjni.supabase.co/storage/v1/object/public/profile-pics/Normal%20tier/Leadboard.png"
                 alt="Leaderboard banner"
                 loading="lazy"
                 style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 30%', display: 'block' }}
               />
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.25) 60%, rgba(0,0,0,0.05) 100%)', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 20px' }}>
-                <div style={{ fontSize: 'clamp(13px, 3.5vw, 17px)', fontWeight: 800, color: '#fff', marginBottom: 4 }}>Leaderboard</div>
-                <div style={{ fontSize: 'clamp(10px, 2.5vw, 13px)', color: 'rgba(255,255,255,0.65)', fontStyle: 'italic' }}>While you rest, others rise.</div>
-              </div>
             </div>
 
             {lbLoading ? (
@@ -509,23 +506,31 @@ export default function Ranks() {
             ) : (
               <>
                 {leaderboard.length >= 3 && (
-                  <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 8, marginBottom: 24, height: 120 }}>
-                    {[leaderboard[1], leaderboard[0], leaderboard[2]].map((entry, i) => {
-                      const heights = [88, 120, 72]
-                      const tier = getUserRankTier(entry.xp)
+                  /* Podium rendered fully after banner — all three medals visible */
+                  <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 8, marginBottom: 28, height: 190 }}>
+                    {/* Layout order: 2nd · 1st · 3rd */}
+                    {([leaderboard[1], leaderboard[0], leaderboard[2]] as LeaderboardEntry[]).map((entry, i) => {
+                      const podiumHeights = [100, 140, 78]
+                      const medals = ['🥈', '🥇', '🥉']
+                      const isFirst = i === 1
+                      const entryTier = getUserRankTier(entry.xp)
                       const name = entry.display_name || entry.username
                       return (
                         <div key={entry.id} style={{ flex: 1, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end' }}>
-                          <div style={{ fontSize: 18, marginBottom: 4 }}>{['🥈','🥇','🥉'][i]}</div>
-                          <div style={{ width: 44, height: 44, borderRadius: 13, marginBottom: 6, background: `linear-gradient(135deg, ${tier.color}50, ${tier.color}20)`, border: `2px solid ${tier.color}70`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 800, color: '#fff', boxShadow: `0 0 16px ${tier.glowColor}` }}>
+                          {/* Medal emoji — always rendered, never hidden */}
+                          <div style={{ fontSize: isFirst ? 22 : 18, marginBottom: 4, lineHeight: 1 }}>{medals[i]}</div>
+                          {/* Avatar */}
+                          <div style={{ width: isFirst ? 52 : 44, height: isFirst ? 52 : 44, borderRadius: 14, marginBottom: 5, background: `linear-gradient(135deg, ${entryTier.color}50, ${entryTier.color}20)`, border: `2px solid ${entryTier.color}70`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isFirst ? 24 : 18, fontWeight: 800, color: '#fff', boxShadow: `0 0 ${isFirst ? 22 : 14}px ${entryTier.glowColor}`, flexShrink: 0 }}>
                             {entry.avatar && entry.avatar.startsWith('http')
                               ? <img src={entry.avatar} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                               : name.charAt(0).toUpperCase()
                             }
                           </div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 2, maxWidth: 70, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
-                          <div style={{ width: '100%', height: heights[i], borderRadius: '10px 10px 0 0', background: `linear-gradient(180deg, ${tier.color}30, ${tier.color}10)`, border: `1px solid ${tier.color}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 2 }}>
-                            <div style={{ fontSize: 13, fontWeight: 800, color: tier.color, fontFamily: 'monospace' }}>{fmtXP(entry.xp)}</div>
+                          {/* Name */}
+                          <div style={{ fontSize: isFirst ? 12 : 10, fontWeight: 700, color: 'var(--text)', marginBottom: 4, maxWidth: 72, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                          {/* Podium block */}
+                          <div style={{ width: '100%', height: podiumHeights[i], borderRadius: '10px 10px 0 0', background: `linear-gradient(180deg, ${entryTier.color}30, ${entryTier.color}10)`, border: `1px solid ${entryTier.color}40`, boxShadow: isFirst ? `0 -4px 18px ${entryTier.glowColor}` : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 2 }}>
+                            <div style={{ fontSize: isFirst ? 14 : 12, fontWeight: 800, color: entryTier.color, fontFamily: 'monospace' }}>{fmtXP(entry.xp)}</div>
                             <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>XP</div>
                           </div>
                         </div>
