@@ -40,7 +40,6 @@ export default function PatternMemory({ rank: initialRank, onEnd, onBack }: Prop
   const [score, setScore] = useState(0)
   const [countdown, setCountdown] = useState(3)
   const [sequence, setSequence] = useState<number[]>([])    // flash order (with repeats)
-  const [pattern, setPattern] = useState<number[]>([])       // unique cells to recall
   const [playerSeq, setPlayerSeq] = useState<number[]>([])   // player taps so far
   const [cellState, setCellState] = useState<Record<number, 'flash' | 'correct' | 'wrong' | 'dimmed'>>({})
   const [roundMsg, setRoundMsg] = useState('')
@@ -94,9 +93,8 @@ export default function PatternMemory({ rank: initialRank, onEnd, onBack }: Prop
 
   function startRound(lvl: number, rnd: number) {
     clearFlashTimer()
-    const { seq, unique } = buildSequence(lvl)
+    const { seq } = buildSequence(lvl)
     setSequence(seq)
-    setPattern(unique)
     setPlayerSeq([])
     setCellState({})
     setLevel(lvl); setRound(rnd)

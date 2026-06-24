@@ -40,7 +40,6 @@ export default function TwoTruthsOneFalse({ rank: initialRank, onEnd, onBack }: 
   const [timeLeft, setTimeLeft] = useState(15)
   const [selected, setSelected] = useState<number | null>(null)
   const [revealed, setRevealed] = useState(false)
-  const [correct, setCorrect] = useState(0)
   const [promoted, setPromoted] = useState<GameRank | null>(null)
   const [result, setResult] = useState<GameEndPayload | null>(null)
 
@@ -100,7 +99,7 @@ export default function TwoTruthsOneFalse({ rank: initialRank, onEnd, onBack }: 
     if (idx === q.falseIdx) {
       const pts = 50 + Math.floor((timeLeft / getRankCfg().perRoundSec) * 20)
       scoreRef.current += pts; correctRef.current += 1
-      setScore(scoreRef.current); setCorrect(correctRef.current)
+      setScore(scoreRef.current)
       const { promoted: promo } = onCorrect(getRankConfig(rankState.rank).streakRequired)
       if (promo) setPromoted(promo)
     } else {
@@ -140,7 +139,7 @@ export default function TwoTruthsOneFalse({ rank: initialRank, onEnd, onBack }: 
         : TWO_TRUTHS_DATA
     const shuffled = [...pool].sort(() => Math.random() - 0.5).slice(0, cfg.rounds)
     setQuestions(shuffled)
-    setQIdx(0); setScore(0); setCorrect(0); setSelected(null); setRevealed(false)
+    setQIdx(0); setScore(0); setSelected(null); setRevealed(false)
     setPromoted(null); setResult(null)
     qIdxRef.current = 0; scoreRef.current = 0; correctRef.current = 0
     startRef.current = Date.now()
@@ -234,6 +233,10 @@ export default function TwoTruthsOneFalse({ rank: initialRank, onEnd, onBack }: 
             if (isFalse) {
               bg = 'rgba(255,79,79,0.12)'; border = 'rgba(255,79,79,0.55)'
               icon = <X size={18} style={{ color: 'var(--red)', flexShrink: 0 }} />
+            } else if (isSelected) {
+              // Player picked this true statement by mistake
+              bg = 'rgba(255,79,79,0.08)'; border = 'rgba(255,79,79,0.35)'
+              icon = <Check size={18} style={{ color: 'var(--green)', flexShrink: 0 }} />
             } else {
               bg = 'rgba(62,207,142,0.10)'; border = 'rgba(62,207,142,0.4)'
               icon = <Check size={18} style={{ color: 'var(--green)', flexShrink: 0 }} />

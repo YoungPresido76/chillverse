@@ -64,8 +64,6 @@ export default function SpeedMath({ rank: initialRank, onEnd, onBack }: Props) {
   const [score, setScore] = useState(0)
   const [timeLeft, setTimeLeft] = useState(30)
   const [selected, setSelected] = useState<number | null>(null)
-  const [correct, setCorrect] = useState(0)
-  const [total, setTotal] = useState(0)
   const [promoted, setPromoted] = useState<GameRank | null>(null)
   const [result, setResult] = useState<GameEndPayload | null>(null)
 
@@ -113,7 +111,7 @@ export default function SpeedMath({ rank: initialRank, onEnd, onBack }: Props) {
   function start() {
     const cfg = getRankCfg()
     scoreRef.current = 0; correctRef.current = 0; totalRef.current = 0
-    setScore(0); setCorrect(0); setTotal(0); setPromoted(null); setResult(null)
+    setScore(0); setPromoted(null); setResult(null)
     setTimeLeft(cfg.timeSec)
     startRef.current = Date.now()
     nextQuestion()
@@ -126,10 +124,10 @@ export default function SpeedMath({ rank: initialRank, onEnd, onBack }: Props) {
   function pick(idx: number) {
     if (selected !== null || !question) return
     setSelected(idx)
-    totalRef.current += 1; setTotal(totalRef.current)
+    totalRef.current += 1
     if (idx === question.correctIdx) {
       scoreRef.current += 10; correctRef.current += 1
-      setScore(scoreRef.current); setCorrect(correctRef.current)
+      setScore(scoreRef.current)
       const { promoted: promo } = onCorrect(getRankConfig(rankState.rank).streakRequired)
       if (promo) setPromoted(promo)
     } else {

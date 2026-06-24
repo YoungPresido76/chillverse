@@ -39,7 +39,6 @@ export default function RapidSort({ rank: initialRank, onEnd, onBack }: Props) {
   const [timeLeft, setTimeLeft] = useState(30)
   const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null)
   const [correct, setCorrect] = useState(0)
-  const [wrong, setWrong] = useState(0)
   const [swapped, setSwapped] = useState(false)
   const [promoted, setPromoted] = useState<GameRank | null>(null)
   const [result, setResult] = useState<GameEndPayload | null>(null)
@@ -73,7 +72,7 @@ export default function RapidSort({ rank: initialRank, onEnd, onBack }: Props) {
 
   function start() {
     scoreRef.current = 0; correctRef.current = 0; wrongRef.current = 0
-    setScore(0); setCorrect(0); setWrong(0); setPromoted(null); setResult(null)
+    setScore(0); setCorrect(0); setPromoted(null); setResult(null)
     setRoundIdx(0); setItemIdx(0)
     setSwapped(Math.random() < 0.5)
     startRef.current = Date.now()
@@ -113,7 +112,7 @@ export default function RapidSort({ rank: initialRank, onEnd, onBack }: Props) {
       const { promoted: promo } = onCorrect(getRankConfig(rankState.rank).streakRequired)
       if (promo) setPromoted(promo)
     } else {
-      wrongRef.current += 1; setWrong(wrongRef.current)
+      wrongRef.current += 1
       onWrong()
     }
     setTimeout(() => {
