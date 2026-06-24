@@ -706,7 +706,7 @@ export default function Chat() {
                           </div>
                         )}
                         </div>{/* end inner column */}
-                      </div>{/* end outer row */}
+                      </div>
                     )
                   })
                 )}
