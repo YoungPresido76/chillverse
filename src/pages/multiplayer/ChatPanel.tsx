@@ -1,6 +1,6 @@
 // src/pages/multiplayer/ChatPanel.tsx
 import { useState, useRef, useEffect } from 'react'
-import { Send, MessageCircle, X, ChevronDown } from 'lucide-react'
+import { Send, MessageCircle, ChevronDown } from 'lucide-react'
 import type { RoomMessageEnriched } from './multiplayerTypes'
 
 const AVATAR_COLORS = [
@@ -233,4 +233,5 @@ export default function ChatPanel({ messages, myId, onSend }: ChatPanelProps) {
       </div>
     </>
   )
-}
+      }
+  
