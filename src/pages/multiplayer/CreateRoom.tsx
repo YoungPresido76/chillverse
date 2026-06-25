@@ -5,24 +5,13 @@ import { Lock, Eye, EyeOff, ChevronLeft, Check } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useProfile } from '../../hooks/useProfile'
+import { hashPassword } from '../../lib/crypto'
 import {
   MULTIPLAYER_GAMES,
   MULTIPLAYER_GAME_MAP,
   playerCountLabel,
   type MultiplayerGameId,
 } from './multiplayerGameData'
-
-// bcryptjs — lightweight, no native deps, works in Vite
-// Install: npm i bcryptjs @types/bcryptjs
-// If not installed yet, we hash via a simple SHA-256 shim fallback
-async function hashPassword(plain: string): Promise<string> {
-  // Use SubtleCrypto (browser native, no deps needed)
-  const enc = new TextEncoder()
-  const buf = await crypto.subtle.digest('SHA-256', enc.encode(plain))
-  return Array.from(new Uint8Array(buf))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('')
-}
 
 export default function CreateRoom() {
   const navigate = useNavigate()
@@ -36,13 +25,11 @@ export default function CreateRoom() {
     preselectedId ?? null
   )
   const [roomName, setRoomName] = useState('')
-  const [isPrivate, setIsPrivate] = useState(false)
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Auto-populate room name when profile loads
   useEffect(() => {
     if (profile && !roomName) {
       const name = profile.display_name || profile.username || 'Player'
@@ -60,13 +47,15 @@ export default function CreateRoom() {
 
     try {
       const finalName = roomName.trim() || `${profile?.display_name ?? 'Player'}'s Room`
+      const hasPassword = password.trim().length > 0
+      const isPrivate = hasPassword
       let passwordHash: string | null = null
 
-      if (isPrivate && password.trim()) {
+      if (hasPassword) {
         passwordHash = await hashPassword(password.trim())
       }
 
-      // Insert room
+      // Insert room with current_player_count: 0 — trigger handles the count
       const { data: room, error: roomErr } = await supabase
         .from('game_rooms')
         .insert({
@@ -78,14 +67,14 @@ export default function CreateRoom() {
           status: 'waiting',
           max_player_count: selectedGame.maxPlayers,
           min_player_count: selectedGame.minPlayers,
-          current_player_count: 1,
+          current_player_count: 0,
         })
         .select('id')
         .single()
 
       if (roomErr || !room) throw new Error(roomErr?.message ?? 'Failed to create room')
 
-      // Insert creator as host player
+      // Insert creator as host — trigger increments current_player_count to 1
       const { error: playerErr } = await supabase.from('room_players').insert({
         room_id: room.id,
         player_id: session.user.id,
@@ -170,7 +159,6 @@ export default function CreateRoom() {
           })}
         </div>
 
-        {/* Team mode note for 2v2-capable games */}
         {selectedGame?.teamCapability === 'optional-2v2' && (
           <p
             className="text-xs rounded-xl px-3 py-2"
@@ -203,69 +191,53 @@ export default function CreateRoom() {
         />
       </section>
 
-      {/* ── Step 3: Privacy ── */}
-      <section className="space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-          Privacy
+      {/* ── Step 3: Password (optional — makes room private) ── */}
+      <section className="space-y-2">
+        <label className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+          Set a password <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(makes room private)</span>
+        </label>
+        <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+          Leave blank to make the room public.
         </p>
-        <div className="grid grid-cols-2 gap-3">
-          {[
-            { value: false, label: 'Public', sub: 'Anyone can find & join', emoji: '🌐' },
-            { value: true,  label: 'Private', sub: 'Join via code only', emoji: '🔒' },
-          ].map(opt => (
-            <button
-              key={String(opt.value)}
-              type="button"
-              onClick={() => setIsPrivate(opt.value)}
-              className="rounded-2xl p-4 text-left transition-all duration-150"
-              style={{
-                background: isPrivate === opt.value
-                  ? 'linear-gradient(135deg, rgba(108,80,255,0.2), rgba(108,80,255,0.08))'
-                  : 'var(--surface)',
-                border: isPrivate === opt.value
-                  ? '1.5px solid rgba(108,80,255,0.55)'
-                  : '1.5px solid rgba(255,255,255,0.06)',
-                cursor: 'pointer',
-              }}
-            >
-              <div className="text-xl mb-1">{opt.emoji}</div>
-              <p className="font-bold text-sm" style={{ color: 'var(--text)' }}>{opt.label}</p>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{opt.sub}</p>
-            </button>
-          ))}
+        <div className="relative">
+          <Lock
+            size={14}
+            className="absolute left-3 top-1/2 -translate-y-1/2"
+            style={{ color: 'var(--text-muted)' }}
+          />
+          <input
+            type={showPw ? 'text' : 'password'}
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            placeholder="Optional room password"
+            className="w-full rounded-xl pl-9 pr-10 py-3 text-sm outline-none"
+            style={{
+              background: 'var(--surface)',
+              border: password.trim()
+                ? '1px solid rgba(108,80,255,0.45)'
+                : '1px solid rgba(108,80,255,0.2)',
+              color: 'var(--text)',
+            }}
+            onFocus={e => { e.target.style.borderColor = 'rgba(108,80,255,0.55)' }}
+            onBlur={e => {
+              e.target.style.borderColor = password.trim()
+                ? 'rgba(108,80,255,0.45)'
+                : 'rgba(108,80,255,0.2)'
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPw(v => !v)}
+            className="absolute right-3 top-1/2 -translate-y-1/2"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+          >
+            {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+          </button>
         </div>
-
-        {/* Password input — shown when private */}
-        {isPrivate && (
-          <div className="relative">
-            <Lock
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2"
-              style={{ color: 'var(--text-muted)' }}
-            />
-            <input
-              type={showPw ? 'text' : 'password'}
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="Set a room password"
-              className="w-full rounded-xl pl-9 pr-10 py-3 text-sm outline-none"
-              style={{
-                background: 'var(--surface)',
-                border: '1px solid rgba(108,80,255,0.2)',
-                color: 'var(--text)',
-              }}
-              onFocus={e => { e.target.style.borderColor = 'rgba(108,80,255,0.55)' }}
-              onBlur={e => { e.target.style.borderColor = 'rgba(108,80,255,0.2)' }}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPw(v => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
-            >
-              {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
-            </button>
-          </div>
+        {password.trim().length > 0 && (
+          <p className="text-[11px]" style={{ color: '#a78bfa' }}>
+            🔒 This room will be private — players need the password to join.
+          </p>
         )}
       </section>
 
