@@ -12,6 +12,7 @@ export type GameKey =
   | 'two_truths'
   | 'speed_math'
   | 'liars_grid'
+  | 'hangman'
 
 export interface SessionInput {
   game: GameKey
