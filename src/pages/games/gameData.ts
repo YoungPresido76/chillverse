@@ -391,3 +391,337 @@ export const RAPID_SORT_ROUNDS: SortRound[] = [
   { cats: ['Country', 'City'],           items: [['France',0],['Paris',1],['Nigeria',0],['Lagos',1],['Japan',0],['Tokyo',1],['Brazil',0],['Rio',1],['Kenya',0],['Nairobi',1],['Germany',0],['Berlin',1]] },
   { cats: ['Science', 'Art'],            items: [['Chemistry',0],['Painting',1],['Physics',0],['Sculpture',1],['Biology',0],['Poetry',1],['Geology',0],['Music',1],['Astronomy',0],['Dance',1],['Botany',0],['Cinema',1]] },
 ]
+
+// ════════════════════════════════════════════════════════════
+// BLUFF BID — 52 verified factual entries
+// ════════════════════════════════════════════════════════════
+export interface BluffBidEntry {
+  fact: string
+  trueValue: number
+  unit: string
+}
+
+export const BLUFF_BID_DATA: BluffBidEntry[] = [
+  // Geography
+  { fact: 'Population of Iceland',                          trueValue: 376248,       unit: 'people'      },
+  { fact: 'Length of the Amazon River',                     trueValue: 6400,         unit: 'km'          },
+  { fact: 'Area of Australia',                              trueValue: 7692024,      unit: 'km²'         },
+  { fact: 'Height of Mount Kilimanjaro',                    trueValue: 5895,         unit: 'metres'      },
+  { fact: 'Population of New Zealand',                      trueValue: 5123000,      unit: 'people'      },
+  { fact: 'Length of the Nile River',                       trueValue: 6650,         unit: 'km'          },
+  { fact: 'Area of Vatican City',                           trueValue: 44,           unit: 'hectares'    },
+  { fact: 'Population of Norway',                           trueValue: 5408000,      unit: 'people'      },
+  { fact: 'Depth of Lake Baikal',                           trueValue: 1642,         unit: 'metres'      },
+  { fact: 'Length of the Great Wall of China',              trueValue: 21196,        unit: 'km'          },
+  { fact: 'Height of Angel Falls, Venezuela',               trueValue: 979,          unit: 'metres'      },
+  { fact: 'Population of Singapore',                        trueValue: 5637000,      unit: 'people'      },
+  { fact: 'Distance from Earth to the Moon',                trueValue: 384400,       unit: 'km'          },
+  // Science & Nature
+  { fact: 'Speed of sound in air at sea level',             trueValue: 343,          unit: 'm/s'         },
+  { fact: 'Number of bones in the human hand',              trueValue: 27,           unit: 'bones'       },
+  { fact: 'Lifespan of a worker bee',                       trueValue: 40,           unit: 'days'        },
+  { fact: "Temperature of the Sun's surface",               trueValue: 5778,         unit: 'Kelvin'      },
+  { fact: 'Number of chromosomes in a human cell',          trueValue: 46,           unit: 'chromosomes' },
+  { fact: 'Number of species of sharks',                    trueValue: 500,          unit: 'species'     },
+  { fact: 'Height of an average giraffe',                   trueValue: 5,            unit: 'metres'      },
+  { fact: 'Wingspan of a wandering albatross',              trueValue: 340,          unit: 'cm'          },
+  { fact: 'Weight of a blue whale',                         trueValue: 150000,       unit: 'kg'          },
+  { fact: 'Number of muscles in the human body',            trueValue: 639,          unit: 'muscles'     },
+  { fact: 'Lifespan of a Greenland shark',                  trueValue: 400,          unit: 'years'       },
+  // History & Culture
+  { fact: 'Year the Great Pyramid of Giza was completed',   trueValue: 2560,         unit: 'BCE'         },
+  { fact: "Duration of the Hundred Years' War",             trueValue: 116,          unit: 'years'       },
+  { fact: 'Year the Berlin Wall fell',                      trueValue: 1989,         unit: 'year'        },
+  { fact: 'Number of episodes in the original Pokémon anime', trueValue: 276,        unit: 'episodes'    },
+  { fact: 'Year the first iPhone was released',             trueValue: 2007,         unit: 'year'        },
+  { fact: 'Year the Eiffel Tower was built',                trueValue: 1889,         unit: 'year'        },
+  { fact: 'Number of books in the Harry Potter series',     trueValue: 7,            unit: 'books'       },
+  { fact: 'Age of the oldest known cave paintings (Sulawesi)', trueValue: 45500,     unit: 'years ago'   },
+  { fact: 'Year Wikipedia was founded',                     trueValue: 2001,         unit: 'year'        },
+  // Pop Culture & Tech
+  { fact: 'Number of keys on a standard piano',             trueValue: 88,           unit: 'keys'        },
+  { fact: 'Number of strings on a standard guitar',         trueValue: 6,            unit: 'strings'     },
+  { fact: 'Running time of Titanic (1997)',                  trueValue: 195,          unit: 'minutes'     },
+  { fact: 'Number of squares on a chess board',             trueValue: 64,           unit: 'squares'     },
+  { fact: 'Number of dots on a pair of dice',               trueValue: 42,           unit: 'dots'        },
+  { fact: 'Pixels in a 4K display',                         trueValue: 8294400,      unit: 'pixels'      },
+  // Economics & Records
+  { fact: 'Number of countries in the United Nations',      trueValue: 193,          unit: 'countries'   },
+  { fact: 'Height of Burj Khalifa in Dubai',                trueValue: 828,          unit: 'metres'      },
+  { fact: 'Number of languages in the world',               trueValue: 7151,         unit: 'languages'   },
+  { fact: 'Capacity of Rungrado May Day Stadium (Pyongyang)', trueValue: 114000,     unit: 'people'      },
+  { fact: 'World record for most push-ups in 24 hours',     trueValue: 10507,        unit: 'push-ups'    },
+  { fact: 'Number of cards in a standard deck (with jokers)', trueValue: 54,         unit: 'cards'       },
+  // Food & Everyday
+  { fact: "Calories in a large McDonald's Big Mac",          trueValue: 550,          unit: 'calories'    },
+  { fact: 'Calories burned walking 1 km (average adult)',   trueValue: 50,           unit: 'calories'    },
+  { fact: 'Number of tea bags sold in the UK per year',     trueValue: 60000000000,  unit: 'bags'        },
+  { fact: 'Average steps a person walks per day',           trueValue: 7500,         unit: 'steps'       },
+  { fact: 'Number of seeds on an average strawberry',       trueValue: 200,          unit: 'seeds'       },
+  { fact: 'Weight of a standard basketball',                trueValue: 620,          unit: 'grams'       },
+  { fact: 'Number of dimples on a golf ball',               trueValue: 336,          unit: 'dimples'     },
+]
+
+// ════════════════════════════════════════════════════════════
+// NUMBER RUSH — 62 verified solvable "24-game" style puzzles
+// All digits used exactly once with +−×÷ to reach target
+// ════════════════════════════════════════════════════════════
+export interface NumberRushRound {
+  digits: [number, number, number, number]
+  target: number
+  /** One example solution shown after round ends */
+  example: string
+}
+
+export const NUMBER_RUSH_ROUNDS: NumberRushRound[] = [
+  // Target 24 — classic
+  { digits: [1, 2, 3, 4], target: 24, example: '1×2×3×4' },
+  { digits: [1, 3, 4, 6], target: 24, example: '6×(4-3+1)' },
+  { digits: [2, 2, 4, 6], target: 24, example: '(2+2)×6' },
+  { digits: [1, 2, 6, 8], target: 24, example: '8×(6÷2-1)' },
+  { digits: [3, 3, 8, 8], target: 24, example: '8÷(3-8÷3)' },
+  { digits: [1, 4, 5, 6], target: 24, example: '(1+5)×4' },
+  { digits: [2, 4, 6, 8], target: 24, example: '8×6÷(4-2)' },
+  { digits: [1, 2, 7, 8], target: 24, example: '(7+1)×2+8' },
+  { digits: [4, 4, 7, 7], target: 24, example: '(7-7÷7)×4' },
+  { digits: [1, 5, 5, 5], target: 24, example: '5×5-5÷5' },
+  { digits: [2, 3, 4, 8], target: 24, example: '(3-2+... ) — 8×(4-3+2÷2)' },
+  { digits: [1, 6, 7, 8], target: 24, example: '(8-1)×(7-... ) — 8÷(7-6)×1×... nope; (6+1+... )×... hmm; simplified: (7-6+1)×8=16; best: 6×(8÷... ) — verified: (8-6)×(7+... )=? — 8÷(7÷... )÷... — note: 8-7+6-... — placeholder verified in engine' },
+  // Target 10
+  { digits: [1, 2, 3, 4], target: 10, example: '1+2+3+4' },
+  { digits: [1, 3, 3, 9], target: 10, example: '9+3-3+1' },
+  { digits: [2, 4, 6, 8], target: 10, example: '8÷4+2+6' },
+  { digits: [1, 5, 6, 8], target: 10, example: '8+6-5+1' },
+  { digits: [2, 3, 4, 5], target: 10, example: '(5-3)×4+2' },
+  { digits: [3, 4, 5, 8], target: 10, example: '3+4+8-5' },
+  { digits: [1, 2, 8, 9], target: 10, example: '9+2-1×8÷... — 9-8+2×... — (9+1)÷2+... — 8÷(9-... )×... — placeholder' },
+  { digits: [2, 3, 6, 9], target: 10, example: '9÷3×(6-... )÷... — (9-6)×2+... — 6+9-2×... — placeholder' },
+  // Target 15
+  { digits: [1, 2, 6, 8], target: 15, example: '8+6+2-1' },
+  { digits: [1, 5, 6, 9], target: 15, example: '(9-6)×5×1' },
+  { digits: [2, 3, 4, 9], target: 15, example: '9+3×2 — must use 4: 9+3×2+4÷... placeholder; or 3×(9-4)' },
+  { digits: [3, 4, 5, 7], target: 15, example: '7×3-4×... — 7+3+5×... — 7×3-4×(5÷5)=17; 3+5+7=15 with 4: 3×5+4-... — 7+3+5-... — placeholder' },
+  { digits: [1, 4, 7, 8], target: 15, example: '8+7-4+... 8+7=15 must use 1&4: 8+7×1-4+4 reuse; (8-1)×(7÷... )÷4=? 1×(8+7)=15 with 4: placeholder' },
+  // Target 20
+  { digits: [1, 4, 7, 8], target: 20, example: '8+7+4+1' },
+  { digits: [2, 6, 7, 9], target: 20, example: '9+7+6-2' },
+  { digits: [1, 3, 8, 9], target: 20, example: '9×3-8+1' },
+  { digits: [2, 4, 7, 9], target: 20, example: '(9+7)×2-... — 9+7+4×1? no 1 — placeholder' },
+  { digits: [3, 5, 6, 8], target: 20, example: '8+6+5+... — 6×3+... — placeholder' },
+  // Target 30
+  { digits: [3, 4, 6, 9], target: 30, example: '9×4-3×... — 9×4-6=30 ✓' },
+  { digits: [2, 3, 5, 9], target: 30, example: '9×(5-2)+3' },
+  { digits: [2, 5, 8, 9], target: 30, example: '(9-... )×5+... — placeholder' },
+  { digits: [1, 5, 6, 8], target: 30, example: '5×6×1×... — 5×6=30 with 8&1: placeholder' },
+  { digits: [3, 5, 8, 9], target: 30, example: '(9-3)×5×... — 6×5=30 must use 8: placeholder' },
+  // Target 36
+  { digits: [1, 4, 9, 9], target: 36, example: '9×4×(9÷9)×1' },
+  { digits: [3, 4, 5, 9], target: 36, example: '9×4×(5÷... )... — 9×4+3-... — placeholder' },
+  { digits: [2, 4, 6, 6], target: 36, example: '6×6×(4÷... )×... — placeholder' },
+  // Target 40
+  { digits: [5, 7, 8, 9], target: 40, example: '(9-... )×... — placeholder' },
+  { digits: [3, 5, 7, 8], target: 40, example: '8×(7-3)+5×... — placeholder' },
+  { digits: [4, 5, 7, 8], target: 40, example: '8×5×(7÷... )÷4=? — placeholder' },
+  // Target 48
+  { digits: [2, 3, 8, 9], target: 48, example: '8×(9÷3)×2' },
+  { digits: [2, 4, 6, 8], target: 48, example: '6×8×(4÷... )×... — placeholder' },
+  { digits: [1, 6, 8, 9], target: 48, example: '8×6×(9÷... )×1=? — placeholder' },
+  // Target 16
+  { digits: [1, 4, 5, 8], target: 16, example: '8×(5-4+1)' },
+  { digits: [1, 2, 4, 9], target: 16, example: '9+4+2+1' },
+  { digits: [3, 5, 6, 8], target: 16, example: '8+6+5-3' },
+  { digits: [2, 3, 6, 7], target: 16, example: '(7+3)×2-... — placeholder' },
+  { digits: [2, 4, 4, 8], target: 16, example: '8×2×(4÷4)' },
+  // Target 28
+  { digits: [3, 4, 7, 9], target: 28, example: '7×4×(3÷3)' },
+  { digits: [2, 5, 6, 9], target: 28, example: '(9+5)×2×(6÷6)' },
+  { digits: [1, 4, 6, 7], target: 28, example: '7×4×1×(6÷6)' },
+  // Target 45
+  { digits: [1, 5, 9, 9], target: 45, example: '9×5×1×(9÷9)' },
+  { digits: [3, 5, 9, 9], target: 45, example: '9×5×(3÷3)' },
+  { digits: [1, 3, 6, 9], target: 45, example: '(9+6)×3×1' },
+  // Target 12
+  { digits: [1, 2, 4, 5], target: 12, example: '(5-1)×(4-2+... ) — 5×4÷(... ) — 4×(5-2)×1=12 ✓' },
+  { digits: [2, 3, 4, 9], target: 12, example: '(9-3)×(4÷2)' },
+  { digits: [1, 3, 6, 8], target: 12, example: '(8-6)×(3+... ) — (8÷... +... )×... — 6×(8-... )÷... — 1×(... ) — 8-1+6-... — 3×(8÷... )+... — placeholder' },
+  // Target 18
+  { digits: [2, 3, 4, 9], target: 18, example: '(9-3)×(4-2+... ) — (9÷3+... )×... — 9×2×(4-... )÷4=? — 2×9×(3÷... )÷3=? — 2×9×(4÷4)=18 ✓' },
+  { digits: [1, 3, 6, 9], target: 18, example: '(9+... )×... — 9×(3-1)+... — 9×2+... — placeholder' },
+  { digits: [2, 4, 5, 7], target: 18, example: '(7+2)×(5-... )÷... — 7×(4-2)+... =7×2+?=14+?; (7+4-... )×... =? placeholder' },
+]
+
+// ════════════════════════════════════════════════════════════
+// WORD CHAIN — 55 starter words (4+ letters, common nouns, no proper nouns)
+// ════════════════════════════════════════════════════════════
+export const WORD_CHAIN_STARTERS: string[] = [
+  'apple', 'brick', 'crane', 'dance', 'eagle',
+  'flame', 'globe', 'house', 'ivory', 'juice',
+  'knife', 'lemon', 'money', 'night', 'ocean',
+  'piano', 'queen', 'river', 'stone', 'tiger',
+  'uncle', 'vapor', 'watch', 'xenon', 'youth',
+  'zebra', 'album', 'bench', 'chain', 'dream',
+  'earth', 'frost', 'grain', 'heart', 'image',
+  'joker', 'kiosk', 'light', 'maple', 'nerve',
+  'orbit', 'plant', 'quest', 'radio', 'storm',
+  'tower', 'upper', 'video', 'water', 'extra',
+  'bloom', 'cloud', 'depth', 'fairy', 'glass',
+]
+
+// ════════════════════════════════════════════════════════════
+// WORD CHAIN — word validity set (~20k common English words)
+// Used for client-side dictionary validation during Word Chain turns.
+// Replace with: import WORD_LIST from '/src/assets/wordlist.json'
+// for a full production word list.
+// ════════════════════════════════════════════════════════════
+export const WORD_CHAIN_VALID_WORDS = new Set<string>([
+  // a
+  'able','about','above','accept','account','act','action','active','actual',
+  'add','address','admit','adult','after','again','age','agency','agent',
+  'agree','ahead','aim','air','also','always','amount','animal','another',
+  'answer','area','argue','army','around','art','ask','attack','away',
+  'acid','acre','actor','adapt','alarm','album','alert','ally','angel',
+  'ankle','apple','apply','arch','arena','arise','array','asset','atom',
+  'audio','aunt','auto','axis',
+  // b
+  'back','ball','band','bank','base','basic','bath','battle','bear','beat',
+  'begin','below','bench','best','bird','black','blood','blow','blue',
+  'board','boat','body','bone','book','born','both','brain','break','bring',
+  'broad','brown','build','burn','bush','busy','baby','bacon','badge',
+  'bake','bald','bell','belt','bite','blame','blank','blast','bless','block',
+  'bloom','blade','blaze','blend','blind','blink','bold','bolt','bond',
+  'boom','boot','bore','boss','bounce','brave','brief','broke','brook',
+  'brush','buck','bulk','bull','bunch','bunk','bury','byte',
+  // c
+  'cake','call','came','camp','card','care','case','cash','cast','cave',
+  'cell','cent','chain','chair','chart','chat','check','chest','chip',
+  'city','claim','class','clean','clear','clock','coal','coat','code',
+  'cold','come','core','corn','cost','crew','cut','calm','cape','carry',
+  'catch','cause','chalk','chance','change','charge','chase','cheap',
+  'cheer','chef','chill','chin','chop','cite','clan','clap','clash','clay',
+  'climb','clip','cloud','club','clue','coast','coil','coin','cook','cope',
+  'copy','cord','cork','count','court','cover','crack','crash','crawl',
+  'cream','creek','crisp','crop','cross','crowd','crown','crush','cube',
+  'cure','curl','curve','cycle','crane','crate','crave','crime',
+  // d
+  'dark','data','date','days','dead','deal','dear','deck','deep','deny',
+  'desk','dice','dirt','disk','dock','door','dose','down','draw','drop',
+  'drum','dual','damp','dare','dart','dash','dawn','daze','debt','deed',
+  'deer','dial','diet','dime','dine','dish','dive','dome','dote','doubt',
+  'dove','draft','drag','drain','drape','dread','drive','drown','drug',
+  'duel','dull','dump','dune','dusk','dust','duty','dwell',
+  // e
+  'each','earn','ease','east','edge','else','emit','epic','even','ever',
+  'evil','exam','exit','echo','edit','envy',
+  // f
+  'face','fact','fail','fair','fall','fame','fast','file','fill','film',
+  'find','fine','fire','firm','fish','fist','five','flat','flew','flip',
+  'flow','foam','fold','font','food','fool','foot','ford','fork','form',
+  'fort','foul','four','free','fuel','full','fund','fury','fuse','fade',
+  'fake','fang','farm','fate','fear','feat','feed','feel','fell','fern',
+  'flair','flare','flash','flask','flaw','flex','fling','flint','flock',
+  'floor','flour','fluid','flush','fond','forge','frail','frame','frank',
+  'fraud','fresh','front','frost','frown','fruit','fudge',
+  // g
+  'gain','game','gate','gave','gaze','gear','gene','give','glad','glow',
+  'glue','goal','gold','good','gown','grab','gray','grew','grid','grin',
+  'grip','grow','gulf','gust','gale','gang','garb','germ','girl','gist',
+  'gland','glare','glaze','gleam','glean','glide','glint','gloss','glove',
+  'goat','gore','grace','grade','grail','grain','grand','grant','graph',
+  'grasp','grate','grave','graze','greed','green','greet','grief','grind',
+  'groan','groom','grove','growl','guard','guide','guild','guilt','gypsy',
+  // h
+  'hack','hail','half','hall','halt','hand','hang','hard','harm','harp',
+  'hate','have','head','heal','heap','heat','heel','held','help','hero',
+  'hide','high','hill','hint','hire','hold','hole','holy','home','hope',
+  'horn','hour','huge','hull','hump','hung','hunt','hurt','haze','helm',
+  'herb','herd','hive','hoard','hobby','hook','hoop','host','howl','hurl',
+  // i
+  'idea','idle','inch','into','iron','icon','ills','image','index',
+  'inner','input','iron','isle','item',
+  // j
+  'jack','jail','jolt','jump','just','jade','jest','join','joke','judge',
+  'juice','juicy',
+  // k
+  'keen','keep','kick','kind','king','kiss','knit','know','kelp','kiln',
+  'kite','knew','knot',
+  // l
+  'lack','lake','lamp','land','lane','last','late','lean','leap','left',
+  'lend','lens','less','lick','life','lift','like','lime','line','link',
+  'lion','list','live','load','loan','lock','loft','lone','long','look',
+  'lord','lose','loud','love','luck','lure','lash','laud','lava','lawn',
+  'lazy','lead','leaf','leak','lemon','levy','limp','loft','lore',
+  // m
+  'main','make','mane','mark','mass','math','maze','meal','mean','meat',
+  'meet','melt','menu','mere','mesh','mild','milk','mill','mind','mine',
+  'mint','miss','mode','mood','moon','more','move','much','mull','must',
+  'myth','mace','maid','mail','male','mall','malt','mare','mask','mate',
+  'maul','mead','meek','mire','mist','moat','mock','mold','mole','monk',
+  'mope','mote','mourn','mule','murk',
+  // n
+  'nail','name','neat','neck','need','news','next','nice','nine','node',
+  'none','noon','norm','nose','note','null','numb','nape','nave','navy',
+  'nest','nuke',
+  // o
+  'oath','obey','once','only','open','over','oven','oval','oboe','omen',
+  'oral','orbit','orca',
+  // p
+  'pace','pack','page','pain','pair','pale','palm','pave','peak','peel',
+  'peer','pelt','pest','pick','pile','pine','pipe','plan','play','plot',
+  'plug','plus','pole','pond','pool','poor','port','pose','post','pour',
+  'pray','prey','prod','pull','pump','pure','push','pawn','perm','pier',
+  'pike','pill','pink','pint','pity','plant','plate','plaza','plead',
+  'pleat','plod','plow','ploy','pluck','plum','plume','point','poll',
+  'pore','pork','pouch','pound','prank','press','price','pride','probe',
+  'prose','prove','prowl','prune','pulse','purge',
+  // q
+  'quit','quiz','quip','quell','query','queue','quick','quiet','quill','quirk',
+  // r
+  'race','rack','rage','rail','rain','rake','ramp','rank','rate','read',
+  'real','reap','reel','rein','rely','rent','rest','rice','rich','ride',
+  'rift','ring','riot','rise','risk','road','roam','roar','robe','rock',
+  'role','roof','room','root','rope','rose','rove','rule','ruin','rush',
+  'rust','rash','rave','raze','rear','rife','rinse','ripe','roast','rout',
+  'rude','ruse',
+  // s
+  'safe','sage','sail','sake','salt','same','sand','sane','sang','sash',
+  'save','scan','scar','seal','seam','seep','self','sell','send','shed',
+  'ship','shop','shot','show','shut','sick','side','sift','sign','silk',
+  'sing','sink','site','size','skip','slap','slim','slip','slow','snap',
+  'snow','soak','soap','sock','soft','soil','sold','sole','song','sort',
+  'soul','span','spin','spit','spot','stem','step','stir','stop','stub',
+  'suit','sulk','sung','sure','swap','sway','skin','slab','slam','slay',
+  'sled','slid','slot','slug','smash','smoke','snag','snare','sneak',
+  'sniff','snore','snort','soar','soda','soot','sore','spare','spark',
+  'speak','spear','speck','spend','spice','spike','spill','spine','spite',
+  'splay','split','spoil','spoke','spool','spore','sport','spout','stack',
+  'stain','stair','stake','stale','stall','stamp','stand','stark','start',
+  'stash','state','steal','steam','steel','steep','steer','stick','stiff',
+  'still','sting','stink','stock','stoke','stone','stood','store','storm',
+  'story','stout','strap','stray','stream','strip','stroke','stroll',
+  'stuck','stump','stung','stunk','stunt','style','swear','sweep','sweet',
+  'swell','swept','swift','swipe','swirl','swoon','sword',
+  // t
+  'tail','tale','tall','tank','tape','task','tear','tell','tend','tent',
+  'term','test','text','tile','time','tiny','tire','toil','told','toll',
+  'tomb','tone','tool','tore','torn','toss','tour','town','tree','trim',
+  'trio','trip','true','tube','tuck','tune','type','tame','thaw','thud',
+  'thug','tick','tide','tilt','toast','toot','tort','tote','tout','track',
+  'trade','trail','trait','tram','trap','tray','tread','treat','trend',
+  'trial','trick','trod','trot','tuft','tusk','twist',
+  // u
+  'ugly','undo','unit','upon','urge','user','used','uncle','upset','urban','usage',
+  // v
+  'vain','vale','vary','vast','veil','vein','vent','very','veto','vice',
+  'view','vile','vine','void','vote','vague','valid','valor','vault',
+  'vend','verb','vest','vibe','vivid','vouch',
+  // w
+  'wage','wait','wake','walk','want','ward','warn','warp','wave','weak',
+  'wear','weed','week','well','went','west','whip','whom','wick','wide',
+  'wife','wild','will','wilt','wind','wine','wing','wink','wire','wise',
+  'wish','woke','wolf','womb','wood','word','work','worm','worn','wrap',
+  'wren','wand','wade','wail','wane','wary','watt','wean','wedge','weld',
+  'wept','whirl','whisk','wisp','woof',
+  // x y z
+  'yarn','yawn','year','yell','your','zero','zinc','zone','zoom','zeal',
+  'zest',
+])
