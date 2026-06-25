@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Move, Brain, Layers, BookOpen, Grid3X3, Flag,
-  Eye, Calculator, LayoutGrid, ArrowLeft, Clock, Lock, ChevronRight, Zap, Hash,
+  Eye, Calculator, LayoutGrid, ArrowLeft, Lock, ChevronRight, Zap, Hash,
   type LucideIcon,
 } from 'lucide-react'
 import { ripple } from '../lib/ripple'
@@ -13,6 +13,7 @@ import {
 } from '../lib/gameSession'
 import type { GameKey } from '../lib/gameSession'
 import { useAuth } from '../hooks/useAuth'
+import { ProModal } from '../context/ProModal'
 import type { GameRank } from './games/types'
 import { getRankConfig, RankProgressBar } from './games/GameShell'
 import type { GameEndPayload } from './games/types'
@@ -30,19 +31,8 @@ import LiarsGrid from './games/LiarsGrid'
 import Hangman from './games/Hangman'
 
 // ─── Constants ───────────────────────────────────────────────
-const GAME_OPEN_HOUR  = 5
-const GAME_CLOSE_HOUR = 21
-const MAX_PLAYS       = 7
-const GLOBAL_LIMIT    = 10
-
-function isOpen() {
-  const h = new Date().getHours()
-  return h >= GAME_OPEN_HOUR && h < GAME_CLOSE_HOUR
-}
-function minsLeft() {
-  const close = new Date(); close.setHours(GAME_CLOSE_HOUR, 0, 0, 0)
-  return Math.max(0, Math.floor((close.getTime() - Date.now()) / 60000))
-}
+const MAX_PLAYS    = 7
+const GLOBAL_LIMIT = 10
 
 function formatCountdown(resetAt: number): string {
   const ms = Math.max(0, resetAt - Date.now())
@@ -87,13 +77,12 @@ const GAMES: GameMeta[] = [
 
 // ─── Lobby Card ───────────────────────────────────────────────
 function LobbyCard({
-  game, rank, streak, playsToday, zoneOpen, globalCount, globalLimit, onPlay,
+  game, rank, streak, playsToday, globalCount, globalLimit, onPlay,
 }: {
   game: GameMeta
   rank: GameRank
   streak: number
   playsToday: number
-  zoneOpen: boolean
   globalCount: number
   globalLimit: number
   onPlay: () => void
@@ -103,7 +92,7 @@ function LobbyCard({
   const cost = game.sessionCost ?? 1
   const maxed = !game.unlimitedPlays && playsToday >= MAX_PLAYS
   const globalLimitReached = globalCount + cost > globalLimit
-  const locked = !zoneOpen || maxed || globalLimitReached
+  const locked = maxed || globalLimitReached
 
   return (
     <div
@@ -150,8 +139,7 @@ export default function Games() {
   const userId = session?.user?.id ?? null
 
   const [activeGame, setActiveGame]   = useState<GameId | null>(null)
-  const [zoneOpen,   setZoneOpen]     = useState(isOpen())
-  const [minutesLeft, setMinutesLeft] = useState(minsLeft())
+  const [showProModal, setShowProModal] = useState(false)
   const [playsToday,  setPlaysToday]  = useState<Partial<Record<GameId, number>>>({})
   const [ranks,       setRanks]       = useState<Partial<Record<GameId, GameRank>>>({})
   const [streaks,     setStreaks]     = useState<Partial<Record<GameId, number>>>({})
@@ -167,16 +155,6 @@ export default function Games() {
     setGlobalCount(info.count)
     setGlobalReset(info.resetAt)
   }, [userId])
-
-  // clock tick
-  useEffect(() => {
-    const t = setInterval(() => {
-      setZoneOpen(isOpen())
-      setMinutesLeft(minsLeft())
-      if (globalReset > 0) setCountdown(formatCountdown(globalReset))
-    }, 1000)
-    return () => clearInterval(t)
-  }, [globalReset])
 
   // load player data
   useEffect(() => {
@@ -254,9 +232,6 @@ export default function Games() {
   if (activeGame === 'liars-grid')     return <LiarsGrid        {...gameProps} />
   if (activeGame === 'hangman')        return <Hangman          {...gameProps} />
 
-  const hoursLeft     = Math.floor(minutesLeft / 60)
-  const minsRemainder = minutesLeft % 60
-
   return (
     <div>
       <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
@@ -281,29 +256,10 @@ export default function Games() {
                 </p>
               </div>
             </div>
-            <button type="button" onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); navigate('/coming-soon?feature=Go%20Premium') }} className="ripple-wrap"
+            <button type="button" onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); setShowProModal(true) }} className="ripple-wrap"
               style={{ display:'inline-flex', alignItems:'center', gap:6, background:'linear-gradient(135deg,#9b6dff,#4f8ef7)', color:'#fff', border:'none', borderRadius:10, padding:'8px 16px', fontSize:12, fontWeight:700, cursor:'pointer' }}>
               <Zap size={12} /> Upgrade to Pro
             </button>
-          </div>
-        )}
-
-        {/* Zone closed */}
-        {!zoneOpen && !globalLimitReached && (
-          <div style={{ background:'rgba(245,197,66,0.08)', border:'1px solid rgba(245,197,66,0.25)', borderRadius:16, padding:'14px 18px', marginBottom:16, display:'flex', alignItems:'center', gap:10 }}>
-            <Lock size={18} style={{ color:'var(--gold)', flexShrink:0 }} />
-            <div>
-              <p style={{ fontSize:13, fontWeight:700, color:'var(--gold)', marginBottom:2 }}>Game Zone is closed</p>
-              <p style={{ fontSize:12, color:'var(--text-dim)' }}>Opens {GAME_OPEN_HOUR}:00 AM · Closes 9:00 PM daily</p>
-            </div>
-          </div>
-        )}
-
-        {/* Closing soon */}
-        {zoneOpen && minutesLeft < 60 && !globalLimitReached && (
-          <div style={{ background:'rgba(255,79,79,0.08)', border:'1px solid rgba(255,79,79,0.25)', borderRadius:16, padding:'14px 18px', marginBottom:16, display:'flex', alignItems:'center', gap:10 }}>
-            <Clock size={18} style={{ color:'var(--red)', flexShrink:0 }} />
-            <p style={{ fontSize:13, fontWeight:700, color:'var(--red)' }}>Game Zone closes in {minutesLeft} minutes!</p>
           </div>
         )}
 
@@ -312,10 +268,9 @@ export default function Games() {
           <div className="neu-card" style={{ padding:'22px 20px', marginBottom:0 }}>
             <h1 style={{ fontSize:22, fontWeight:800, color:'var(--text)', marginBottom:4 }}>Game Zone</h1>
             <p style={{ fontSize:13, color:'var(--text-dim)', marginBottom:12 }}>
-              Open {GAME_OPEN_HOUR}:00–21:00 daily · {MAX_PLAYS} plays/game · {GLOBAL_LIMIT} total sessions
+              {MAX_PLAYS} plays/game · {GLOBAL_LIMIT} total sessions per day
             </p>
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-              <span className="chip"><Clock size={11} />{zoneOpen ? `${hoursLeft}h ${minsRemainder}m left` : 'Closed now'}</span>
               <span className="chip">🎮 <strong>{globalCount}</strong>/{GLOBAL_LIMIT} sessions today</span>
               {results.length > 0 && <span className="chip">🏆 <strong>{Math.max(...results.map(r => r.score))}</strong> top score</span>}
             </div>
@@ -333,7 +288,6 @@ export default function Games() {
                 rank={(ranks[game.id] ?? 'beginner') as GameRank}
                 streak={streaks[game.id] ?? 0}
                 playsToday={playsToday[game.id] ?? 0}
-                zoneOpen={zoneOpen}
                 globalCount={globalCount}
                 globalLimit={GLOBAL_LIMIT}
                 onPlay={() => setActiveGame(game.id)}
@@ -373,6 +327,12 @@ export default function Games() {
         </section>
 
       </div>
+
+      <ProModal
+        visible={showProModal}
+        onClose={() => setShowProModal(false)}
+        onGoPro={() => { setShowProModal(false); navigate('/pro') }}
+      />
     </div>
   )
 }
