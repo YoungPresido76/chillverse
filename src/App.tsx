@@ -26,6 +26,9 @@ const Mall            = lazy(() => import('./pages/Mall'))
 const Achievements    = lazy(() => import('./pages/Achievements'))
 const Notifications   = lazy(() => import('./pages/Notifications'))
 const MultiplayerHome = lazy(() => import('./pages/multiplayer/MultiplayerHome'))
+const CreateRoom      = lazy(() => import('./pages/multiplayer/CreateRoom'))
+const BrowseRooms     = lazy(() => import('./pages/multiplayer/BrowseRooms'))
+const RoomLobby       = lazy(() => import('./pages/multiplayer/RoomLobby'))
 
 const Fallback = () => (
   <div style={{ color: 'var(--text-dim)', padding: 40, textAlign: 'center' }}>Loading…</div>
@@ -70,7 +73,9 @@ export default function App() {
         <Route path="/achievements"      element={<Suspense fallback={<Fallback />}><Achievements /></Suspense>} />
         <Route path="/notifications"     element={<Suspense fallback={<Fallback />}><Notifications /></Suspense>} />
         <Route path="/multiplayer"       element={<Suspense fallback={<Fallback />}><MultiplayerHome /></Suspense>} />
-        <Route path="/multiplayer/:roomId" element={<Suspense fallback={<Fallback />}><MultiplayerHome /></Suspense>} />
+        <Route path="/multiplayer/create" element={<Suspense fallback={<Fallback />}><CreateRoom /></Suspense>} />
+        <Route path="/multiplayer/browse" element={<Suspense fallback={<Fallback />}><BrowseRooms /></Suspense>} />
+        <Route path="/multiplayer/:roomId" element={<Suspense fallback={<Fallback />}><RoomLobby /></Suspense>} />
       </Route>
     </Routes>
   )
