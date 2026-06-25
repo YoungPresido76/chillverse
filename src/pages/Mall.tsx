@@ -11,33 +11,6 @@ import { useWallet } from '../hooks/useWallet'
 import type { MallItem, MallRarity } from '../types'
 
 /* ══════════════════════════════════════════════════════
-   MALL HOURS — 8:00 AM to 7:00 PM (19:00), local device time
-   Same gate design as earlier prototypes.
-══════════════════════════════════════════════════════ */
-function getMallStatus(now: Date): { isOpen: boolean; next: Date } {
-  const hour = now.getHours()
-  const isOpen = hour >= 8 && hour < 19
-  const next = new Date(now)
-  if (isOpen) {
-    next.setHours(19, 0, 0, 0)
-  } else if (hour < 8) {
-    next.setHours(8, 0, 0, 0)
-  } else {
-    next.setDate(next.getDate() + 1)
-    next.setHours(8, 0, 0, 0)
-  }
-  return { isOpen, next }
-}
-
-function formatCountdown(ms: number): { h: string; m: string; s: string } {
-  const total = Math.max(0, Math.floor(ms / 1000))
-  const h = Math.floor(total / 3600)
-  const m = Math.floor((total % 3600) / 60)
-  const s = total % 60
-  return { h: String(h).padStart(2, '0'), m: String(m).padStart(2, '0'), s: String(s).padStart(2, '0') }
-}
-
-/* ══════════════════════════════════════════════════════
    RARITY
 ══════════════════════════════════════════════════════ */
 const RARITY_META: Record<MallRarity, { color: string; bg: string }> = {
@@ -240,49 +213,6 @@ function ItemModal({ item, walletBalance, onClose }: { item: MallItem; walletBal
             </button>
           </>
         )}
-      </div>
-    </div>
-  )
-}
-
-/* ══════════════════════════════════════════════════════
-   CLOSED SCREEN
-══════════════════════════════════════════════════════ */
-function ClosedScreen({ next, onBack }: { next: Date; onBack: () => void }) {
-  const [now, setNow] = useState(new Date())
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1000)
-    return () => clearInterval(t)
-  }, [])
-  const { h, m, s } = formatCountdown(next.getTime() - now.getTime())
-
-  return (
-    <div style={{ minHeight: '100vh' }}>
-      <div style={{ position: 'sticky', top: 0, height: 58, display: 'flex', alignItems: 'center', gap: 14, padding: '0 20px', background: 'rgba(17,17,19,0.90)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.05)', zIndex: 50 }}>
-        <button onClick={onBack} style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--surface)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)', boxShadow: '2px 2px 6px var(--neu-dark),-1px -1px 4px var(--neu-light)' }}>
-          <ArrowLeft size={15} />
-        </button>
-        <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>Mall</span>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '70vh', padding: '40px 28px', textAlign: 'center', gap: 14 }}>
-        <div style={{ width: 72, height: 72, borderRadius: 22, background: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '5px 5px 14px var(--neu-dark),-3px -3px 10px var(--neu-light)', color: 'var(--text-muted)', marginBottom: 6 }}>
-          <Lock size={28} />
-        </div>
-        <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)' }}>The Mall is closed</div>
-        <div style={{ fontSize: 13, color: 'var(--text-dim)', maxWidth: 280, lineHeight: 1.6 }}>
-          Come back during open hours to browse and buy new drops. Items you already own are safe — they're not affected.
-        </div>
-        <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-          {[h, m, s].map((val, i) => (
-            <div key={i} style={{ background: 'var(--surface)', borderRadius: 14, padding: '12px 16px', minWidth: 64, boxShadow: '4px 4px 10px var(--neu-dark),-2px -2px 8px var(--neu-light)' }}>
-              <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{val}</div>
-              <div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 2 }}>
-                {['hrs', 'min', 'sec'][i]}
-              </div>
-            </div>
-          ))}
-        </div>
-        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 10 }}>Open daily 8:00 AM – 7:00 PM</div>
       </div>
     </div>
   )
