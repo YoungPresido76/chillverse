@@ -1,6 +1,7 @@
 // src/components/Topbar.tsx
 import { Link } from 'react-router-dom'
-import { Bell, MessageCircle } from 'lucide-react'
+import { MessageCircle } from 'lucide-react'
+import NotificationBell from './NotificationBell'
 
 interface TopbarProps {
   title: string
@@ -11,7 +12,6 @@ export default function Topbar({ title, onMenuClick }: TopbarProps) {
   return (
     <header className="topbar-shell">
       <div className="flex items-center gap-3">
-        {/* Hamburger — visible on mobile AND tablet (below lg = 1024px) */}
         <button
           type="button"
           onClick={onMenuClick}
@@ -27,33 +27,10 @@ export default function Topbar({ title, onMenuClick }: TopbarProps) {
       </div>
 
       <div className="flex items-center gap-2">
-        {/* Bell */}
-        <Link
-          to="/coming-soon?feature=Notifications"
-          aria-label="Notifications"
-          style={{
-            position: 'relative',
-            width: 38, height: 38,
-            borderRadius: 10,
-            background: 'var(--surface)',
-            boxShadow: '3px 3px 8px var(--neu-dark), -2px -2px 6px var(--neu-light)',
-            color: 'var(--text-dim)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            transition: 'color 0.2s',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
-          onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-dim)')}
-        >
-          <Bell size={17} />
-          <span style={{
-            position: 'absolute', top: 7, right: 7,
-            width: 6, height: 6, borderRadius: '50%',
-            background: 'var(--accent)',
-            border: '1.5px solid var(--bg)',
-          }} />
-        </Link>
+        {/* Live notification bell */}
+        <NotificationBell />
 
-        {/* MessageCircle */}
+        {/* Chat */}
         <Link
           to="/chat"
           aria-label="Chat"
