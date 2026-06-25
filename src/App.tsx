@@ -22,6 +22,7 @@ const Settings      = lazy(() => import('./pages/Settings'))
 const Ranks         = lazy(() => import('./pages/Ranks'))
 const Watch         = lazy(() => import('./pages/Watch'))
 const Mall          = lazy(() => import('./pages/Mall'))
+const Achievements  = lazy(() => import('./pages/Achievements'))
 
 const Fallback = () => (
   <div style={{ color: 'var(--text-dim)', padding: 40, textAlign: 'center' }}>Loading…</div>
@@ -62,7 +63,8 @@ export default function App() {
         <Route path="/chat"               element={<Suspense fallback={<Fallback />}><Chat /></Suspense>} />
         <Route path="/streak"    element={<Suspense fallback={<Fallback />}><Streak /></Suspense>} />
         <Route path="/settings"  element={<Suspense fallback={<Fallback />}><Settings /></Suspense>} />
-        <Route path="/ranks"     element={<Suspense fallback={<Fallback />}><Ranks /></Suspense>} />
+        <Route path="/ranks"         element={<Suspense fallback={<Fallback />}><Ranks /></Suspense>} />
+        <Route path="/achievements"  element={<Suspense fallback={<Fallback />}><Achievements /></Suspense>} />
       </Route>
     </Routes>
   )
