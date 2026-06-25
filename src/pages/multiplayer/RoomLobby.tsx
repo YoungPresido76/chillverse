@@ -17,7 +17,7 @@ function avatarColor(name: string) {
   return AVATAR_COLORS[(name.charCodeAt(0) || 0) % AVATAR_COLORS.length]
 }
 
-// ─── Countdown overlay ────────────────────────────────────────
+// ─── Countdown overlay (5 seconds) ───────────────────────────
 function CountdownOverlay({ serverTs }: { serverTs: string }) {
   const [count, setCount] = useState<number | null>(null)
   const frameRef = useRef<number>(0)
@@ -27,7 +27,7 @@ function CountdownOverlay({ serverTs }: { serverTs: string }) {
 
     function tick() {
       const elapsed = Date.now() - startMs
-      const remaining = Math.ceil((3000 - elapsed) / 1000)
+      const remaining = Math.ceil((5000 - elapsed) / 1000)
       if (remaining <= 0) {
         setCount(0)
         return
@@ -140,7 +140,6 @@ export default function RoomLobby() {
   const isHost = myPlayer?.is_host ?? false
   const isLocked = room?.status === 'countdown' || room?.status === 'in_progress'
 
-  // Determine if start is possible
   const canStart = (() => {
     if (!room || !game || !isHost) return false
     const count = players.length
@@ -160,7 +159,9 @@ export default function RoomLobby() {
     return ''
   })()
 
-  // Navigate to game once countdown finishes
+  const slotsRemaining = room ? room.max_player_count - players.length : 0
+
+  // Navigate to game once in_progress
   useEffect(() => {
     if (!room) return
     if (room.status === 'in_progress') {
@@ -168,7 +169,6 @@ export default function RoomLobby() {
     }
   }, [room?.status, room?.game_id, roomId, navigate, room])
 
-  // Copy room ID to clipboard
   async function copyRoomId() {
     if (roomId) await navigator.clipboard.writeText(roomId)
   }
@@ -208,7 +208,6 @@ export default function RoomLobby() {
 
   return (
     <>
-      {/* Countdown overlay */}
       {countdownServerTs && <CountdownOverlay serverTs={countdownServerTs} />}
 
       <div className="max-w-4xl mx-auto py-6 lg:pr-80">
@@ -229,9 +228,14 @@ export default function RoomLobby() {
               <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                 {game?.name} · {room.is_private ? '🔒 Private' : '🌐 Public'}
               </p>
+              {/* Slots remaining — hidden when full */}
+              {slotsRemaining > 0 && (
+                <p className="text-xs mt-1" style={{ color: '#3ecf8e' }}>
+                  {slotsRemaining} slot{slotsRemaining !== 1 ? 's' : ''} remaining
+                </p>
+              )}
             </div>
 
-            {/* Status pill */}
             <span
               className="px-3 py-1 rounded-full text-xs font-bold flex-shrink-0"
               style={{
@@ -245,7 +249,6 @@ export default function RoomLobby() {
             </span>
           </div>
 
-          {/* Room code copy */}
           <button
             type="button"
             onClick={copyRoomId}
@@ -272,82 +275,38 @@ export default function RoomLobby() {
           </div>
 
           {gameHasTeams && room.current_player_count >= 4 ? (
-            /* Team layout */
             <div className="grid grid-cols-2 gap-x-4">
-              {/* Team A */}
               <div className="space-y-2">
-                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#4f8ef7' }}>
-                  Team A
-                </p>
+                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#4f8ef7' }}>Team A</p>
                 {teamA.map(p => (
-                  <PlayerCard
-                    key={p.player_id}
-                    name={p.display_name || p.username}
-                    isHost={p.is_host}
-                    isMe={p.player_id === myId}
-                    team={p.team}
-                    gameHasTeams={gameHasTeams}
-                  />
+                  <PlayerCard key={p.player_id} name={p.display_name || p.username} isHost={p.is_host} isMe={p.player_id === myId} team={p.team} gameHasTeams={gameHasTeams} />
                 ))}
-                {teamA.length === 0 && (
-                  <p className="text-xs italic py-2" style={{ color: 'var(--text-muted)' }}>No players yet</p>
-                )}
+                {teamA.length === 0 && <p className="text-xs italic py-2" style={{ color: 'var(--text-muted)' }}>No players yet</p>}
               </div>
-
-              {/* Team B */}
               <div className="space-y-2">
-                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#9b6dff' }}>
-                  Team B
-                </p>
+                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#9b6dff' }}>Team B</p>
                 {teamB.map(p => (
-                  <PlayerCard
-                    key={p.player_id}
-                    name={p.display_name || p.username}
-                    isHost={p.is_host}
-                    isMe={p.player_id === myId}
-                    team={p.team}
-                    gameHasTeams={gameHasTeams}
-                  />
+                  <PlayerCard key={p.player_id} name={p.display_name || p.username} isHost={p.is_host} isMe={p.player_id === myId} team={p.team} gameHasTeams={gameHasTeams} />
                 ))}
-                {teamB.length === 0 && (
-                  <p className="text-xs italic py-2" style={{ color: 'var(--text-muted)' }}>No players yet</p>
-                )}
+                {teamB.length === 0 && <p className="text-xs italic py-2" style={{ color: 'var(--text-muted)' }}>No players yet</p>}
               </div>
-
-              {/* Unassigned */}
               {unassigned.length > 0 && (
                 <div className="col-span-2 mt-3 space-y-2">
                   <p className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>Unassigned</p>
                   {unassigned.map(p => (
-                    <PlayerCard
-                      key={p.player_id}
-                      name={p.display_name || p.username}
-                      isHost={p.is_host}
-                      isMe={p.player_id === myId}
-                      team={p.team}
-                      gameHasTeams={gameHasTeams}
-                    />
+                    <PlayerCard key={p.player_id} name={p.display_name || p.username} isHost={p.is_host} isMe={p.player_id === myId} team={p.team} gameHasTeams={gameHasTeams} />
                   ))}
                 </div>
               )}
             </div>
           ) : (
-            /* FFA / flat list */
             <div className="space-y-2">
               {players.map(p => (
-                <PlayerCard
-                  key={p.player_id}
-                  name={p.display_name || p.username}
-                  isHost={p.is_host}
-                  isMe={p.player_id === myId}
-                  team={p.team}
-                  gameHasTeams={gameHasTeams}
-                />
+                <PlayerCard key={p.player_id} name={p.display_name || p.username} isHost={p.is_host} isMe={p.player_id === myId} team={p.team} gameHasTeams={gameHasTeams} />
               ))}
             </div>
           )}
 
-          {/* Team picker — shown only to me, only for team-capable games while waiting */}
           {gameHasTeams && room.status === 'waiting' && (
             <div className="pt-2">
               <p className="text-xs mb-2 font-semibold" style={{ color: 'var(--text-muted)' }}>
@@ -381,7 +340,7 @@ export default function RoomLobby() {
 
         {/* ── Actions ── */}
         <div className="mt-6 flex items-center gap-3">
-          {/* Leave — only while waiting */}
+          {/* Leave — hidden during countdown/in_progress */}
           {!isLocked && (
             <button
               type="button"
@@ -402,7 +361,7 @@ export default function RoomLobby() {
             </button>
           )}
 
-          {/* Start — only host, only while waiting */}
+          {/* Force Start — host fallback, reduced visual weight */}
           {isHost && room.status === 'waiting' && (
             <button
               type="button"
@@ -410,20 +369,20 @@ export default function RoomLobby() {
               disabled={!canStart}
               className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-opacity"
               style={{
-                background: canStart
-                  ? 'linear-gradient(135deg, #6c50ff, #a78bfa)'
-                  : 'var(--surface2)',
-                color: canStart ? '#fff' : 'var(--text-muted)',
-                border: 'none',
+                background: canStart ? 'rgba(108,80,255,0.2)' : 'var(--surface2)',
+                color: canStart ? '#a78bfa' : 'var(--text-muted)',
+                border: canStart
+                  ? '1px solid rgba(108,80,255,0.5)'
+                  : '1px solid transparent',
                 cursor: canStart ? 'pointer' : 'not-allowed',
               }}
             >
               <Play size={16} />
-              {canStart ? 'Start Game' : startBlockReason}
+              {canStart ? 'Force Start' : startBlockReason}
             </button>
           )}
 
-          {/* Waiting message for non-hosts */}
+          {/* Non-host waiting message with live player progress */}
           {!isHost && room.status === 'waiting' && (
             <div
               className="flex-1 py-3 rounded-xl text-center text-sm"
@@ -433,14 +392,18 @@ export default function RoomLobby() {
                 border: '1px solid rgba(255,255,255,0.05)',
               }}
             >
-              Waiting for host to start…
+              {canStart
+                ? `Waiting for players… (${players.length}/${room.max_player_count})`
+                : startBlockReason
+                  ? `Need ${startBlockReason} to start`
+                  : `Waiting for host… (${players.length}/${room.max_player_count})`
+              }
             </div>
           )}
         </div>
 
       </div>
 
-      {/* ── Chat panel ── */}
       <ChatPanel messages={messages} myId={myId} onSend={sendMessage} />
     </>
   )
