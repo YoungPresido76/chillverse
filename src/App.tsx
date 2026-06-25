@@ -1,4 +1,3 @@
-// src/App.tsx
 import { useEffect, lazy, Suspense } from 'react'
 import { Routes, Route, useNavigate } from 'react-router-dom'
 import Landing from './pages/Landing'
@@ -15,20 +14,21 @@ import ProtectedRoute from './components/ProtectedRoute'
 import { supabase } from './lib/supabase'
 import { updateStreak } from './lib/auth'
 
-const Profile         = lazy(() => import('./pages/Profile'))
-const PlayerProfile   = lazy(() => import('./pages/PlayerProfile'))
-const Chat            = lazy(() => import('./pages/Chat'))
-const Streak          = lazy(() => import('./pages/Streak'))
-const Settings        = lazy(() => import('./pages/Settings'))
-const Ranks           = lazy(() => import('./pages/Ranks'))
-const Watch           = lazy(() => import('./pages/Watch'))
-const Mall            = lazy(() => import('./pages/Mall'))
-const Achievements    = lazy(() => import('./pages/Achievements'))
-const Notifications   = lazy(() => import('./pages/Notifications'))
-const MultiplayerHome = lazy(() => import('./pages/multiplayer/MultiplayerHome'))
-const CreateRoom      = lazy(() => import('./pages/multiplayer/CreateRoom'))
-const BrowseRooms     = lazy(() => import('./pages/multiplayer/BrowseRooms'))
-const RoomLobby       = lazy(() => import('./pages/multiplayer/RoomLobby'))
+const Profile       = lazy(() => import('./pages/Profile'))
+const PlayerProfile = lazy(() => import('./pages/PlayerProfile'))
+const Chat          = lazy(() => import('./pages/Chat'))
+const Streak        = lazy(() => import('./pages/Streak'))
+const Settings      = lazy(() => import('./pages/Settings'))
+const Ranks         = lazy(() => import('./pages/Ranks'))
+const Watch         = lazy(() => import('./pages/Watch'))
+const Mall          = lazy(() => import('./pages/Mall'))
+const Achievements      = lazy(() => import('./pages/Achievements'))
+const Notifications     = lazy(() => import('./pages/Notifications'))
+const MultiplayerHome   = lazy(() => import('./pages/multiplayer/MultiplayerHome'))
+const BrowseRooms       = lazy(() => import('./pages/multiplayer/BrowseRooms'))
+const CreateRoom        = lazy(() => import('./pages/multiplayer/CreateRoom'))
+const RoomLobby             = lazy(() => import('./pages/multiplayer/RoomLobby'))
+const MultiplayerGameShell  = lazy(() => import('./pages/multiplayer/MultiplayerGameShell'))
 
 const Fallback = () => (
   <div style={{ color: 'var(--text-dim)', padding: 40, textAlign: 'center' }}>Loading…</div>
@@ -56,26 +56,27 @@ export default function App() {
       <Route path="/privacy"         element={<Privacy />} />
       <Route path="/terms"           element={<Terms />} />
 
-      {/* Full-screen — no sidebar/topbar */}
+      {/* Standalone full-screen experience — no sidebar/topbar chrome */}
       <Route path="/watch" element={<ProtectedRoute><Suspense fallback={<Fallback />}><Watch /></Suspense></ProtectedRoute>} />
 
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-        <Route path="/dashboard"         element={<Dashboard />} />
-        <Route path="/coming-soon"       element={<ComingSoon />} />
-        <Route path="/games"             element={<Games />} />
-        <Route path="/mall"              element={<Suspense fallback={<Fallback />}><Mall /></Suspense>} />
-        <Route path="/profile"           element={<Suspense fallback={<Fallback />}><Profile /></Suspense>} />
-        <Route path="/profile/:userId"   element={<Suspense fallback={<Fallback />}><PlayerProfile /></Suspense>} />
-        <Route path="/chat"              element={<Suspense fallback={<Fallback />}><Chat /></Suspense>} />
-        <Route path="/streak"            element={<Suspense fallback={<Fallback />}><Streak /></Suspense>} />
-        <Route path="/settings"          element={<Suspense fallback={<Fallback />}><Settings /></Suspense>} />
-        <Route path="/ranks"             element={<Suspense fallback={<Fallback />}><Ranks /></Suspense>} />
-        <Route path="/achievements"      element={<Suspense fallback={<Fallback />}><Achievements /></Suspense>} />
-        <Route path="/notifications"     element={<Suspense fallback={<Fallback />}><Notifications /></Suspense>} />
-        <Route path="/multiplayer"       element={<Suspense fallback={<Fallback />}><MultiplayerHome /></Suspense>} />
-        <Route path="/multiplayer/create" element={<Suspense fallback={<Fallback />}><CreateRoom /></Suspense>} />
-        <Route path="/multiplayer/browse" element={<Suspense fallback={<Fallback />}><BrowseRooms /></Suspense>} />
-        <Route path="/multiplayer/:roomId" element={<Suspense fallback={<Fallback />}><RoomLobby /></Suspense>} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/coming-soon" element={<ComingSoon />} />
+        <Route path="/games"     element={<Games />} />
+        <Route path="/mall"      element={<Suspense fallback={<Fallback />}><Mall /></Suspense>} />
+        <Route path="/profile"            element={<Suspense fallback={<Fallback />}><Profile /></Suspense>} />
+        <Route path="/profile/:userId"    element={<Suspense fallback={<Fallback />}><PlayerProfile /></Suspense>} />
+        <Route path="/chat"               element={<Suspense fallback={<Fallback />}><Chat /></Suspense>} />
+        <Route path="/streak"    element={<Suspense fallback={<Fallback />}><Streak /></Suspense>} />
+        <Route path="/settings"  element={<Suspense fallback={<Fallback />}><Settings /></Suspense>} />
+        <Route path="/ranks"         element={<Suspense fallback={<Fallback />}><Ranks /></Suspense>} />
+        <Route path="/achievements"  element={<Suspense fallback={<Fallback />}><Achievements /></Suspense>} />
+        <Route path="/notifications" element={<Suspense fallback={<Fallback />}><Notifications /></Suspense>} />
+        <Route path="/multiplayer"              element={<Suspense fallback={<Fallback />}><MultiplayerHome /></Suspense>} />
+        <Route path="/multiplayer/browse"       element={<Suspense fallback={<Fallback />}><BrowseRooms /></Suspense>} />
+        <Route path="/multiplayer/create"       element={<Suspense fallback={<Fallback />}><CreateRoom /></Suspense>} />
+        <Route path="/multiplayer/room/:roomId"              element={<Suspense fallback={<Fallback />}><RoomLobby /></Suspense>} />
+        <Route path="/multiplayer/game/:gameId/:roomId"    element={<Suspense fallback={<Fallback />}><MultiplayerGameShell /></Suspense>} />
       </Route>
     </Routes>
   )
