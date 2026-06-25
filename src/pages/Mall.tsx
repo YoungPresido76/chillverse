@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, ChevronRight, Image as ImageIcon, Shirt, Zap,
-  Gem, Lock, Clock, Star, Check, X, ShoppingBag,
+  Gem, Lock, Star, X, ShoppingBag,
 } from 'lucide-react'
 import { ripple } from '../lib/ripple'
 import { useMallItems } from '../hooks/useMallItems'
@@ -340,7 +340,7 @@ function AvatarsPage({ items, onBack, onSelect }: { items: MallItem[]; onBack: (
             onClick={(e) => { ripple(e as any); setActiveTab(tab) }}
             className="ripple-wrap"
             style={{
-              padding: '7px 14px', borderRadius: 20, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+              padding: '7px 14px', borderRadius: 20, cursor: 'pointer', whiteSpace: 'nowrap',
               fontSize: 12, fontWeight: 600, fontFamily: 'inherit',
               background: activeTab === tab ? 'rgba(255,255,255,0.1)' : 'transparent',
               color: activeTab === tab ? '#fff' : 'var(--text-dim)',
