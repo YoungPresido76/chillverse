@@ -331,12 +331,37 @@ export default function RoomLobby() {
 
         {/* -- Players -- */}
         <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Users size={15} style={{ color: '#a78bfa' }} />
-            {/* Player count uses live players array — always accurate including host */}
-            <h2 className="font-bold text-sm" style={{ color: 'var(--text)' }}>
-              Players ({players.length}/{room.max_player_count})
-            </h2>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Users size={15} style={{ color: '#a78bfa' }} />
+              <h2 className="font-bold text-sm" style={{ color: 'var(--text)' }}>
+                Players in Room
+              </h2>
+            </div>
+            {/* Live counter — always accurate including host */}
+            <div
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full"
+              style={{
+                background: players.length >= room.max_player_count
+                  ? 'rgba(255,79,79,0.12)'
+                  : 'rgba(108,80,255,0.12)',
+                border: players.length >= room.max_player_count
+                  ? '1px solid rgba(255,79,79,0.3)'
+                  : '1px solid rgba(108,80,255,0.3)',
+              }}
+            >
+              <span
+                className="text-base font-extrabold"
+                style={{
+                  color: players.length >= room.max_player_count ? '#ff4f4f' : '#a78bfa',
+                }}
+              >
+                {players.length}
+              </span>
+              <span className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
+                / {room.max_player_count}
+              </span>
+            </div>
           </div>
 
           {gameHasTeams && players.length >= 4 ? (
@@ -366,8 +391,29 @@ export default function RoomLobby() {
             </div>
           ) : (
             <div className="space-y-2">
-              {players.map(p => (
+              {/* Joined players — host always appears first */}
+              {[...players].sort((a, b) => (b.is_host ? 1 : 0) - (a.is_host ? 1 : 0)).map(p => (
                 <PlayerCard key={p.player_id} name={p.display_name || p.username} isHost={p.is_host} isMe={p.player_id === myId} team={p.team} gameHasTeams={gameHasTeams} />
+              ))}
+              {/* Empty slot placeholders so players can see how many spots are left */}
+              {Array.from({ length: Math.max(0, room.max_player_count - players.length) }).map((_, i) => (
+                <div
+                  key={`empty-${i}`}
+                  className="flex items-center gap-3 rounded-xl px-3 py-2.5"
+                  style={{
+                    background: 'var(--surface2)',
+                    border: '1px dashed rgba(255,255,255,0.08)',
+                    opacity: 0.45,
+                  }}
+                >
+                  <div
+                    className="w-8 h-8 rounded-full flex-shrink-0"
+                    style={{ border: '1.5px dashed rgba(255,255,255,0.2)' }}
+                  />
+                  <p className="text-sm italic" style={{ color: 'var(--text-muted)' }}>
+                    Waiting for player…
+                  </p>
+                </div>
               ))}
             </div>
           )}
