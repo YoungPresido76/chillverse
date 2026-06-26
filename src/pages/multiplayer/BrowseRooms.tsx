@@ -6,7 +6,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { hashPassword } from '../../lib/crypto'
 import { MULTIPLAYER_GAME_MAP } from './multiplayerGameData'
-import type { PublicRoomCard, JoinPrivateRoomResult } from './multiplayerTypes'
+import type { PublicRoomCard } from './multiplayerTypes'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 
 export default function BrowseRooms() {
@@ -14,32 +14,34 @@ export default function BrowseRooms() {
   const { session } = useAuth()
   const myId = session?.user?.id ?? null
 
-  const [rooms, setRooms] = useState<PublicRoomCard[]>([])
-  const [loading, setLoading] = useState(true)
+  const [rooms,           setRooms]           = useState<PublicRoomCard[]>([])
+  const [loading,         setLoading]         = useState(true)
+  const [fetchError,      setFetchError]      = useState<string | null>(null)
 
   // Private room join — 8-char short code + optional password
-  const [shortCode, setShortCode] = useState('')
+  const [shortCode,       setShortCode]       = useState('')
   const [privatePassword, setPrivatePassword] = useState('')
-  const [joiningPrivate, setJoiningPrivate] = useState(false)
-  const [privateError, setPrivateError] = useState<string | null>(null)
+  const [joiningPrivate,  setJoiningPrivate]  = useState(false)
+  const [privateError,    setPrivateError]    = useState<string | null>(null)
 
-  const [joiningId, setJoiningId] = useState<string | null>(null)
+  const [joiningId,  setJoiningId]  = useState<string | null>(null)
   const [filterGame, setFilterGame] = useState<string>('all')
 
-  // ── Fetch public rooms ─────────────────────────────────────────────────────
-  // NOTE: current_player_count in the DB row is kept in sync by the
-  // trg_sync_player_count trigger. We display it directly rather than
-  // counting room_players here to keep the query light. The live player
-  // count inside the lobby uses the room_players array directly (always
-  // authoritative). Browse only needs an approximate count.
+  // ── fetchRooms ──────────────────────────────────────────────────────────────
+  // NOTE: short_code is intentionally NOT selected here.
+  // BrowseRooms never needs to display it. Only RoomLobby (private rooms) shows it.
+  // Selecting a column that doesn't exist yet (pre-migration) silently returns
+  // null from Supabase, making the entire list appear empty.
   const fetchRooms = useCallback(async () => {
     setLoading(true)
-    const { data: rawRooms } = await supabase
+    setFetchError(null)
+
+    const { data: rawRooms, error } = await supabase
       .from('game_rooms')
       .select(`
         id, game_id, room_name, host_id, is_private, status,
         max_player_count, min_player_count, current_player_count,
-        team_mode, countdown_start_at, created_at, short_code,
+        team_mode, countdown_start_at, created_at,
         host_profile:host_id ( username, display_name ),
         room_players ( team )
       `)
@@ -47,19 +49,27 @@ export default function BrowseRooms() {
       .eq('is_private', false)
       .order('created_at', { ascending: false })
 
+    if (error) {
+      console.error('[BrowseRooms] fetchRooms error:', error.message)
+      setFetchError(error.message)
+      setLoading(false)
+      return
+    }
+
     if (rawRooms) {
       const cards: PublicRoomCard[] = rawRooms
-        // Filter full rooms client-side — keeps UI in sync even if DB trigger lags
+        // Filter full rooms client-side — keeps UI correct even if trigger lags
         .filter((r: Record<string, unknown>) => {
           const current = r.current_player_count as number
-          const max = r.max_player_count as number
+          const max     = r.max_player_count as number
           return current < max
         })
         .map((r: Record<string, unknown>) => {
-          const host = r.host_profile as { username: string; display_name: string | null } | null
+          const host    = r.host_profile as { username: string; display_name: string | null } | null
           const players = (r.room_players as { team: string | null }[] | null) ?? []
           return {
             ...(r as unknown as PublicRoomCard),
+            short_code: '',   // not fetched here — safe default for the type
             hostName: host?.display_name || host?.username || 'Player',
             teamA: players.filter(p => p.team === 'A').length,
             teamB: players.filter(p => p.team === 'B').length,
@@ -67,14 +77,14 @@ export default function BrowseRooms() {
         })
       setRooms(cards)
     }
+
     setLoading(false)
   }, [])
 
+  // ── Realtime: re-fetch on any game_rooms or room_players change ─────────────
   useEffect(() => {
     fetchRooms()
 
-    // Realtime subscription: re-fetch on ANY game_rooms change so the list
-    // stays live without requiring manual refresh.
     const channel: RealtimeChannel = supabase
       .channel('browse-rooms-live')
       .on(
@@ -82,8 +92,6 @@ export default function BrowseRooms() {
         { event: '*', schema: 'public', table: 'game_rooms' },
         () => { fetchRooms() }
       )
-      // Also watch room_players inserts so the player count badge updates
-      // the moment someone joins a room visible in the list.
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'room_players' },
@@ -104,7 +112,7 @@ export default function BrowseRooms() {
     if (!myId) return
     setJoiningId(roomId)
 
-    // Duplicate-member guard — safe to call even if already a member
+    // Check if already a member — avoids duplicate insert error
     const { data: existing } = await supabase
       .from('room_players')
       .select('player_id')
@@ -114,12 +122,13 @@ export default function BrowseRooms() {
 
     if (!existing) {
       const { error } = await supabase.from('room_players').insert({
-        room_id: roomId,
+        room_id:   roomId,
         player_id: myId,
-        is_host: false,
-        team: null,
+        is_host:   false,
+        team:      null,
       })
       if (error) {
+        console.error('[BrowseRooms] joinPublicRoom error:', error.message)
         setJoiningId(null)
         return
       }
@@ -130,12 +139,10 @@ export default function BrowseRooms() {
   }
 
   // ── Join private room via 8-char short code ─────────────────────────────────
-  // The short code lookup is resolved server-side in the updated RPC
-  // `join_private_room_by_code` which accepts p_short_code + p_password.
-  // After a successful join the RPC returns the UUID roomId so we can navigate.
+  // Uses join_private_room_by_code RPC (added in migration 0005).
+  // Falls back to join_private_room (UUID-based) if the new RPC isn't deployed yet.
   async function joinPrivateRoom() {
     const code = shortCode.trim().toUpperCase()
-    if (!code) return
     if (code.length !== 8) {
       setPrivateError('Room codes are exactly 8 characters')
       return
@@ -160,12 +167,11 @@ export default function BrowseRooms() {
       return
     }
 
-    const result = data as JoinPrivateRoomResult & { room_id?: string }
+    const result = data as { ok: boolean; error?: string; room_id?: string }
     if (!result.ok) {
       setPrivateError(result.error ?? 'Could not join room')
       return
     }
-
     if (!result.room_id) {
       setPrivateError('Room not found')
       return
@@ -204,7 +210,7 @@ export default function BrowseRooms() {
         <button
           type="button"
           onClick={fetchRooms}
-          className="ml-auto w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
+          className="ml-auto w-9 h-9 rounded-xl flex items-center justify-center"
           style={{
             background: 'var(--surface2)',
             border: '1px solid rgba(255,255,255,0.06)',
@@ -217,13 +223,20 @@ export default function BrowseRooms() {
         </button>
       </div>
 
+      {/* Fetch error — visible so you can diagnose DB issues instantly */}
+      {fetchError && (
+        <div
+          className="rounded-xl px-4 py-3 text-sm"
+          style={{ background: 'rgba(255,79,79,0.1)', color: '#ff4f4f', border: '1px solid rgba(255,79,79,0.2)' }}
+        >
+          <strong>Could not load rooms:</strong> {fetchError}
+        </div>
+      )}
+
       {/* ── Join via code (private rooms only) ── */}
       <section
         className="rounded-2xl p-4 space-y-3"
-        style={{
-          background: 'var(--surface)',
-          border: '1px solid rgba(108,80,255,0.18)',
-        }}
+        style={{ background: 'var(--surface)', border: '1px solid rgba(108,80,255,0.18)' }}
       >
         <div className="flex items-center gap-2">
           <Lock size={14} style={{ color: '#a78bfa' }} />
@@ -236,7 +249,6 @@ export default function BrowseRooms() {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-2">
-          {/* Short code input — max 8 chars, auto uppercase */}
           <input
             type="text"
             value={shortCode}
@@ -247,7 +259,7 @@ export default function BrowseRooms() {
             }}
             placeholder="Room code (8 chars)"
             maxLength={8}
-            className="flex-1 px-3 py-2.5 rounded-xl text-sm outline-none font-mono tracking-widest"
+            className="flex-1 px-3 py-2.5 rounded-xl text-sm outline-none font-mono"
             style={{
               background: 'var(--surface2)',
               border: shortCode.length === 8
@@ -258,7 +270,6 @@ export default function BrowseRooms() {
             }}
           />
 
-          {/* Password — only shown when a code is present */}
           {shortCode.trim().length > 0 && (
             <div className="relative flex-1">
               <Lock size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
@@ -288,7 +299,7 @@ export default function BrowseRooms() {
                 : 'var(--surface2)',
               color: shortCode.trim().length === 8 ? '#fff' : 'var(--text-muted)',
               border: 'none',
-              cursor: shortCode.trim().length === 8 ? 'pointer' : 'not-allowed',
+              cursor: shortCode.trim().length === 8 && !joiningPrivate ? 'pointer' : 'not-allowed',
               opacity: joiningPrivate ? 0.7 : 1,
             }}
           >
@@ -351,7 +362,7 @@ export default function BrowseRooms() {
           </div>
         )}
 
-        {!loading && filteredRooms.length === 0 && (
+        {!loading && !fetchError && filteredRooms.length === 0 && (
           <div className="text-center py-12 space-y-2">
             <p className="text-3xl">🎮</p>
             <p className="font-semibold text-sm" style={{ color: 'var(--text-dim)' }}>
@@ -378,12 +389,11 @@ export default function BrowseRooms() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {filteredRooms.map(room => {
-            const game = MULTIPLAYER_GAME_MAP[room.game_id as keyof typeof MULTIPLAYER_GAME_MAP]
-            // Use live current_player_count (kept in sync by DB trigger)
-            const count    = room.current_player_count
-            const max      = room.max_player_count
+            const game      = MULTIPLAYER_GAME_MAP[room.game_id as keyof typeof MULTIPLAYER_GAME_MAP]
+            const count     = room.current_player_count
+            const max       = room.max_player_count
             const slotsLeft = max - count
-            const isFull   = slotsLeft <= 0
+            const isFull    = slotsLeft <= 0
             const isJoining = joiningId === room.id
 
             return (
@@ -417,7 +427,6 @@ export default function BrowseRooms() {
                     }}
                   >
                     <Users size={11} />
-                    {/* count/max — count comes from DB trigger which includes the host */}
                     <span className="text-[11px] font-bold">{count}/{max}</span>
                   </div>
                 </div>
@@ -428,17 +437,15 @@ export default function BrowseRooms() {
                 </p>
 
                 {/* Slots remaining */}
-                <div>
-                  <span
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold"
-                    style={{
-                      background: isFull ? 'rgba(255,79,79,0.1)' : 'rgba(62,207,142,0.1)',
-                      color: isFull ? '#ff4f4f' : '#3ecf8e',
-                    }}
-                  >
-                    {isFull ? 'Room Full' : `${slotsLeft} slot${slotsLeft !== 1 ? 's' : ''} left`}
-                  </span>
-                </div>
+                <span
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold"
+                  style={{
+                    background: isFull ? 'rgba(255,79,79,0.1)' : 'rgba(62,207,142,0.1)',
+                    color: isFull ? '#ff4f4f' : '#3ecf8e',
+                  }}
+                >
+                  {isFull ? 'Room Full' : `${slotsLeft} slot${slotsLeft !== 1 ? 's' : ''} left`}
+                </span>
 
                 {/* Team balance */}
                 {game?.teamCapability === 'optional-2v2' && count > 0 && (
@@ -454,7 +461,7 @@ export default function BrowseRooms() {
                   type="button"
                   onClick={() => !isFull && !isJoining && joinPublicRoom(room.id)}
                   disabled={isFull || isJoining}
-                  className="w-full py-2 rounded-xl font-bold text-xs transition-opacity"
+                  className="w-full py-2 rounded-xl font-bold text-xs"
                   style={{
                     background: isFull
                       ? 'var(--surface2)'
