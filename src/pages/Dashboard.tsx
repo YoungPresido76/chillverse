@@ -159,6 +159,17 @@ export default function Dashboard() {
     return () => clearInterval(iv)
   }, [userId])
 
+  // currentHour drives greeting — must be before any early returns
+  const [currentHour, setCurrentHour] = useState(() => new Date().getHours())
+  useEffect(() => {
+    const iv = setInterval(() => {
+      const h = new Date().getHours()
+      setCurrentHour(prev => prev !== h ? h : prev)
+    }, 60_000)
+    return () => clearInterval(iv)
+  }, [])
+  const greeting = useMemo(() => getGreeting(profile?.display_name || profile?.username || 'friend'), [profile, currentHour])
+
   if (loading) {
     return (
       <div className="neu-card p-10 flex items-center justify-center max-w-[800px] mx-auto mt-8">
@@ -175,21 +186,10 @@ export default function Dashboard() {
     )
   }
 
-  const displayName = profile.display_name || profile.username
-  const { current, max } = getXpProgress(profile.xp)
+  const displayName = profile?.display_name || profile?.username || ''
+  const { current, max } = getXpProgress(profile?.xp ?? 0)
   const xpPct = Math.min(100, Math.round((current / max) * 100))
-
-  // currentHour drives greeting — only updates when the clock hour changes
-  const [currentHour, setCurrentHour] = useState(() => new Date().getHours())
-  useEffect(() => {
-    const iv = setInterval(() => {
-      const h = new Date().getHours()
-      setCurrentHour(prev => prev !== h ? h : prev)
-    }, 60_000)
-    return () => clearInterval(iv)
-  }, [])
-  const greeting = useMemo(() => getGreeting(displayName), [displayName, currentHour])
-  const streakInfo  = getStreakMessage(profile.streak)
+  const streakInfo = getStreakMessage(profile?.streak ?? 0)
 
   const QUICK_ACTIONS: QuickAction[] = [
     { label: 'Play Games', sub: onlineCount != null ? `${onlineCount} online` : '…', to: '/games', bg: 'linear-gradient(135deg,#9b6dff,#4f8ef7)', icon: Gamepad2   },
