@@ -1,5 +1,5 @@
 // src/pages/multiplayer/MultiplayerResults.tsx
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Trophy, Zap, Crown, Users } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
