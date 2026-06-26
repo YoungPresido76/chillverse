@@ -452,7 +452,7 @@ export default function Chat() {
   async function startDmWith(targetUserId: string) {
     if (!myId || targetUserId === myId) return
 
-    // Find shared DM rooms only (not global) between the two users
+    // Check if a DM room already exists between the two users
     const { data: myRooms } = await supabase
       .from('room_members')
       .select('room_id, chat_rooms(type)')
@@ -461,6 +461,8 @@ export default function Chat() {
       .from('room_members')
       .select('room_id, chat_rooms(type)')
       .eq('user_id', targetUserId)
+
+    let roomId: string | null = null
 
     if (myRooms && theirRooms) {
       const myDmIds = new Set(
@@ -471,48 +473,64 @@ export default function Chat() {
       const commonDm = theirRooms.find((r: Record<string, unknown>) =>
         (r.chat_rooms as { type: string } | null)?.type === 'dm' && myDmIds.has(r.room_id as string)
       )
-      if (commonDm) {
-        await loadRooms()
-        setTimeout(() => {
-          setRooms(prev => {
-            const found = prev.find(r => r.id === (commonDm.room_id as string))
-            if (found) openRoom(found)
-            return prev
-          })
-        }, 400)
-        return
-      }
+      if (commonDm) roomId = commonDm.room_id as string
     }
 
-    // Create brand new DM room — no created_by column
-    const { data: newRoom, error } = await supabase
-      .from('chat_rooms').insert({ type: 'dm', name: null }).select('id').single()
-    if (error || !newRoom) {
-      console.error('Failed to create DM room:', error)
-      return
+    if (!roomId) {
+      // Create brand new DM room
+      const { data: newRoom, error } = await supabase
+        .from('chat_rooms').insert({ type: 'dm', name: null }).select('id').single()
+      if (error || !newRoom) { console.error('Failed to create DM room:', error); return }
+      roomId = newRoom.id
+
+      await supabase.from('room_members').insert({ room_id: roomId, user_id: myId })
+      const { error: memberErr } = await supabase.from('room_members').insert({ room_id: roomId, user_id: targetUserId })
+      if (memberErr) console.warn('Could not pre-add target member:', memberErr.message)
     }
 
-    // Insert own membership first (RLS: auth.uid() = user_id)
-    await supabase.from('room_members').insert({ room_id: newRoom.id, user_id: myId })
-    // Insert target membership via service-level — use upsert to avoid RLS block
-    // RLS on room_members must allow insert for any authenticated user OR use a DB function
-    // Workaround: call a Postgres function or use the anon key bypass via rpc
-    // Safe approach: insert only own row, then target joins via ensureGlobalRoom pattern on their side
-    // For DMs: insert both rows — target row insert is allowed if policy is FOR ALL with true
-    const { error: memberErr } = await supabase.from('room_members').insert({ room_id: newRoom.id, user_id: targetUserId })
-    if (memberErr) {
-      // Not fatal — target will be added when they open chat
-      console.warn('Could not pre-add target member (they will join on first open):', memberErr.message)
+    // Fetch the target user's profile for the room member list
+    const { data: targetProfile } = await supabase
+      .from('profiles').select('username, display_name, avatar').eq('id', targetUserId).single()
+
+    // Build the room object directly and open it — no setTimeout race
+    const roomObj: ChatRoom = {
+      id: roomId,
+      type: 'dm',
+      name: null,
+      members: [
+        {
+          user_id: myId,
+          profile: {
+            username: myProfile?.username ?? '',
+            display_name: myProfile?.display_name ?? null,
+            avatar: myProfile?.avatar ?? '',
+          },
+        },
+        {
+          user_id: targetUserId,
+          profile: {
+            username: targetProfile?.username ?? '',
+            display_name: targetProfile?.display_name ?? null,
+            avatar: targetProfile?.avatar ?? '',
+          },
+        },
+      ],
+      lastMsg: '',
+      lastMsgTime: '',
+      unread: 0,
     }
 
-    await loadRooms()
-    setTimeout(() => {
-      setRooms(prev => {
-        const found = prev.find(r => r.id === newRoom.id)
-        if (found) openRoom(found)
-        return prev
-      })
-    }, 400)
+    // Add to rooms list (or replace if already there) then open immediately
+    setRooms(prev => {
+      const exists = prev.find(r => r.id === roomId)
+      if (exists) return prev
+      const globalRoom = prev.find(r => r.type === 'global')
+      const dms = prev.filter(r => r.type !== 'global')
+      return globalRoom ? [globalRoom, roomObj, ...dms] : [roomObj, ...dms]
+    })
+    setPlayerSearch('')
+    setPlayerResults([])
+    openRoom(roomObj)
   }
 
   // ── Send ────────────────────────────────────────────────────
