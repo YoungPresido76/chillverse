@@ -1,14 +1,36 @@
 // src/pages/Mall.tsx
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, ChevronRight, Image as ImageIcon, Shirt, Zap,
-  Gem, Lock, Star, X, ShoppingBag,
+  Gem, Lock, Star, X, ShoppingBag, Heart,
 } from 'lucide-react'
 import { ripple } from '../lib/ripple'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../hooks/useAuth'
 import { useMallItems } from '../hooks/useMallItems'
 import { useWallet } from '../hooks/useWallet'
 import type { MallItem, MallRarity } from '../types'
+
+
+/* ══════════════════════════════════════════════════════
+   WISHLIST TOAST
+══════════════════════════════════════════════════════ */
+function WishlistToast({ message, onDone }: { message: string; onDone: () => void }) {
+  useEffect(() => { const t = setTimeout(onDone, 2500); return () => clearTimeout(t) }, [])
+  return (
+    <div style={{
+      position: 'fixed', bottom: 90, left: '50%', transform: 'translateX(-50%)',
+      zIndex: 9999, background: 'rgba(20,20,24,0.95)', border: '1px solid rgba(255,77,139,0.35)',
+      borderRadius: 14, padding: '11px 18px', display: 'flex', alignItems: 'center', gap: 9,
+      boxShadow: '0 8px 32px rgba(0,0,0,0.55)', backdropFilter: 'blur(10px)',
+      animation: 'feedIn 0.25s ease-out both', whiteSpace: 'nowrap',
+    }}>
+      <Heart size={14} style={{ color: '#ff4d8b', fill: '#ff4d8b', flexShrink: 0 }} />
+      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{message}</span>
+    </div>
+  )
+}
 
 /* ══════════════════════════════════════════════════════
    RARITY
@@ -65,7 +87,7 @@ function getLockInfo(item: MallItem, hasOwnedRequirement: boolean): LockInfo {
 /* ══════════════════════════════════════════════════════
    CARD COMPONENTS
 ══════════════════════════════════════════════════════ */
-function SquareCard({ item, onSelect }: { item: MallItem; onSelect: (item: MallItem) => void }) {
+function SquareCard({ item, onSelect, onWishlist, wishlisted }: { item: MallItem; onSelect: (item: MallItem) => void; onWishlist?: (item: MallItem) => void; wishlisted?: boolean }) {
   const lock = getLockInfo(item, false)
   const isMythic = item.rarity === 'Mythic'
 
@@ -88,13 +110,21 @@ function SquareCard({ item, onSelect }: { item: MallItem; onSelect: (item: MallI
       <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', marginBottom: 4, lineHeight: 1.3 }}>{item.name}</div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <RarityBadge rarity={item.rarity} />
-        {lock.locked ? (
-          <Lock size={13} color="var(--text-muted)" />
-        ) : item.price_gems != null ? (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 700, color: 'var(--text)' }}>
-            <Gem size={11} color="#4f8ef7" /> {item.price_gems.toLocaleString()}
-          </span>
-        ) : null}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          {lock.locked ? (
+            <Lock size={13} color="var(--text-muted)" />
+          ) : item.price_gems != null ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 700, color: 'var(--text)' }}>
+              <Gem size={11} color="#4f8ef7" /> {item.price_gems.toLocaleString()}
+            </span>
+          ) : null}
+          {!lock.locked && onWishlist && (
+            <button type="button" onClick={e => { e.stopPropagation(); onWishlist(item) }}
+              style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: wishlisted ? '#ff4d8b' : 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
+              <Heart size={13} style={{ fill: wishlisted ? '#ff4d8b' : 'none' }} />
+            </button>
+          )}
+        </div>
       </div>
       {lock.locked && lock.reason && (
         <div style={{ fontSize: 9.5, color: 'var(--text-muted)', marginTop: 4 }}>{lock.reason}</div>
@@ -103,7 +133,7 @@ function SquareCard({ item, onSelect }: { item: MallItem; onSelect: (item: MallI
   )
 }
 
-function RectCard({ item, onSelect }: { item: MallItem; onSelect: (item: MallItem) => void }) {
+function RectCard({ item, onSelect, onWishlist, wishlisted }: { item: MallItem; onSelect: (item: MallItem) => void; onWishlist?: (item: MallItem) => void; wishlisted?: boolean }) {
   const lock = getLockInfo(item, false)
   const isMythic = item.rarity === 'Mythic'
 
@@ -126,17 +156,25 @@ function RectCard({ item, onSelect }: { item: MallItem; onSelect: (item: MallIte
       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 5, lineHeight: 1.3 }}>{item.name}</div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <RarityBadge rarity={item.rarity} />
-        {lock.locked ? (
-          <Lock size={13} color="var(--text-muted)" />
-        ) : item.price_gems != null ? (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 700, color: 'var(--text)' }}>
-            <Gem size={11} color="#4f8ef7" /> {item.price_gems.toLocaleString()}
-          </span>
-        ) : item.unlock_xp != null ? (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 700, color: 'var(--text)' }}>
-            <Zap size={11} color="#f5c542" /> {item.unlock_xp.toLocaleString()} XP
-          </span>
-        ) : null}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          {lock.locked ? (
+            <Lock size={13} color="var(--text-muted)" />
+          ) : item.price_gems != null ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 700, color: 'var(--text)' }}>
+              <Gem size={11} color="#4f8ef7" /> {item.price_gems.toLocaleString()}
+            </span>
+          ) : item.unlock_xp != null ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 700, color: 'var(--text)' }}>
+              <Zap size={11} color="#f5c542" /> {item.unlock_xp.toLocaleString()} XP
+            </span>
+          ) : null}
+          {!lock.locked && onWishlist && (
+            <button type="button" onClick={e => { e.stopPropagation(); onWishlist(item) }}
+              style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: wishlisted ? '#ff4d8b' : 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
+              <Heart size={13} style={{ fill: wishlisted ? '#ff4d8b' : 'none' }} />
+            </button>
+          )}
+        </div>
       </div>
       {lock.locked && lock.reason && (
         <div style={{ fontSize: 9.5, color: 'var(--text-muted)', marginTop: 4 }}>{lock.reason}</div>
@@ -238,7 +276,7 @@ function SubPage({ title, onBack, children }: { title: string; onBack: () => voi
 /* ══════════════════════════════════════════════════════
    PROFILE PICS SUB-PAGE
 ══════════════════════════════════════════════════════ */
-function ProfilePicsPage({ items, onBack, onSelect }: { items: MallItem[]; onBack: () => void; onSelect: (item: MallItem) => void }) {
+function ProfilePicsPage({ items, onBack, onSelect, onWishlist, wishlisted }: { items: MallItem[]; onBack: () => void; onSelect: (item: MallItem) => void; onWishlist?: (item: MallItem) => void; wishlisted?: Set<string> }) {
   const profilePics = items.filter(i => i.category === 'profile_pic')
   return (
     <SubPage title="Profile Pics" onBack={onBack}>
@@ -246,7 +284,7 @@ function ProfilePicsPage({ items, onBack, onSelect }: { items: MallItem[]; onBac
         <EmptyState label="No profile pics available yet." />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 11 }}>
-          {profilePics.map(item => <SquareCard key={item.id} item={item} onSelect={onSelect} />)}
+          {profilePics.map(item => <SquareCard key={item.id} item={item} onSelect={onSelect} onWishlist={onWishlist} wishlisted={wishlisted?.has(item.id)} />)}
         </div>
       )}
     </SubPage>
@@ -258,7 +296,7 @@ function ProfilePicsPage({ items, onBack, onSelect }: { items: MallItem[]; onBac
 ══════════════════════════════════════════════════════ */
 const AVATAR_SUB_CATEGORIES = ['Models and brand', 'Others', 'Power up characters']
 
-function AvatarsPage({ items, onBack, onSelect }: { items: MallItem[]; onBack: () => void; onSelect: (item: MallItem) => void }) {
+function AvatarsPage({ items, onBack, onSelect, onWishlist, wishlisted }: { items: MallItem[]; onBack: () => void; onSelect: (item: MallItem) => void; onWishlist?: (item: MallItem) => void; wishlisted?: Set<string> }) {
   const [activeTab, setActiveTab] = useState(AVATAR_SUB_CATEGORIES[0])
   const avatars = items.filter(i => i.category === 'avatar_skin' && i.sub_category === activeTab)
 
@@ -287,7 +325,7 @@ function AvatarsPage({ items, onBack, onSelect }: { items: MallItem[]; onBack: (
         <EmptyState label={`No avatars in "${activeTab}" yet.`} />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-          {avatars.map(item => <RectCard key={item.id} item={item} onSelect={onSelect} />)}
+          {avatars.map(item => <RectCard key={item.id} item={item} onSelect={onSelect} onWishlist={onWishlist} wishlisted={wishlisted?.has(item.id)} />)}
         </div>
       )}
     </SubPage>
@@ -297,7 +335,7 @@ function AvatarsPage({ items, onBack, onSelect }: { items: MallItem[]; onBack: (
 /* ══════════════════════════════════════════════════════
    CONSUMABLES SUB-PAGE
 ══════════════════════════════════════════════════════ */
-function ConsumablesPage({ items, onBack, onSelect }: { items: MallItem[]; onBack: () => void; onSelect: (item: MallItem) => void }) {
+function ConsumablesPage({ items, onBack, onSelect, onWishlist, wishlisted }: { items: MallItem[]; onBack: () => void; onSelect: (item: MallItem) => void; onWishlist?: (item: MallItem) => void; wishlisted?: Set<string> }) {
   const consumables = items.filter(i => i.category === 'xp_booster' || i.is_consumable)
   return (
     <SubPage title="Consumables" onBack={onBack}>
@@ -305,7 +343,7 @@ function ConsumablesPage({ items, onBack, onSelect }: { items: MallItem[]; onBac
         <EmptyState label="No consumables available yet." />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-          {consumables.map(item => <RectCard key={item.id} item={item} onSelect={onSelect} />)}
+          {consumables.map(item => <RectCard key={item.id} item={item} onSelect={onSelect} onWishlist={onWishlist} wishlisted={wishlisted?.has(item.id)} />)}
         </div>
       )}
     </SubPage>
@@ -337,9 +375,36 @@ export default function Mall() {
   const navigate = useNavigate()
   const { items, loading: itemsLoading } = useMallItems()
   const { wallet } = useWallet()
+  const { session } = useAuth()
+  const userId = session?.user?.id ?? null
   const [openSection, setOpenSection] = useState<string | null>(null)
   const [selectedItem, setSelectedItem] = useState<MallItem | null>(null)
+  const [wishlisted, setWishlisted] = useState<Set<string>>(new Set())
+  const [toast, setToast] = useState<string | null>(null)
   const diamondBalance = wallet?.gem_balance ?? 0
+
+  // Load existing wishlist ids
+  useEffect(() => {
+    if (!userId) return
+    supabase.from('wishlist').select('item_id').eq('user_id', userId)
+      .then(({ data }) => {
+        setWishlisted(new Set((data ?? []).map((r: { item_id: string }) => r.item_id)))
+      })
+  }, [userId])
+
+  const handleWishlist = useCallback(async (item: MallItem) => {
+    if (!userId) return
+    if (wishlisted.has(item.id)) return // already wishlisted, tap does nothing (remove from profile)
+    await supabase.from('wishlist').upsert({
+      user_id: userId,
+      item_id: item.id,
+      item_name: item.name,
+      item_type: item.category,
+      item_image: item.image_url ?? null,
+    }, { onConflict: 'user_id,item_id' })
+    setWishlisted(prev => new Set([...prev, item.id]))
+    setToast('This item has been added to your wishlist.')
+  }, [userId, wishlisted])
 
   const featured = useMemo(
     () => items.filter(i => i.rarity === 'Mythic').slice(0, 6),
@@ -434,14 +499,17 @@ export default function Mall() {
       </div>
 
       {/* Sub-pages */}
-      {openSection === 'profile_pics' && <ProfilePicsPage items={items} onBack={() => setOpenSection(null)} onSelect={setSelectedItem} />}
-      {openSection === 'avatars'      && <AvatarsPage      items={items} onBack={() => setOpenSection(null)} onSelect={setSelectedItem} />}
-      {openSection === 'consumables'  && <ConsumablesPage  items={items} onBack={() => setOpenSection(null)} onSelect={setSelectedItem} />}
+      {openSection === 'profile_pics' && <ProfilePicsPage items={items} onBack={() => setOpenSection(null)} onSelect={setSelectedItem} onWishlist={handleWishlist} wishlisted={wishlisted} />}
+      {openSection === 'avatars'      && <AvatarsPage      items={items} onBack={() => setOpenSection(null)} onSelect={setSelectedItem} onWishlist={handleWishlist} wishlisted={wishlisted} />}
+      {openSection === 'consumables'  && <ConsumablesPage  items={items} onBack={() => setOpenSection(null)} onSelect={setSelectedItem} onWishlist={handleWishlist} wishlisted={wishlisted} />}
 
       {/* Detail / confirm modal */}
       {selectedItem && (
         <ItemModal item={selectedItem} walletBalance={diamondBalance} onClose={() => setSelectedItem(null)} />
       )}
+
+      {/* Wishlist toast */}
+      {toast && <WishlistToast message={toast} onDone={() => setToast(null)} />}
     </>
   )
 }
