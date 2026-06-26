@@ -300,8 +300,7 @@ export default function Ranks() {
             </div>
             <div style={{
               fontSize: 28, fontWeight: 900, letterSpacing: '-0.5px',
-              background: `linear-gradient(135deg, ${userTier.color}, #fff)`,
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+              color: userTier.color,
               marginBottom: 4,
             }}>
               {userTier.name}

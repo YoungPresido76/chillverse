@@ -71,9 +71,16 @@ function fmtCountdown(secs: number): string {
 
 function buildEmbedUrl(src: MovieSource): string {
   const params = new URLSearchParams({
-    autoplay: '1', controls: '0', modestbranding: '1', rel: '0',
-    disablekb: '1', fs: '0', iv_load_policy: '3', showinfo: '0', playsinline: '1',
-    enablejsapi: '1', origin: window.location.origin,
+    autoplay: '1',
+    modestbranding: '1',
+    rel: '0',
+    disablekb: '1',
+    fs: '0',
+    iv_load_policy: '3',
+    playsinline: '1',
+    enablejsapi: '1',
+    origin: window.location.origin,
+    controls: '0',
   })
   if (src.type === 'playlist') {
     params.set('listType', 'playlist')
@@ -253,10 +260,9 @@ function PlayerScreen({ category, sources, onBack, secsLeft }: { category: Categ
                   id={iframeId}
                   src={embedUrl}
                   style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
-                  allow="autoplay; encrypted-media"
+                  allow="autoplay; encrypted-media; picture-in-picture"
                   allowFullScreen={false}
-                  referrerPolicy="no-referrer"
-                  sandbox="allow-scripts allow-same-origin"
+                  referrerPolicy="strict-origin-when-cross-origin"
                 />
                 <div style={{ position: 'absolute', inset: 0, zIndex: 10, cursor: 'default' }} onContextMenu={(e) => e.preventDefault()} />
               </div>
