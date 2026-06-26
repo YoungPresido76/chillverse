@@ -22,6 +22,7 @@ const Settings           = lazy(() => import('./pages/Settings'))
 const Ranks              = lazy(() => import('./pages/Ranks'))
 const Watch              = lazy(() => import('./pages/Watch'))
 const Mall               = lazy(() => import('./pages/Mall'))
+const GiftPage           = lazy(() => import('./pages/Gift'))
 const Achievements       = lazy(() => import('./pages/Achievements'))
 const Notifications      = lazy(() => import('./pages/Notifications'))
 const MultiplayerHome    = lazy(() => import('./pages/multiplayer/MultiplayerHome'))
@@ -72,6 +73,7 @@ export default function App() {
         <Route path="/coming-soon"                      element={<ComingSoon />} />
         <Route path="/games"                            element={<Games />} />
         <Route path="/mall"                             element={<Suspense fallback={<Fallback />}><Mall /></Suspense>} />
+        <Route path="/gift"                             element={<Suspense fallback={<Fallback />}><GiftPage /></Suspense>} />
         <Route path="/profile"                          element={<Suspense fallback={<Fallback />}><Profile /></Suspense>} />
         <Route path="/profile/:userId"                  element={<Suspense fallback={<Fallback />}><PlayerProfile /></Suspense>} />
         <Route path="/chat"                             element={<Suspense fallback={<Fallback />}><Chat /></Suspense>} />
