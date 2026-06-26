@@ -1,5 +1,5 @@
 // src/pages/Dashboard.tsx
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -75,8 +75,8 @@ function getGreeting(name: string): { line: string; sub: string } {
   else if (h < 21) pool = greetings.evening
   else              pool = greetings.night
 
-  // Pick deterministically by minute so it doesn't flicker on re-render
-  const idx = new Date().getMinutes() % pool.length
+  // Pick deterministically by hour — only changes when the hour changes
+  const idx = h % pool.length
   return pool[idx]
 }
 
@@ -179,7 +179,11 @@ export default function Dashboard() {
   const { current, max } = getXpProgress(profile.xp)
   const xpPct = Math.min(100, Math.round((current / max) * 100))
 
-  const greeting    = getGreeting(displayName)
+  const greeting = useMemo(
+    () => getGreeting(displayName),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [displayName, new Date().getHours()]
+  )
   const streakInfo  = getStreakMessage(profile.streak)
 
   const QUICK_ACTIONS: QuickAction[] = [
