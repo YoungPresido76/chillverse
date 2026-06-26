@@ -32,7 +32,7 @@ import Hangman from './games/Hangman'
 
 // ─── Constants ───────────────────────────────────────────────
 const MAX_PLAYS    = 7
-const GLOBAL_LIMIT = 10
+const GLOBAL_LIMIT = 15
 
 
 
@@ -139,11 +139,29 @@ export default function Games() {
   const [allTimeStreaks, setAllTimeStreaks] = useState<Partial<Record<GameId, number>>>({})
   const [results,     setResults]     = useState<GameEndPayload[]>([])
   const [globalCount, setGlobalCount] = useState(0)
+  const [globalReset, setGlobalReset] = useState(0)
+  const [sessionResetTime, setSessionResetTime] = useState('')
+
+  // Live countdown using resetAt from session store
+  useEffect(() => {
+    function computeReset() {
+      if (!globalReset) return
+      const ms = Math.max(0, globalReset - Date.now())
+      const h = Math.floor(ms / 3600000)
+      const m = Math.floor((ms % 3600000) / 60000)
+      const s = Math.floor((ms % 60000) / 1000)
+      setSessionResetTime(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`)
+    }
+    computeReset()
+    const t = setInterval(computeReset, 1000)
+    return () => clearInterval(t)
+  }, [globalReset])
 
   const refreshGlobalInfo = useCallback(() => {
     if (!userId) return
     const info = getGlobalSessionInfo(userId)
     setGlobalCount(info.count)
+    setGlobalReset(info.resetAt)
   }, [userId])
 
   // load player data
@@ -235,14 +253,14 @@ export default function Games() {
         {/* Global limit banner */}
         {globalLimitReached && (
           <div style={{ background:'rgba(155,109,255,0.08)', border:'1px solid rgba(155,109,255,0.28)', borderRadius:16, padding:'16px 18px', marginBottom:16 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:8 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12 }}>
               <Lock size={18} style={{ color:'#9b6dff', flexShrink:0 }} />
               <div>
-                <p style={{ fontSize:14, fontWeight:800, color:'#9b6dff', marginBottom:2 }}>
-                  Daily session limit reached
+                <p style={{ fontSize:14, fontWeight:800, color:'#9b6dff', marginBottom:4 }}>
+                  You are out of sessions until
                 </p>
-                <p style={{ fontSize:12, color:'var(--text-dim)', lineHeight:1.5 }}>
-                  You've played {GLOBAL_LIMIT} sessions today. Come back after the cooldown — or upgrade to Pro for unlimited play.
+                <p style={{ fontSize:22, fontWeight:900, color:'#fff', fontFamily:'monospace', letterSpacing:2 }}>
+                  {sessionResetTime}
                 </p>
               </div>
             </div>
@@ -258,7 +276,7 @@ export default function Games() {
           <div className="neu-card" style={{ padding:'22px 20px', marginBottom:0 }}>
             <h1 style={{ fontSize:22, fontWeight:800, color:'var(--text)', marginBottom:4 }}>Game Zone</h1>
             <p style={{ fontSize:13, color:'var(--text-dim)', marginBottom:12 }}>
-              {MAX_PLAYS} plays/game · {GLOBAL_LIMIT} total sessions per day
+              {GLOBAL_LIMIT} sessions per day
             </p>
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
               <span className="chip">🎮 <strong>{globalCount}</strong>/{GLOBAL_LIMIT} sessions today</span>
