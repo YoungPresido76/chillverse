@@ -13,6 +13,7 @@ import AppLayout from './components/AppLayout'
 import ProtectedRoute from './components/ProtectedRoute'
 import { supabase } from './lib/supabase'
 import { updateStreak } from './lib/auth'
+import { triggerAchievementCheck } from './lib/triggerAchievements'
 
 const Profile            = lazy(() => import('./pages/Profile'))
 const PlayerProfile      = lazy(() => import('./pages/PlayerProfile'))
@@ -48,6 +49,8 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
         await updateStreak(session.user.id)
+        // Check non-game achievements (streak, profile, social) on every login
+        triggerAchievementCheck(session.user.id).catch(console.error)
         if (PUBLIC_PATHS.includes(window.location.pathname)) {
           navigate('/dashboard', { replace: true })
         }
