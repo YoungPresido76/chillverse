@@ -6,128 +6,117 @@ import { getRankConfig } from './types'
 import { PreGameModal, GameHUD, StatChip, ResultScreen, QuitModal } from './GameShell'
 import { ripple } from '../../lib/ripple'
 
-const ACCENT = '#ff6b00'
+const ACCENT    = '#ff6b00'
 const MAX_LIVES = 3
 const MAX_HINTS = 3
 
-// ─── Word bank ────────────────────────────────────────────────
-interface WordEntry { word: string; category: string; difficulty: 'easy' | 'medium' | 'hard' | 'impossible' }
+interface WordEntry { word: string; hint: string; difficulty: 'easy' | 'medium' | 'hard' | 'impossible' }
 
+// ─── Word bank with riddle-style hints ───────────────────────
 const WORDS: WordEntry[] = [
   // easy
-  { word: 'CAT',      category: 'Animals',    difficulty: 'easy' },
-  { word: 'DOG',      category: 'Animals',    difficulty: 'easy' },
-  { word: 'SUN',      category: 'Nature',     difficulty: 'easy' },
-  { word: 'FISH',     category: 'Animals',    difficulty: 'easy' },
-  { word: 'JUMP',     category: 'Actions',    difficulty: 'easy' },
-  { word: 'CAKE',     category: 'Food',       difficulty: 'easy' },
-  { word: 'PLAY',     category: 'Actions',    difficulty: 'easy' },
-  { word: 'BIRD',     category: 'Animals',    difficulty: 'easy' },
-  { word: 'RAIN',     category: 'Nature',     difficulty: 'easy' },
-  { word: 'TREE',     category: 'Nature',     difficulty: 'easy' },
-  { word: 'LION',     category: 'Animals',    difficulty: 'easy' },
-  { word: 'STAR',     category: 'Space',      difficulty: 'easy' },
-  { word: 'FROG',     category: 'Animals',    difficulty: 'easy' },
-  { word: 'SAND',     category: 'Nature',     difficulty: 'easy' },
-  { word: 'BOOK',     category: 'Objects',    difficulty: 'easy' },
+  { word: 'CAT',       hint: 'It purrs and knocks things off tables.',               difficulty: 'easy' },
+  { word: 'DOG',       hint: "Man's best friend. Also loves your shoes.",              difficulty: 'easy' },
+  { word: 'SUN',       hint: 'The original source of all your vitamin D.',            difficulty: 'easy' },
+  { word: 'FISH',      hint: 'Lives in water, never blinks.',                         difficulty: 'easy' },
+  { word: 'CAKE',      hint: 'You only get it once a year — hopefully.',              difficulty: 'easy' },
+  { word: 'BIRD',      hint: 'Has wings but not every one of them flies.',            difficulty: 'easy' },
+  { word: 'RAIN',      hint: 'Free water falling from the sky.',                      difficulty: 'easy' },
+  { word: 'TREE',      hint: 'Gives you shade and your Wi-Fi hates it.',              difficulty: 'easy' },
+  { word: 'LION',      hint: 'The king that mostly sleeps 20 hours a day.',           difficulty: 'easy' },
+  { word: 'STAR',      hint: "Far away sun. You've been wishing on a dead one.",      difficulty: 'easy' },
+  { word: 'FROG',      hint: 'Starts in water, ends on land, always jumps.',          difficulty: 'easy' },
+  { word: 'BOOK',      hint: 'Holds a whole world inside but fits in your bag.',      difficulty: 'easy' },
+  { word: 'MOON',      hint: 'It controls the tides and werewolves, apparently.',     difficulty: 'easy' },
+  { word: 'SNOW',      hint: 'Cold, white, and ruins your plans.',                    difficulty: 'easy' },
+  { word: 'WOLF',      hint: 'Howls at the moon. Always misunderstood.',              difficulty: 'easy' },
   // medium
-  { word: 'PYTHON',   category: 'Tech',       difficulty: 'medium' },
-  { word: 'GALAXY',   category: 'Space',      difficulty: 'medium' },
-  { word: 'JUNGLE',   category: 'Nature',     difficulty: 'medium' },
-  { word: 'CASTLE',   category: 'Places',     difficulty: 'medium' },
-  { word: 'SOCKET',   category: 'Tech',       difficulty: 'medium' },
-  { word: 'PEPPER',   category: 'Food',       difficulty: 'medium' },
-  { word: 'BRIDGE',   category: 'Places',     difficulty: 'medium' },
-  { word: 'CHROME',   category: 'Tech',       difficulty: 'medium' },
-  { word: 'CACTUS',   category: 'Nature',     difficulty: 'medium' },
-  { word: 'FROZEN',   category: 'Movies',     difficulty: 'medium' },
-  { word: 'MARBLE',   category: 'Objects',    difficulty: 'medium' },
-  { word: 'SPRINT',   category: 'Sports',     difficulty: 'medium' },
-  { word: 'GRAVEL',   category: 'Nature',     difficulty: 'medium' },
-  { word: 'FLUTE',    category: 'Music',      difficulty: 'medium' },
-  { word: 'WALLET',   category: 'Objects',    difficulty: 'medium' },
+  { word: 'PYTHON',    hint: 'Both a snake and a language that runs the internet.',   difficulty: 'medium' },
+  { word: 'GALAXY',    hint: 'Billions of stars in one neighbourhood.',               difficulty: 'medium' },
+  { word: 'JUNGLE',    hint: "More species per square metre than your city's whole park.", difficulty: 'medium' },
+  { word: 'CASTLE',    hint: 'Had a moat. Now it charges tourist entry.',             difficulty: 'medium' },
+  { word: 'CACTUS',    hint: 'Thrives on neglect. You relate.',                       difficulty: 'medium' },
+  { word: 'BRIDGE',    hint: 'Connects two places nobody wanted to swim between.',    difficulty: 'medium' },
+  { word: 'MARBLE',    hint: 'Cold, smooth, and used to build empires.',              difficulty: 'medium' },
+  { word: 'WALLET',    hint: 'Flat and mostly empty. Very relatable.',                difficulty: 'medium' },
+  { word: 'PEPPER',    hint: 'Tiny but makes your eyes water if it sneezes.',        difficulty: 'medium' },
+  { word: 'FROZEN',    hint: "Elsa's whole situation.",                               difficulty: 'medium' },
+  { word: 'SPRINT',    hint: 'Running but with urgency and regret.',                  difficulty: 'medium' },
+  { word: 'FLUTE',     hint: 'You blow into it and somehow music happens.',           difficulty: 'medium' },
+  { word: 'SOCKET',    hint: 'The hole in the wall that powers everything.',          difficulty: 'medium' },
+  { word: 'CHROME',    hint: 'The shiny stuff and also the reason your RAM is gone.', difficulty: 'medium' },
+  { word: 'GRAVEL',    hint: 'Tiny rocks that live in driveways and shoe soles.',    difficulty: 'medium' },
   // hard
-  { word: 'QUANTUM',  category: 'Science',    difficulty: 'hard' },
-  { word: 'PHOENIX',  category: 'Mythology',  difficulty: 'hard' },
-  { word: 'ENCRYPT',  category: 'Tech',       difficulty: 'hard' },
-  { word: 'WRINKLE',  category: 'Words',      difficulty: 'hard' },
-  { word: 'XYLOPHONE',category: 'Music',      difficulty: 'hard' },
-  { word: 'FJORD',    category: 'Geography',  difficulty: 'hard' },
-  { word: 'BIZARRE',  category: 'Words',      difficulty: 'hard' },
-  { word: 'TYCOON',   category: 'Business',   difficulty: 'hard' },
-  { word: 'VORTEX',   category: 'Science',    difficulty: 'hard' },
-  { word: 'GLADIATOR',category: 'Movies',     difficulty: 'hard' },
-  { word: 'RHYTHM',   category: 'Music',      difficulty: 'hard' },
-  { word: 'WYVERN',   category: 'Mythology',  difficulty: 'hard' },
-  { word: 'BAROQUE',  category: 'Art',        difficulty: 'hard' },
-  { word: 'FLUXION',  category: 'Science',    difficulty: 'hard' },
-  { word: 'ZEPHYR',   category: 'Nature',     difficulty: 'hard' },
+  { word: 'QUANTUM',   hint: 'Physics so weird even physicists argue about it.',      difficulty: 'hard' },
+  { word: 'PHOENIX',   hint: 'Burns to ash, comes back. The original comeback kid.',  difficulty: 'hard' },
+  { word: 'ENCRYPT',   hint: 'Scramble a message so only the right person reads it.', difficulty: 'hard' },
+  { word: 'FJORD',     hint: "Norway's dramatic coastline that Norway is smug about.", difficulty: 'hard' },
+  { word: 'BIZARRE',   hint: 'So strange it is hard to explain but you know it when you see it.', difficulty: 'hard' },
+  { word: 'TYCOON',    hint: 'Extremely rich person who probably owns a few islands.', difficulty: 'hard' },
+  { word: 'VORTEX',    hint: 'A spinning pull you cannot escape. Also your phone.',   difficulty: 'hard' },
+  { word: 'RHYTHM',    hint: 'No vowels, all feeling. Hard to spell, easy to feel.',  difficulty: 'hard' },
+  { word: 'WYVERN',    hint: "Dragon but with two legs instead of four. Dragon's slimmer cousin.", difficulty: 'hard' },
+  { word: 'BAROQUE',   hint: 'Fancy European art with too many angels and gold.',     difficulty: 'hard' },
+  { word: 'WRINKLE',   hint: 'What time does to everything eventually.',              difficulty: 'hard' },
+  { word: 'ZEPHYR',    hint: 'A gentle west wind. Sounds like a car name too.',       difficulty: 'hard' },
+  { word: 'GLADIATOR', hint: 'Fought for his life in a sand arena. Great movie too.', difficulty: 'hard' },
+  { word: 'FLUXION',   hint: "Newton's original name for calculus before calculus was cool.", difficulty: 'hard' },
+  { word: 'XYLOPHONE', hint: 'Bang the coloured bars to make music. Kids love it.',   difficulty: 'hard' },
   // impossible
-  { word: 'MNEMONIC',   category: 'Words',      difficulty: 'impossible' },
-  { word: 'SYZYGY',     category: 'Space',      difficulty: 'impossible' },
-  { word: 'QUIXOTIC',   category: 'Words',      difficulty: 'impossible' },
-  { word: 'PNEUMONIA',  category: 'Medicine',   difficulty: 'impossible' },
-  { word: 'CHRYSALIS',  category: 'Biology',    difficulty: 'impossible' },
-  { word: 'ALGORITHM',  category: 'Tech',       difficulty: 'impossible' },
-  { word: 'XENOPHOBIA', category: 'Psychology', difficulty: 'impossible' },
-  { word: 'LABYRINTH',  category: 'Mythology',  difficulty: 'impossible' },
-  { word: 'POLYPHONY',  category: 'Music',      difficulty: 'impossible' },
-  { word: 'PHOSPHORUS', category: 'Science',    difficulty: 'impossible' },
-  { word: 'BYZANTINE',  category: 'History',    difficulty: 'impossible' },
-  { word: 'HYPOTHESIS', category: 'Science',    difficulty: 'impossible' },
-  { word: 'ARCHIPELAGO',category: 'Geography',  difficulty: 'impossible' },
-  { word: 'JUXTAPOSE',  category: 'Words',      difficulty: 'impossible' },
-  { word: 'CRYPTOGRAM', category: 'Tech',       difficulty: 'impossible' },
+  { word: 'MNEMONIC',    hint: 'A trick your brain uses to remember things it keeps forgetting.', difficulty: 'impossible' },
+  { word: 'SYZYGY',      hint: 'Three celestial bodies perfectly aligned. Also unbeatable in Scrabble.', difficulty: 'impossible' },
+  { word: 'QUIXOTIC',    hint: 'Chasing impossible dreams with complete sincerity. Don Quijote energy.', difficulty: 'impossible' },
+  { word: 'CHRYSALIS',   hint: 'The in-between — not caterpillar, not butterfly. The awkward phase.', difficulty: 'impossible' },
+  { word: 'ALGORITHM',   hint: 'A recipe for a computer. Also why your feed shows you that.', difficulty: 'impossible' },
+  { word: 'LABYRINTH',   hint: 'A maze you were not meant to escape. Also a Bowie film.', difficulty: 'impossible' },
+  { word: 'POLYPHONY',   hint: 'Many voices or melodies playing at once in harmony.',  difficulty: 'impossible' },
+  { word: 'PHOSPHORUS',  hint: 'Glows in the dark. Essential for life. Explosive if you are not careful.', difficulty: 'impossible' },
+  { word: 'BYZANTINE',   hint: 'So complicated and political it became an adjective for complexity.', difficulty: 'impossible' },
+  { word: 'HYPOTHESIS',  hint: 'An educated guess pretending to be scientific.',        difficulty: 'impossible' },
+  { word: 'ARCHIPELAGO', hint: 'A chain of islands that looks amazing on a map.',       difficulty: 'impossible' },
+  { word: 'JUXTAPOSE',   hint: 'Place two opposite things side by side to make a point.', difficulty: 'impossible' },
+  { word: 'CRYPTOGRAM',  hint: 'A message hidden behind a code only the clever will crack.', difficulty: 'impossible' },
+  { word: 'PNEUMONIA',   hint: 'A lung infection that starts with a silent P to confuse you.', difficulty: 'impossible' },
+  { word: 'XENOPHOBIA',  hint: 'Fear and hatred of people who are from somewhere else.', difficulty: 'impossible' },
 ]
 
 type Difficulty = 'easy' | 'medium' | 'hard' | 'impossible'
-
 const DIFF_ORDER: Difficulty[] = ['easy', 'medium', 'hard', 'impossible']
 
 const DIFF_META: Record<Difficulty, { label: string; color: string; winsNeeded: number; xpPerWord: number }> = {
-  easy:       { label: 'Easy',       color: '#3ecf8e', winsNeeded: 3,  xpPerWord: 8  },
-  medium:     { label: 'Medium',     color: '#4f8ef7', winsNeeded: 3,  xpPerWord: 14 },
-  hard:       { label: 'Hard',       color: '#9b6dff', winsNeeded: 3,  xpPerWord: 22 },
-  impossible: { label: 'Impossible', color: '#f5c542', winsNeeded: 3,  xpPerWord: 36 },
+  easy:       { label: 'Easy',       color: '#3ecf8e', winsNeeded: 3, xpPerWord: 8  },
+  medium:     { label: 'Medium',     color: '#4f8ef7', winsNeeded: 3, xpPerWord: 14 },
+  hard:       { label: 'Hard',       color: '#9b6dff', winsNeeded: 3, xpPerWord: 22 },
+  impossible: { label: 'Impossible', color: '#f5c542', winsNeeded: 3, xpPerWord: 36 },
 }
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 
 function pickWord(difficulty: Difficulty, usedWords: Set<string>): WordEntry {
   const pool = WORDS.filter(w => w.difficulty === difficulty && !usedWords.has(w.word))
-  if (!pool.length) {
-    // all used — reset and pick any
-    return WORDS.filter(w => w.difficulty === difficulty)[Math.floor(Math.random() * WORDS.filter(w => w.difficulty === difficulty).length)]
-  }
-  return pool[Math.floor(Math.random() * pool.length)]
+  const src  = pool.length ? pool : WORDS.filter(w => w.difficulty === difficulty)
+  return src[Math.floor(Math.random() * src.length)]
 }
 
-// ─── Hangman drawing ──────────────────────────────────────────
 function HangmanFigure({ wrong, accent }: { wrong: number; accent: string }) {
   const s = { stroke: '#888899', strokeWidth: 2.5, strokeLinecap: 'round' as const, fill: 'none' }
   const a = { ...s, stroke: accent }
   return (
     <svg width={110} height={130} viewBox="0 0 110 130" style={{ display:'block' }}>
-      {/* gallows — always visible */}
       <line x1={10}  y1={125} x2={100} y2={125} {...s} />
       <line x1={30}  y1={125} x2={30}  y2={10}  {...s} />
       <line x1={30}  y1={10}  x2={65}  y2={10}  {...s} />
       <line x1={65}  y1={10}  x2={65}  y2={26}  {...s} />
-      {/* head */}
       {wrong >= 1 && <circle cx={65} cy={34} r={8} {...a} />}
-      {/* body */}
       {wrong >= 2 && <line x1={65} y1={42} x2={65} y2={80} {...a} />}
-      {/* left arm */}
       {wrong >= 3 && <line x1={65} y1={52} x2={48} y2={66} {...a} />}
-      {/* ...but with 3 lives, max wrong = 3, so we stop at left arm for 'lose' */}
     </svg>
   )
 }
 
-// ─── Difficulty progress sidebar ─────────────────────────────
 function DiffProgressBar({ difficulty, winsInDiff, winsNeeded }: { difficulty: Difficulty; winsInDiff: number; winsNeeded: number }) {
   const meta = DIFF_META[difficulty]
-  const pct = Math.min(100, (winsInDiff / winsNeeded) * 100)
+  const pct  = Math.min(100, (winsInDiff / winsNeeded) * 100)
   return (
     <div style={{ marginBottom: 10 }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
@@ -141,63 +130,43 @@ function DiffProgressBar({ difficulty, winsInDiff, winsNeeded }: { difficulty: D
   )
 }
 
-// ─── Props ────────────────────────────────────────────────────
-interface Props {
-  rank: GameRank
-  onEnd: (payload: GameEndPayload) => void
-  onBack: () => void
-}
+interface Props { rank: GameRank; onEnd: (payload: GameEndPayload) => void; onBack: () => void }
 
 export default function Hangman({ rank: _rank, onEnd, onBack }: Props) {
   const [phase, setPhase] = useState<'info' | 'play' | 'result' | 'quit'>('info')
 
-  // progression
-  const [difficulty, setDifficulty] = useState<Difficulty>('easy')
-  const [winsPerDiff, setWinsPerDiff] = useState<Record<Difficulty, number>>({ easy:0, medium:0, hard:0, impossible:0 })
-  const [totalWins, setTotalWins] = useState(0)
-  const [totalLosses, setTotalLosses] = useState(0)
-  const [totalXP, setTotalXP] = useState(0)
-  const [usedWords] = useState<Set<string>>(new Set())
+  const [difficulty, setDifficulty]     = useState<Difficulty>('easy')
+  const [winsPerDiff, setWinsPerDiff]   = useState<Record<Difficulty, number>>({ easy:0, medium:0, hard:0, impossible:0 })
+  const [totalWins, setTotalWins]       = useState(0)
+  const [totalLosses, setTotalLosses]   = useState(0)
+  const [totalXP, setTotalXP]           = useState(0)
+  const [usedWords]                     = useState<Set<string>>(new Set())
 
-  // word state
-  const [entry, setEntry] = useState<WordEntry | null>(null)
-  const [guessed, setGuessed] = useState<Set<string>>(new Set())
-  const [livesLeft, setLivesLeft] = useState(MAX_LIVES)
-  const [hintsLeft, setHintsLeft] = useState(MAX_HINTS)
+  const [entry, setEntry]           = useState<WordEntry | null>(null)
+  const [guessed, setGuessed]       = useState<Set<string>>(new Set())
+  const [livesLeft, setLivesLeft]   = useState(MAX_LIVES)
+  const [hintsLeft, setHintsLeft]   = useState(MAX_HINTS)
   const [wordResult, setWordResult] = useState<'win' | 'lose' | null>(null)
 
-  // session timing
   const startRef = useRef(Date.now())
   const [result, setResult] = useState<GameEndPayload | null>(null)
 
-  // derived
-  const letters = entry ? entry.word.split('') : []
-  const wrong = guessed.size > 0
-    ? [...guessed].filter(l => !letters.includes(l)).length
-    : 0
-  const revealed = letters.every(l => guessed.has(l))
+  const letters  = entry ? entry.word.split('') : []
+  const wrong    = guessed.size > 0 ? [...guessed].filter(l => !letters.includes(l)).length : 0
+  const revealed = letters.length > 0 && letters.every(l => guessed.has(l))
 
-  // check win/lose after each guess
   useEffect(() => {
     if (phase !== 'play' || !entry || wordResult) return
-    if (revealed) {
-      setWordResult('win')
-    } else if (livesLeft <= 0) {
-      setWordResult('lose')
-    }
+    if (revealed)        setWordResult('win')
+    else if (livesLeft <= 0) setWordResult('lose')
   }, [guessed, livesLeft])
 
-  // auto-advance after word result
   useEffect(() => {
     if (!wordResult) return
-    const timeout = setTimeout(() => {
-      if (wordResult === 'win') {
-        handleWordWin()
-      } else {
-        handleWordLose()
-      }
+    const t = setTimeout(() => {
+      wordResult === 'win' ? handleWordWin() : handleWordLose()
     }, 1800)
-    return () => clearTimeout(timeout)
+    return () => clearTimeout(t)
   }, [wordResult])
 
   function loadWord(diff: Difficulty) {
@@ -211,13 +180,15 @@ export default function Hangman({ rank: _rank, onEnd, onBack }: Props) {
 
   function handleWordWin() {
     const xp = DIFF_META[difficulty].xpPerWord
-    setTotalXP(x => x + xp)
-    setTotalWins(w => w + 1)
+    const newTotalWins = totalWins + 1
+    const newXP        = totalXP + xp
+    setTotalXP(newTotalWins => newTotalWins) // just trigger re-render
+    setTotalXP(newXP)
+    setTotalWins(newTotalWins)
 
     const newWins = { ...winsPerDiff, [difficulty]: winsPerDiff[difficulty] + 1 }
     setWinsPerDiff(newWins)
 
-    // advance difficulty?
     const needed = DIFF_META[difficulty].winsNeeded
     if (newWins[difficulty] >= needed) {
       const idx = DIFF_ORDER.indexOf(difficulty)
@@ -226,7 +197,6 @@ export default function Hangman({ rank: _rank, onEnd, onBack }: Props) {
         setDifficulty(next)
         loadWord(next)
       } else {
-        // completed impossible — still keep playing impossible
         loadWord('impossible')
       }
     } else {
@@ -236,19 +206,15 @@ export default function Hangman({ rank: _rank, onEnd, onBack }: Props) {
 
   function handleWordLose() {
     setTotalLosses(l => l + 1)
-    // add base xp even for losing
-    setTotalXP(x => x + 13)
+    // No XP for a loss — avoids the loophole of farming easy losses
     loadWord(difficulty)
   }
 
   function guess(letter: string) {
     if (guessed.has(letter) || wordResult) return
-    const newGuessed = new Set(guessed)
-    newGuessed.add(letter)
-    setGuessed(newGuessed)
-    if (!letters.includes(letter)) {
-      setLivesLeft(l => l - 1)
-    }
+    const ng = new Set(guessed); ng.add(letter)
+    setGuessed(ng)
+    if (!letters.includes(letter)) setLivesLeft(l => l - 1)
   }
 
   function useHint() {
@@ -257,28 +223,28 @@ export default function Hangman({ rank: _rank, onEnd, onBack }: Props) {
     if (!unrevealed.length) return
     const pick = unrevealed[Math.floor(Math.random() * unrevealed.length)]
     setHintsLeft(h => h - 1)
-    const newGuessed = new Set(guessed)
-    newGuessed.add(pick)
-    setGuessed(newGuessed)
+    const ng = new Set(guessed); ng.add(pick)
+    setGuessed(ng)
   }
 
   function endSession() {
-    const dur = Math.floor((Date.now() - startRef.current) / 1000)
-    // XP formula: base 13 if never tried hard, scales up to 80 for impossible grinders
-    const diffBonus = { easy:0, medium:10, hard:28, impossible:50 }[difficulty]
-    const xpEarned = Math.min(80, Math.max(13, totalXP + diffBonus))
+    const dur          = Math.floor((Date.now() - startRef.current) / 1000)
+    const totalPlayed  = totalWins + totalLosses
+    // XP = only what was earned from correct words. No bonus for losses.
+    // Cap at 200 to prevent impossible grind abuse.
+    const xpEarned     = Math.min(200, Math.max(0, totalXP))
 
     const payload: GameEndPayload = {
-      gameId: 'hangman' as any,
-      gameName: 'Hangman',
-      rank: _rank,
-      score: totalWins * 100,
+      gameId:      'hangman' as any,
+      gameName:    'Hangman',
+      rank:        _rank,
+      score:       totalWins * 100,
       xpEarned,
       durationSec: dur,
-      streak: totalWins,
-      correct: totalWins,
-      total: totalWins + totalLosses,
-      detail: { 'Words Solved': totalWins, 'Max Difficulty': DIFF_META[difficulty].label },
+      streak:      totalWins,
+      correct:     totalWins,
+      total:       totalPlayed,
+      detail:      { 'Words Solved': totalWins, 'Words Failed': totalLosses, 'Accuracy': totalPlayed > 0 ? `${Math.round((totalWins / totalPlayed) * 100)}%` : '0%' },
     }
     setResult(payload)
     setPhase('result')
@@ -297,14 +263,15 @@ export default function Hangman({ rank: _rank, onEnd, onBack }: Props) {
     setPhase('play')
   }
 
-  const rankCfg = getRankConfig(_rank)
+  const rankCfg  = getRankConfig(_rank)
   const diffMeta = DIFF_META[difficulty]
 
   const rules = [
     { icon: '🔤', text: 'Guess the hidden word letter by letter.' },
-    { icon: '❤️', text: '3 lives per word — wrong letters cost a life.' },
-    { icon: '💡', text: '3 hints for the whole session — reveals a random letter.' },
-    { icon: '📈', text: 'Win 3 words per tier to advance: Easy → Medium → Hard → Impossible.' },
+    { icon: '💡', text: 'Each word comes with a riddle-style hint — use it wisely.' },
+    { icon: '❤️', text: '3 lives per word. Wrong letters cost a life.' },
+    { icon: '🚫', text: 'No XP for failed words — only correct ones count.' },
+    { icon: '📈', text: 'Win 3 words per tier: Easy → Medium → Hard → Impossible.' },
     { icon: '⚡', text: 'Session costs 3 global plays.' },
   ]
 
@@ -330,7 +297,6 @@ export default function Hangman({ rank: _rank, onEnd, onBack }: Props) {
 
   return (
     <div style={{ display:'flex', flexDirection:'column', flex:1, background:'var(--bg)', position:'relative', overflow:'hidden' }}>
-      {/* ambient glow */}
       <div style={{ position:'absolute', width:220, height:220, borderRadius:'50%', filter:'blur(90px)', opacity:0.07, background:ACCENT, top:'10%', right:'-10%', pointerEvents:'none' }} />
 
       <GameHUD
@@ -348,46 +314,41 @@ export default function Hangman({ rank: _rank, onEnd, onBack }: Props) {
       />
 
       <div style={{ display:'flex', flex:1, overflow:'hidden' }}>
-
-        {/* ── Left: progress sidebar ── */}
+        {/* Sidebar */}
         <div style={{ width:90, flexShrink:0, padding:'14px 10px', borderRight:'1px solid rgba(255,255,255,0.05)', display:'flex', flexDirection:'column', gap:4 }}>
           <div style={{ fontSize:9, fontWeight:700, color:'var(--text-muted)', letterSpacing:'1px', textTransform:'uppercase', marginBottom:8 }}>Progress</div>
           {DIFF_ORDER.map(d => (
-            <DiffProgressBar
-              key={d}
-              difficulty={d}
-              winsInDiff={winsPerDiff[d]}
-              winsNeeded={DIFF_META[d].winsNeeded}
-            />
+            <DiffProgressBar key={d} difficulty={d} winsInDiff={winsPerDiff[d]} winsNeeded={DIFF_META[d].winsNeeded} />
           ))}
           <div style={{ marginTop:'auto', paddingTop:12, borderTop:'1px solid rgba(255,255,255,0.05)' }}>
-            <div style={{ fontSize:9, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:3 }}>XP so far</div>
+            <div style={{ fontSize:9, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:3 }}>XP earned</div>
             <div style={{ fontSize:14, fontWeight:800, color:ACCENT }}>{totalXP}</div>
           </div>
         </div>
 
-        {/* ── Right: game area ── */}
+        {/* Game area */}
         <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', padding:'12px 12px 0', overflowY:'auto' }}>
 
-          {/* Difficulty badge + category */}
-          <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:8 }}>
+          {/* Difficulty + hint badge */}
+          <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:8, flexWrap:'wrap', justifyContent:'center' }}>
             <span style={{ fontSize:10, fontWeight:700, color:diffMeta.color, background:`${diffMeta.color}18`, padding:'3px 10px', borderRadius:20, border:`1px solid ${diffMeta.color}33` }}>
               {diffMeta.label}
             </span>
-            {entry && (
-              <span style={{ fontSize:10, color:'var(--text-muted)', background:'var(--surface2)', padding:'3px 10px', borderRadius:20 }}>
-                {entry.category}
-              </span>
-            )}
           </div>
 
-          {/* Hangman figure */}
           <HangmanFigure wrong={wrong} accent={ACCENT} />
 
+          {/* Riddle hint */}
+          {entry && (
+            <div style={{ fontSize:11, color:'var(--text-dim)', textAlign:'center', maxWidth:260, lineHeight:1.5, marginBottom:10, fontStyle:'italic', padding:'8px 12px', background:'var(--surface2)', borderRadius:12, border:'1px solid rgba(255,255,255,0.05)' }}>
+              💬 {entry.hint}
+            </div>
+          )}
+
           {/* Word display */}
-          <div style={{ display:'flex', gap:6, flexWrap:'wrap', justifyContent:'center', margin:'12px 0 6px' }}>
+          <div style={{ display:'flex', gap:6, flexWrap:'wrap', justifyContent:'center', margin:'6px 0' }}>
             {letters.map((l, i) => {
-              const show = guessed.has(l) || (wordResult === 'lose')
+              const show = guessed.has(l) || wordResult === 'lose'
               return (
                 <div key={i} style={{
                   width:28, height:36, borderRadius:8,
@@ -404,13 +365,8 @@ export default function Hangman({ rank: _rank, onEnd, onBack }: Props) {
             })}
           </div>
 
-          {/* Word result flash */}
           {wordResult && (
-            <div style={{
-              fontSize:13, fontWeight:800, marginBottom:6,
-              color: wordResult === 'win' ? '#3ecf8e' : '#ff6b6b',
-              animation:'wordFlash 0.4s cubic-bezier(0.34,1.56,0.64,1) both',
-            }}>
+            <div style={{ fontSize:13, fontWeight:800, margin:'8px 0', color: wordResult === 'win' ? '#3ecf8e' : '#ff6b6b', animation:'wordFlash 0.4s cubic-bezier(0.34,1.56,0.64,1) both' }}>
               {wordResult === 'win' ? `✅ Correct! +${DIFF_META[difficulty].xpPerWord} XP` : `❌ It was: ${entry?.word}`}
             </div>
           )}
@@ -422,7 +378,8 @@ export default function Hangman({ rank: _rank, onEnd, onBack }: Props) {
             disabled={hintsLeft <= 0 || !!wordResult}
             className="ripple-wrap"
             style={{
-              padding:'6px 16px', borderRadius:12, cursor: hintsLeft <= 0 || wordResult ? 'not-allowed' : 'pointer',
+              padding:'6px 16px', borderRadius:12,
+              cursor: hintsLeft <= 0 || wordResult ? 'not-allowed' : 'pointer',
               background: hintsLeft > 0 && !wordResult ? 'rgba(245,197,66,0.12)' : 'var(--surface2)',
               color: hintsLeft > 0 && !wordResult ? '#f5c542' : 'var(--text-muted)',
               fontSize:11, fontWeight:700, marginBottom:10,
@@ -431,7 +388,7 @@ export default function Hangman({ rank: _rank, onEnd, onBack }: Props) {
               transition:'all 0.2s',
             }}
           >
-            💡 Hint ({hintsLeft} left)
+            💡 Reveal letter ({hintsLeft} left)
           </button>
 
           {/* Keyboard */}
@@ -441,10 +398,7 @@ export default function Hangman({ rank: _rank, onEnd, onBack }: Props) {
               const isCorrect = isGuessed && letters.includes(l)
               const isWrong   = isGuessed && !letters.includes(l)
               return (
-                <button
-                  key={l}
-                  type="button"
-                  className="ripple-wrap"
+                <button key={l} type="button" className="ripple-wrap"
                   onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); guess(l) }}
                   disabled={isGuessed || !!wordResult}
                   style={{
@@ -456,32 +410,22 @@ export default function Hangman({ rank: _rank, onEnd, onBack }: Props) {
                     boxShadow: isGuessed ? 'none' : '2px 2px 5px var(--neu-dark),-1px -1px 3px var(--neu-light)',
                     opacity: isWrong ? 0.45 : 1,
                     transition:'all 0.15s',
-                  }}
-                >
+                  }}>
                   {l}
                 </button>
               )
             })}
           </div>
 
-          {/* End session button */}
-          <button
-            type="button"
-            onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); endSession() }}
-            className="ripple-wrap"
-            style={{ marginBottom:20, padding:'8px 22px', borderRadius:14, border:'1px solid rgba(255,255,255,0.08)', background:'var(--surface2)', color:'var(--text-dim)', fontSize:12, fontWeight:600, cursor:'pointer' }}
-          >
+          <button type="button" onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); endSession() }} className="ripple-wrap"
+            style={{ marginBottom:20, padding:'8px 22px', borderRadius:14, border:'1px solid rgba(255,255,255,0.08)', background:'var(--surface2)', color:'var(--text-dim)', fontSize:12, fontWeight:600, cursor:'pointer' }}>
             End Session
           </button>
-
         </div>
       </div>
 
       {phase === 'quit' && <QuitModal onConfirm={onBack} onCancel={() => setPhase('play')} />}
-
-      <style>{`
-        @keyframes wordFlash { from{opacity:0;transform:scale(0.8)} to{opacity:1;transform:scale(1)} }
-      `}</style>
+      <style>{`@keyframes wordFlash { from{opacity:0;transform:scale(0.8)} to{opacity:1;transform:scale(1)} }`}</style>
     </div>
   )
 }
