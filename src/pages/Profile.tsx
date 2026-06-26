@@ -394,6 +394,10 @@ export default function Profile() {
   const [albumPics, setAlbumPics]                   = useState<AlbumPic[]>([])
   const [bannerUrl, setBannerUrl]                   = useState<string | null>(null)
   const [xpBarWidth, setXpBarWidth]                 = useState(0)
+  const [liked, setLiked]                           = useState(false)
+  const [likeCount, setLikeCount]                   = useState(0)
+  const [liking, setLiking]                         = useState(false)
+  const [likeToast, setLikeToast]                   = useState<string | null>(null)
 
   const displayName = displayNameOverride ?? profile?.display_name ?? profile?.username ?? ''
 
@@ -477,6 +481,33 @@ export default function Profile() {
       })
   }, [profile?.id])
 
+  // Load like count + whether I've liked my own profile
+  useEffect(() => {
+    if (!profile?.id) return
+    supabase.from('profile_likes').select('liker_id', { count: 'exact', head: true }).eq('profile_id', profile.id)
+      .then(({ count }) => setLikeCount(count ?? 0))
+    supabase.from('profile_likes').select('liker_id').eq('profile_id', profile.id).eq('liker_id', profile.id).maybeSingle()
+      .then(({ data }) => setLiked(!!data))
+  }, [profile?.id])
+
+  async function handleLike() {
+    if (!profile?.id || liked || liking) return
+    setLiking(true)
+    const { error } = await supabase.from('profile_likes').insert({ profile_id: profile.id, liker_id: profile.id })
+    if (!error) {
+      setLiked(true)
+      setLikeCount(c => c + 1)
+      setLikeToast('Like added ❤️')
+    }
+    setLiking(false)
+  }
+
+  useEffect(() => {
+    if (!likeToast) return
+    const t = setTimeout(() => setLikeToast(null), 2600)
+    return () => clearTimeout(t)
+  }, [likeToast])
+
   // Equip album pic as banner
   async function equipAsBanner(pic: AlbumPic) {
     if (!profile?.id) return
@@ -526,12 +557,19 @@ export default function Profile() {
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14 }}>
 
           {/* Square profile pic — left aligned */}
-          <div style={{ flexShrink: 0, position: 'relative' }}>
+          <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
             <div style={{ width: 80, height: 80, borderRadius: 20, padding: 3, background: `linear-gradient(135deg, ${rank.color}, #4f8ef7)`, boxShadow: `0 0 20px ${rank.color}55`, border: '3px solid var(--bg)' }}>
               <div style={{ width: '100%', height: '100%', borderRadius: 16, background: 'linear-gradient(135deg, var(--purple), var(--blue))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 800, color: '#fff' }}>
                 {displayName.charAt(0).toUpperCase()}
               </div>
             </div>
+            {/* Like — below avatar, left side. Self-likes count too, once. */}
+            <button type="button" onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); handleLike() }} disabled={liking || liked}
+              className="ripple-wrap"
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 20, border: `1px solid ${liked ? 'rgba(255,77,139,0.4)' : 'rgba(255,255,255,0.1)'}`, background: liked ? 'rgba(255,77,139,0.14)' : 'var(--surface)', cursor: liked ? 'default' : 'pointer', boxShadow: '2px 2px 6px var(--neu-dark)' }}>
+              <Heart size={14} color={liked ? '#ff4d8b' : 'var(--text-muted)'} style={{ fill: liked ? '#ff4d8b' : 'none' }} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: liked ? '#ff4d8b' : 'var(--text-dim)' }}>{likeCount}</span>
+            </button>
           </div>
 
           {/* Name + presence */}
@@ -663,6 +701,12 @@ export default function Profile() {
       )}
       {showWishlist && profile?.id && (
         <WishlistSheet profileId={profile.id} onClose={() => setShowWishlist(false)} />
+      )}
+      {likeToast && (
+        <div style={{ position: 'fixed', bottom: 90, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: 'rgba(20,20,24,0.96)', border: '1px solid rgba(255,77,139,0.4)', borderRadius: 14, padding: '11px 18px', display: 'flex', alignItems: 'center', gap: 9, boxShadow: '0 8px 32px rgba(0,0,0,0.55)', backdropFilter: 'blur(10px)', whiteSpace: 'nowrap' }}>
+          <Heart size={14} color="#ff4d8b" style={{ fill: '#ff4d8b' }} />
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{likeToast}</span>
+        </div>
       )}
 
       <style>{`
