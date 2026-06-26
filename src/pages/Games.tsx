@@ -9,7 +9,7 @@ import {
 import { ripple } from '../lib/ripple'
 import {
   getPlaysToday, saveGameSession, savePlayerRank, getAllPlayerRanks,
-  getGlobalSessionInfo,
+  getGlobalSessionInfo, incrementGlobalSession,
 } from '../lib/gameSession'
 import type { GameKey } from '../lib/gameSession'
 import { useAuth } from '../hooks/useAuth'
@@ -220,8 +220,7 @@ export default function Games() {
       streak: payload.streak,
       metadata: payload.detail as Record<string, unknown>,
     })
-    // Deduct the full session cost locally
-    const { incrementGlobalSession } = await import('../lib/gameSession')
+    // Deduct the full session cost locally (static import at top of file)
     incrementGlobalSession(userId, cost)
 
     await savePlayerRank(userId, game.dbKey, payload.rank, payload.streak,
