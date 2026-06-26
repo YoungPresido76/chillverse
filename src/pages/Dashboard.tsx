@@ -23,11 +23,87 @@ interface QuickAction {
 
 const MINI_AVATAR_COLORS = ['#ff6b6b','#4f8ef7','#9b6dff','#3ecf8e','#f5c542']
 
-function getGreeting(): string {
+// ─── Smart greeting ───────────────────────────────────────────
+function getGreeting(name: string): { line: string; sub: string } {
   const h = new Date().getHours()
-  if (h < 12) return 'Good morning'
-  if (h < 18) return 'Good afternoon'
-  return 'Good evening'
+  const day = new Date().getDay() // 0=Sun,6=Sat
+
+  // Time-aware pool
+  const greetings = {
+    lateNight: [   // 0–4
+      { line: `Late night, ${name}..`,   sub: 'Still up? Respect the grind.' },
+      { line: `Can't sleep, ${name}?`,   sub: 'Neither can we. Let's go.' },
+      { line: `Night owl mode 🦉`,        sub: `What's good, ${name}?` },
+    ],
+    earlyMorning: [ // 5–8
+      { line: `Early bird, ${name} 🐦`,  sub: 'You're up before everyone.' },
+      { line: `Good morning, ${name}`,   sub: 'Coffee first or games first?' },
+      { line: `Rise & grind, ${name}`,   sub: 'The leaderboard won't climb itself.' },
+    ],
+    morning: [     // 9–11
+      { line: `Morning, ${name} ☀️`,     sub: 'What are we getting into today?' },
+      { line: `Coffee time, ${name}?`,   sub: 'Or are you already on it.' },
+      { line: `Back at it, ${name}`,     sub: 'Let's make today count.' },
+    ],
+    afternoon: [   // 12–16
+      { line: `Hey ${name} 👋`,          sub: 'Good to see you back.' },
+      { line: `Game time, ${name}?`,     sub: 'Sessions are waiting.' },
+      { line: `Bored?¿ ${name}`,         sub: 'Yeah we got you.' },
+    ],
+    evening: [     // 17–20
+      { line: `Evening, ${name}`,        sub: 'Wind down or heat up?' },
+      { line: `Hey ${name}, what's up`,  sub: 'The crew's online.' },
+      { line: `Moonlight chat, ${name}?`,sub: 'It's that time of day.' },
+    ],
+    night: [       // 21–23
+      { line: `Night mode, ${name} 🌙`,  sub: 'Last sessions of the day.' },
+      { line: `Still here, ${name}?`,    sub: 'One more game won't hurt.' },
+      { line: `Moonlight chat, ${name}?`,sub: 'Quiet hours, real ones only.' },
+    ],
+  }
+
+  // Weekend bonus
+  if ((day === 0 || day === 6) && h >= 10 && h < 14) {
+    return { line: `Weekend energy, ${name}`, sub: 'No alarm, no rules. Let's go.' }
+  }
+
+  let pool
+  if (h < 5)       pool = greetings.lateNight
+  else if (h < 9)  pool = greetings.earlyMorning
+  else if (h < 12) pool = greetings.morning
+  else if (h < 17) pool = greetings.afternoon
+  else if (h < 21) pool = greetings.evening
+  else              pool = greetings.night
+
+  // Pick deterministically by minute so it doesn't flicker on re-render
+  const idx = new Date().getMinutes() % pool.length
+  return pool[idx]
+}
+
+// ─── Streak message ───────────────────────────────────────────
+function getStreakMessage(streak: number): { emoji: string; message: string; color: string } {
+  if (streak === 0) {
+    return { emoji: '👀', message: "No streak yet — today's a good day to start.", color: 'var(--text-muted)' }
+  }
+  if (streak === 1) {
+    return { emoji: '🌱', message: "Day 1. The seed is planted.", color: '#3ecf8e' }
+  }
+  if (streak <= 3) {
+    return { emoji: '🔥', message: `${streak}-day streak — you're just warming up.`, color: '#ff9a3c' }
+  }
+  if (streak <= 6) {
+    return { emoji: '⚡', message: `${streak} days straight. The momentum is real.`, color: '#f5c542' }
+  }
+  if (streak <= 13) {
+    return { emoji: '🚀', message: `${streak}-day streak. You're locked in.`, color: '#4f8ef7' }
+  }
+  if (streak <= 29) {
+    return { emoji: '💎', message: `${streak} days. This is becoming a lifestyle.`, color: '#a8f0ff' }
+  }
+  if (streak <= 59) {
+    return { emoji: '👑', message: `${streak}-day streak. Absolute legend behaviour.`, color: '#9b6dff' }
+  }
+  return { emoji: '🌌', message: `${streak} days. You ARE Chillverse.`, color: '#f5c542' }
 }
 
 export default function Dashboard() {
@@ -35,9 +111,9 @@ export default function Dashboard() {
   const { session } = useAuth()
   const userId = session?.user?.id ?? ''
 
-  const [onlineCount, setOnlineCount]       = useState<number | null>(null)
-  const [activeSessions, setActiveSessions]  = useState<number>(0)
-  const [sessionsToday, setSessionsToday]    = useState(0)
+  const [onlineCount, setOnlineCount]      = useState<number | null>(null)
+  const [activeSessions, setActiveSessions] = useState<number>(0)
+  const [sessionsToday, setSessionsToday]   = useState(0)
 
   // Live: global online count (presence)
   useEffect(() => {
@@ -103,16 +179,19 @@ export default function Dashboard() {
   const { current, max } = getXpProgress(profile.xp)
   const xpPct = Math.min(100, Math.round((current / max) * 100))
 
+  const greeting    = getGreeting(displayName)
+  const streakInfo  = getStreakMessage(profile.streak)
+
   const QUICK_ACTIONS: QuickAction[] = [
-    { label: 'Play Games', sub: onlineCount != null ? `${onlineCount} online` : '…', to: '/games',      bg: 'linear-gradient(135deg,#9b6dff,#4f8ef7)', icon: Gamepad2   },
-    { label: 'Mall',       sub: 'New drops',    to: '/mall',       bg: 'linear-gradient(135deg,#ff6b00,#ff9a3c)', icon: ShoppingBag },
-    { label: 'Watch',      sub: 'Trending now', to: '/watch',      bg: 'linear-gradient(135deg,#ff4d8b,#ff6b6b)', icon: Film        },
+    { label: 'Play Games', sub: onlineCount != null ? `${onlineCount} online` : '…', to: '/games', bg: 'linear-gradient(135deg,#9b6dff,#4f8ef7)', icon: Gamepad2   },
+    { label: 'Mall',       sub: 'New drops',    to: '/mall',  bg: 'linear-gradient(135deg,#ff6b00,#ff9a3c)', icon: ShoppingBag },
+    { label: 'Watch',      sub: 'Trending now', to: '/watch', bg: 'linear-gradient(135deg,#ff4d8b,#ff6b6b)', icon: Film        },
   ]
 
   return (
     <div className="flex flex-col max-w-[800px] mx-auto">
 
-      {/* Welcome card */}
+      {/* ── Welcome card ── */}
       <section className="su d1">
         <div
           className="neu-card ripple-wrap"
@@ -120,19 +199,29 @@ export default function Dashboard() {
           onClick={(e) => ripple(e as Parameters<typeof ripple>[0])}
         >
           <div style={{ position: 'absolute', right: -30, top: -30, width: 160, height: 160, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,107,0,0.10) 0%, transparent 70%)', pointerEvents: 'none' }} />
+
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 4 }}>{getGreeting()}</p>
-              <h1 style={{ fontSize: 23, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)', marginBottom: 4 }}>{displayName}</h1>
-              <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>{profile.streak}-day streak — keep it up!</p>
+              {/* Smart greeting line */}
+              <p style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 3 }}>{greeting.sub}</p>
+              <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)', marginBottom: 8 }}>
+                {greeting.line}
+              </h1>
+
+              {/* Streak — conditional message */}
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--surface2)', borderRadius: 10, padding: '5px 10px' }}>
+                <span style={{ fontSize: 13 }}>{streakInfo.emoji}</span>
+                <span style={{ fontSize: 11, color: streakInfo.color, fontWeight: 600, lineHeight: 1.4 }}>
+                  {streakInfo.message}
+                </span>
+              </div>
             </div>
-            <div style={{ position: 'relative', flexShrink: 0 }}>
+
+            {/* Avatar — NO level badge */}
+            <div style={{ flexShrink: 0 }}>
               <div style={{ width: 54, height: 54, borderRadius: 16, background: 'linear-gradient(135deg, var(--purple), var(--blue))', boxShadow: '0 4px 16px rgba(155,109,255,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 800, color: '#fff' }}>
                 {displayName.charAt(0).toUpperCase()}
               </div>
-              <span style={{ position: 'absolute', bottom: -5, right: -8, background: 'var(--gold)', color: '#222', fontSize: 9, fontWeight: 800, padding: '2px 5px', borderRadius: 6, border: '2px solid var(--bg)' }}>
-                LV {profile.level}
-              </span>
               <div className="flex gap-2 mt-3">
                 <span style={{ background: 'var(--surface2)', padding: '4px 8px', borderRadius: 8, fontSize: 11, color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: 4 }}>
                   <Flame size={11} style={{ color: 'var(--accent)' }} />
@@ -148,7 +237,7 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* XP Bar */}
+      {/* ── XP Bar ── */}
       <section className="su d2" style={{ marginTop: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>
           <span>Level {profile.level} · XP</span>
@@ -159,7 +248,7 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* Quick Actions */}
+      {/* ── Quick Actions ── */}
       <section className="su d3">
         <p className="section-label">Quick Actions</p>
         <div className="grid grid-cols-3 gap-3">
@@ -178,7 +267,7 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* Multiplayer — links to real multiplayer page */}
+      {/* ── Multiplayer ── */}
       <section className="su d4">
         <p className="section-label">Multiplayer</p>
         <Link
@@ -212,15 +301,15 @@ export default function Dashboard() {
         </Link>
       </section>
 
-      {/* Explore Chillverse — Profile, Games, Trivia only */}
+      {/* ── Explore Chillverse ── */}
       <section className="su d5">
         <p className="section-label">Explore Chillverse</p>
         <div className="grid grid-cols-2 gap-4">
           {[
-            { label: 'Profile',      desc: 'Your stats, rank & showcase', icon: User,      iconBg: 'rgba(62,207,142,0.12)',  iconColor: '#3ecf8e', to: '/profile'  },
-            { label: 'Games',        desc: 'Quick-fire mini games',        icon: Gamepad2,  iconBg: 'rgba(79,142,247,0.12)',  iconColor: '#4f8ef7', to: '/games'    },
-            { label: 'Trivia Night', desc: 'Weekly live trivia rooms',     icon: Brain,     iconBg: 'rgba(155,109,255,0.12)', iconColor: '#9b6dff', to: '/games'    },
-            { label: 'Ranks',        desc: 'See where you stand globally', icon: Swords,    iconBg: 'rgba(245,197,66,0.12)',  iconColor: '#f5c542', to: '/ranks'    },
+            { label: 'Profile',      desc: 'Your stats, rank & showcase', icon: User,     iconBg: 'rgba(62,207,142,0.12)',  iconColor: '#3ecf8e', to: '/profile' },
+            { label: 'Games',        desc: 'Quick-fire mini games',        icon: Gamepad2, iconBg: 'rgba(79,142,247,0.12)',  iconColor: '#4f8ef7', to: '/games'   },
+            { label: 'Trivia Night', desc: 'Weekly live trivia rooms',     icon: Brain,    iconBg: 'rgba(155,109,255,0.12)', iconColor: '#9b6dff', to: '/games'   },
+            { label: 'Ranks',        desc: 'See where you stand globally', icon: Swords,   iconBg: 'rgba(245,197,66,0.12)',  iconColor: '#f5c542', to: '/ranks'   },
           ].map((tile) => {
             const Icon = tile.icon
             return (
@@ -236,7 +325,7 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* Today's game activity */}
+      {/* ── Today's game activity ── */}
       {sessionsToday > 0 && (
         <section className="su" style={{ animationDelay: '0.3s' }}>
           <p className="section-label">Today's Activity</p>
@@ -253,7 +342,7 @@ export default function Dashboard() {
         </section>
       )}
 
-      {/* Halo AI */}
+      {/* ── Halo AI ── */}
       <section className="su" style={{ animationDelay: '0.35s', paddingBottom: 8 }}>
         <p className="section-label">Halo AI</p>
         <Link
