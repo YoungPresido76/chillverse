@@ -97,11 +97,10 @@ export async function triggerAchievementCheck(userId: string): Promise<void> {
 
     // ── 6. Special: speed run + perfect score ──
     // speed run = any session completed in ≤ 30s with score > 0
-    const completedIn30Sec = allSessions.some(
-      s => (s as { duration_sec?: number; score?: number }).duration_sec !== undefined
-        ? (s as { duration_sec: number; score: number }).duration_sec <= 30 && s.score > 0
-        : false
-    )
+    const completedIn30Sec = allSessions.some(s => {
+      const dur = (s as unknown as { duration_sec?: number }).duration_sec
+      return typeof dur === 'number' && dur <= 30 && (s.score ?? 0) > 0
+    })
 
     // perfect score = a session where score hit ≥ 100 (adjust threshold if needed)
     const perfectScore = topScore >= 100
