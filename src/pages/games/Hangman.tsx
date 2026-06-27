@@ -5,6 +5,7 @@ import type { GameRank, GameEndPayload } from './types'
 import { getRankConfig } from './types'
 import { PreGameModal, GameHUD, StatChip, ResultScreen, QuitModal } from './GameShell'
 import { ripple } from '../../lib/ripple'
+import { useGamePresence } from '../../hooks/useGamePresence'
 
 const ACCENT    = '#ff6b00'
 const MAX_LIVES = 3
@@ -133,6 +134,7 @@ function DiffProgressBar({ difficulty, winsInDiff, winsNeeded }: { difficulty: D
 interface Props { rank: GameRank; onEnd: (payload: GameEndPayload) => void; onBack: () => void }
 
 export default function Hangman({ rank: _rank, onEnd, onBack }: Props) {
+  useGamePresence('hangman')
   const [phase, setPhase] = useState<'info' | 'play' | 'result' | 'quit'>('info')
 
   const [difficulty, setDifficulty]     = useState<Difficulty>('easy')

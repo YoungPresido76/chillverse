@@ -3,6 +3,7 @@ import { useState, useRef } from 'react'
 import { Grid3X3, X, Circle } from 'lucide-react'
 import type { GameRank, GameEndPayload } from './types'
 import { PreGameModal, GameHUD, StatChip, ResultScreen, QuitModal, useRankStreak } from './GameShell'
+import { useGamePresence } from '../../hooks/useGamePresence'
 
 const ACCENT = '#3ecf8e'
 const GAME_ID = 'tac-zone' as const
@@ -64,6 +65,7 @@ interface Props {
 export default function TacZone({ rank: initialRank, onEnd, onBack }: Props) {
   const [phase, setPhase] = useState<'info' | 'play' | 'result' | 'quit'>('info')
   const [mode, setMode] = useState<TacMode>('hard')
+  useGamePresence(GAME_ID)
   const { rankState } = useRankStreak(GAME_ID, initialRank)
 
   const [board, setBoard] = useState<TacCell[]>(Array(9).fill(null))

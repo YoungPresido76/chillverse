@@ -7,6 +7,7 @@ import type { GameRank, GameEndPayload } from './types'
 import { getRankConfig } from './types'
 import { PreGameModal, GameHUD, StatChip, ResultScreen, QuitModal } from './GameShell'
 import { ripple } from '../../lib/ripple'
+import { useGamePresence } from '../../hooks/useGamePresence'
 
 const ACCENT     = '#ff4d8b'
 const MAX_LIVES  = 3
@@ -110,6 +111,7 @@ function TimerRing({ timeLeft, total }: { timeLeft: number; total: number }) {
 interface Props { rank: GameRank; onEnd: (payload: GameEndPayload) => void; onBack: () => void }
 
 export default function CloseCall({ rank: _rank, onEnd, onBack }: Props) {
+  useGamePresence('close-call')
   const [phase, setPhase]         = useState<'info' | 'play' | 'result' | 'quit'>('info')
   const [qIndex, setQIndex]       = useState(0)
   const [shuffled, setShuffled]   = useState<Question[]>([])

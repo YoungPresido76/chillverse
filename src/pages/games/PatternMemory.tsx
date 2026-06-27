@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Brain } from 'lucide-react'
 import type { GameRank, GameEndPayload } from './types'
+import { useGamePresence } from '../../hooks/useGamePresence'
 import { getRankConfig, calcSessionXP } from './types'
 import { PreGameModal, GameHUD, StatChip, ResultScreen, QuitModal, useRankStreak } from './GameShell'
 
@@ -33,6 +34,7 @@ interface Props {
 
 export default function PatternMemory({ rank: initialRank, onEnd, onBack }: Props) {
   const [phase, setPhase] = useState<'info' | 'countdown' | 'flash' | 'recall' | 'feedback' | 'result' | 'quit'>('info')
+  useGamePresence(GAME_ID)
   const { rankState, onCorrect, onWrong } = useRankStreak(GAME_ID, initialRank)
 
   const [level, setLevel] = useState(1)

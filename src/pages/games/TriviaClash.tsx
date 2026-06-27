@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { BookOpen } from 'lucide-react'
 import type { GameRank, GameEndPayload } from './types'
+import { useGamePresence } from '../../hooks/useGamePresence'
 import { getRankConfig, calcSessionXP } from './types'
 import { PreGameModal, GameHUD, StatChip, ResultScreen, QuitModal, TimerBar, useRankStreak } from './GameShell'
 import { TRIVIA_QUESTIONS } from './gameData'
@@ -32,6 +33,7 @@ interface Props {
 
 export default function TriviaClash({ rank: initialRank, onEnd, onBack }: Props) {
   const [phase, setPhase] = useState<'info' | 'play' | 'result' | 'quit'>('info')
+  useGamePresence(GAME_ID)
   const { rankState, onCorrect, onWrong } = useRankStreak(GAME_ID, initialRank)
 
   const [questions, setQuestions] = useState<typeof TRIVIA_QUESTIONS>([])
