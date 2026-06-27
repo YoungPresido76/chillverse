@@ -1,5 +1,6 @@
 // src/lib/gameSession.ts
 import { supabase } from './supabase'
+import { updateMissionProgress } from './weeklyMissions'
 import type { GameRank } from '../pages/games/types'
 
 export type GameKey =
@@ -128,6 +129,48 @@ export async function saveGameSession(userId: string, input: SessionInput) {
     .rpc('award_xp', { p_user_id: userId, p_xp: input.xpEarned })
 
   if (xpError) console.error('award_xp error:', xpError)
+
+  // ── Weekly mission hooks ─────────────────────────────────────
+  // xp_days: track days where XP was earned (1 per calendar day, de-duped by absolute mode)
+  // We use the date string as a proxy — absolute=true means we only advance, never regress
+  if ((input.xpEarned ?? 0) > 0) {
+    updateMissionProgress(userId, 'xp_days', 1).catch(console.error)
+  }
+
+  // levels_gained: compare level before and after the XP award
+  if ((input.xpEarned ?? 0) > 0) {
+    const { data: freshProfile } = await supabase
+      .from('profiles')
+      .select('level')
+      .eq('id', userId)
+      .single()
+
+    const { data: prevSession } = await supabase
+      .from('game_sessions')
+      .select('id')
+      .eq('user_id', userId)
+      .order('played_at', { ascending: false })
+      .limit(2)
+
+    // If this is not the first ever session, check for a level gained
+    if (freshProfile && prevSession && prevSession.length >= 1) {
+      // We detect level-up by comparing: if a notification of type level_up
+      // was inserted for this user in the last 30s (inserted by the award_xp trigger),
+      // increment levels_gained. We do this lightweight check to avoid a second RPC.
+      const since = new Date(Date.now() - 30_000).toISOString()
+      const { count: levelUpCount } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('type', 'level_up')
+        .gte('created_at', since)
+
+      if ((levelUpCount ?? 0) > 0) {
+        updateMissionProgress(userId, 'levels_gained', 1).catch(console.error)
+      }
+    }
+  }
+
   return { error: xpError ?? null }
 }
 
