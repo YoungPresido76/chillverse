@@ -87,14 +87,49 @@ export async function resendConfirmationEmail(email: string) {
   return supabase.auth.resend({ type: 'signup', email })
 }
 
-/** Call the update-streak edge function for the signed-in user. */
+/** Update streak directly in the profiles table — no edge function needed.
+ *  Rules:
+ *  - Same day as last_streak_date → do nothing (already counted today)
+ *  - Yesterday → increment streak by 1
+ *  - Older than yesterday → reset streak to 1 (missed a day)
+ */
 export async function updateStreak(userId: string) {
-  await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-streak`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-    },
-    body: JSON.stringify({ user_id: userId }),
-  })
+  const { default: supabase } = await import('./supabase')
+
+  // Fetch current streak state
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('streak, last_streak_date')
+    .eq('id', userId)
+    .single()
+
+  if (error || !data) return
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const last = data.last_streak_date ? new Date(data.last_streak_date) : null
+  if (last) last.setHours(0, 0, 0, 0)
+
+  const todayStr = today.toISOString().split('T')[0]
+
+  // Already updated today — skip
+  if (last && last.getTime() === today.getTime()) return
+
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+
+  let newStreak: number
+  if (last && last.getTime() === yesterday.getTime()) {
+    // Played yesterday → keep the fire going
+    newStreak = (data.streak ?? 0) + 1
+  } else {
+    // Missed a day or first time → reset to 1
+    newStreak = 1
+  }
+
+  await supabase
+    .from('profiles')
+    .update({ streak: newStreak, last_streak_date: todayStr })
+    .eq('id', userId)
 }
