@@ -122,7 +122,7 @@ function SquareCard({ item, onSelect, onWishlist, wishlisted, likeCount = 0 }: {
             <button type="button" onClick={e => { e.stopPropagation(); onWishlist(item) }}
               style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', color: wishlisted ? '#ff4d8b' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3 }}>
               <Heart size={13} style={{ fill: wishlisted ? '#ff4d8b' : 'none' }} />
-              {likeCount > 0 && <span style={{ fontSize: 9, fontWeight: 700, color: wishlisted ? '#ff4d8b' : 'var(--text-muted)' }}>{likeCount}</span>}
+              <span style={{ fontSize: 9, fontWeight: 700, color: wishlisted ? '#ff4d8b' : 'var(--text-muted)', minWidth: 10 }}>{likeCount}</span>
             </button>
           )}
         </div>
@@ -173,7 +173,7 @@ function RectCard({ item, onSelect, onWishlist, wishlisted, likeCount = 0 }: { i
             <button type="button" onClick={e => { e.stopPropagation(); onWishlist(item) }}
               style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', color: wishlisted ? '#ff4d8b' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3 }}>
               <Heart size={13} style={{ fill: wishlisted ? '#ff4d8b' : 'none' }} />
-              {likeCount > 0 && <span style={{ fontSize: 9, fontWeight: 700, color: wishlisted ? '#ff4d8b' : 'var(--text-muted)' }}>{likeCount}</span>}
+              <span style={{ fontSize: 9, fontWeight: 700, color: wishlisted ? '#ff4d8b' : 'var(--text-muted)', minWidth: 10 }}>{likeCount}</span>
             </button>
           )}
         </div>
@@ -391,7 +391,8 @@ export default function Mall() {
   useEffect(() => {
     if (!items.length) return
     // Initial load
-    supabase.from('item_likes').select('item_id')
+    // Count how many users have wishlisted each item
+    supabase.from('wishlist').select('item_id')
       .then(({ data }) => {
         const counts: Record<string, number> = {}
         for (const row of (data ?? [])) {
@@ -399,13 +400,13 @@ export default function Mall() {
         }
         setLikeCounts(counts)
       })
-    // Realtime
-    const channel = supabase.channel('item-likes-live')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'item_likes' }, (p) => {
+    // Realtime — when anyone wishlists an item, counter goes up live
+    const channel = supabase.channel('wishlist-counts-live')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wishlist' }, (p) => {
         const id = (p.new as { item_id: string }).item_id
         setLikeCounts(prev => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }))
       })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'item_likes' }, (p) => {
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'wishlist' }, (p) => {
         const id = (p.old as { item_id: string }).item_id
         setLikeCounts(prev => ({ ...prev, [id]: Math.max(0, (prev[id] ?? 1) - 1) }))
       })
