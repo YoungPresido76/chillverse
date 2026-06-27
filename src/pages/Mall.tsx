@@ -193,7 +193,7 @@ function ItemModal({ item, walletBalance, onClose }: { item: MallItem; walletBal
   return (
     <div
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-      style={{ position: 'fixed', inset: 0, zIndex: 500, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      style={{ position: 'fixed', inset: 0, zIndex: 700, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
     >
       <div style={{ background: 'var(--surface)', borderRadius: 22, padding: 24, width: '100%', maxWidth: 360, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 20px 60px rgba(0,0,0,0.55)', position: 'relative' }}>
         <button onClick={onClose} style={{ position: 'absolute', top: 14, right: 14, width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)' }}>
@@ -261,12 +261,13 @@ function ItemModal({ item, walletBalance, onClose }: { item: MallItem; walletBal
 ══════════════════════════════════════════════════════ */
 function SubPage({ title, onBack, children }: { title: string; onBack: () => void; children: React.ReactNode }) {
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'var(--bg)', overflowY: 'auto', animation: 'slideInRight 0.28s cubic-bezier(0.4,0,0.2,1) both' }}>
-      <div style={{ position: 'sticky', top: 0, height: 58, display: 'flex', alignItems: 'center', gap: 14, padding: '0 20px', background: 'rgba(17,17,19,0.92)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.05)', zIndex: 410 }}>
-        <button onClick={onBack} style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--surface)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)', boxShadow: '2px 2px 6px var(--neu-dark),-1px -1px 4px var(--neu-light)' }}>
-          <ArrowLeft size={15} />
+    <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg)', overflowY: 'auto', animation: 'slideInRight 0.28s cubic-bezier(0.4,0,0.2,1) both' }}>
+      {/* SubPage header — sits above everything including topbar */}
+      <div style={{ position: 'sticky', top: 0, height: 60, display: 'flex', alignItems: 'center', gap: 14, padding: '0 20px', background: 'rgba(17,17,19,0.96)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.08)', zIndex: 610 }}>
+        <button onClick={onBack} style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text)', boxShadow: '2px 2px 6px var(--neu-dark),-1px -1px 4px var(--neu-light)', flexShrink: 0 }}>
+          <ArrowLeft size={16} />
         </button>
-        <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{title}</span>
+        <span style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)' }}>{title}</span>
       </div>
       <div style={{ padding: '20px 20px 48px', maxWidth: 700, margin: '0 auto' }}>{children}</div>
     </div>
