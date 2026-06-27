@@ -48,10 +48,24 @@ export default function App() {
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // SIGNED_IN fires on both real logins AND silent token refreshes (~every 1hr).
+      // We must not run streak/achievement logic on token refreshes — that would
+      // allow a streak increment every time midnight passes mid-session.
+      //
+      // Strategy: only run on SIGNED_IN, and guard with a sessionStorage flag so
+      // that a hard page reload within the same browser session doesn't re-fire.
+      // (The DB RPC is also idempotent — it is safe to call multiple times per day —
+      // but the sessionStorage guard avoids unnecessary round-trips on every reload.)
       if (event === 'SIGNED_IN' && session) {
-        await updateStreak(session.user.id)
-        // Check non-game achievements (streak, profile, social) on every login
-        triggerAchievementCheck(session.user.id).catch(console.error)
+        const flagKey = `streak_done_${session.user.id}`
+        const alreadyRanThisSession = sessionStorage.getItem(flagKey)
+
+        if (!alreadyRanThisSession) {
+          sessionStorage.setItem(flagKey, '1')
+          await updateStreak(session.user.id)
+          triggerAchievementCheck(session.user.id).catch(console.error)
+        }
+
         if (PUBLIC_PATHS.includes(window.location.pathname)) {
           navigate('/dashboard', { replace: true })
         }
