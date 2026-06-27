@@ -79,10 +79,11 @@ export async function triggerAchievementCheck(userId: string): Promise<void> {
     const followingCount = Number(followCounts?.following_count  ?? 0)
 
     // ── 5. Messages sent ──
+    // Messages are stored with sender_id, not user_id.
     const { count: messagesSentCount } = await supabase
       .from('messages')
       .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
+      .eq('sender_id', userId)
 
     const messagesSent = messagesSentCount ?? 0
 
@@ -90,7 +91,7 @@ export async function triggerAchievementCheck(userId: string): Promise<void> {
     const { count: dmCount } = await supabase
       .from('messages')
       .select('*, chat_rooms!inner(type)', { count: 'exact', head: true })
-      .eq('user_id', userId)
+      .eq('sender_id', userId)
       .eq('chat_rooms.type', 'dm')
 
     const dmSent = (dmCount ?? 0) > 0

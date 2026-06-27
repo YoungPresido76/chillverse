@@ -87,47 +87,45 @@ export async function resendConfirmationEmail(email: string) {
   return supabase.auth.resend({ type: 'signup', email })
 }
 
-/** Update streak directly in the profiles table — no edge function needed.
- *  Rules:
- *  - Same day as last_streak_date → do nothing (already counted today)
- *  - Yesterday → increment streak by 1
- *  - Older than yesterday → reset streak to 1 (missed a day)
+/**
+ * Update the user's streak by delegating entirely to a Postgres function.
+ *
+ * WHY: All date arithmetic happens in the DB (UTC), which means:
+ *   - Timezone-safe: no client clock involved.
+ *   - Atomic: the DB row is locked with FOR UPDATE so two browser tabs
+ *     or a token refresh cannot double-increment the same day.
+ *   - Idempotent: calling it many times in one day is always safe
+ *     (the DB function returns immediately if already updated today).
+ *
+ * REQUIRED — run once in Supabase SQL editor:
+ *
+ *   CREATE OR REPLACE FUNCTION update_streak(p_user_id uuid)
+ *   RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
+ *   DECLARE
+ *     v_streak     int;
+ *     v_last_date  date;
+ *     v_today      date := (now() AT TIME ZONE 'UTC')::date;
+ *     v_new_streak int;
+ *   BEGIN
+ *     SELECT streak, last_streak_date
+ *     INTO   v_streak, v_last_date
+ *     FROM   profiles WHERE id = p_user_id FOR UPDATE;
+ *
+ *     IF v_last_date = v_today THEN RETURN; END IF;
+ *
+ *     IF v_last_date = v_today - INTERVAL '1 day' THEN
+ *       v_new_streak := COALESCE(v_streak, 0) + 1;
+ *     ELSE
+ *       v_new_streak := 1;
+ *     END IF;
+ *
+ *     UPDATE profiles
+ *     SET streak = v_new_streak, last_streak_date = v_today
+ *     WHERE id = p_user_id;
+ *   END;
+ *   $$;
  */
-export async function updateStreak(userId: string) {
-  // Fetch current streak state
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('streak, last_streak_date')
-    .eq('id', userId)
-    .single()
-
-  if (error || !data) return
-
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const last = data.last_streak_date ? new Date(data.last_streak_date) : null
-  if (last) last.setHours(0, 0, 0, 0)
-
-  const todayStr = today.toISOString().split('T')[0]
-
-  // Already updated today — skip
-  if (last && last.getTime() === today.getTime()) return
-
-  const yesterday = new Date(today)
-  yesterday.setDate(yesterday.getDate() - 1)
-
-  let newStreak: number
-  if (last && last.getTime() === yesterday.getTime()) {
-    // Played yesterday → keep the fire going
-    newStreak = (data.streak ?? 0) + 1
-  } else {
-    // Missed a day or first time → reset to 1
-    newStreak = 1
-  }
-
-  await supabase
-    .from('profiles')
-    .update({ streak: newStreak, last_streak_date: todayStr })
-    .eq('id', userId)
+export async function updateStreak(userId: string): Promise<void> {
+  const { error } = await supabase.rpc('update_streak', { p_user_id: userId })
+  if (error) console.error('[updateStreak] RPC error:', error.message)
 }
