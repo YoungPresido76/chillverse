@@ -71,6 +71,7 @@ export default function AppLayout() {
       />
 
       <AchievementToast />
+      <NotificationToastRenderer />
 
       <main
         className="pt-[68px] pb-12 relative z-10 transition-all duration-300"
