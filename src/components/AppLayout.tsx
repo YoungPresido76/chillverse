@@ -1,6 +1,6 @@
 // src/components/AppLayout.tsx
-import { useState } from 'react'
-import { Outlet, useLocation, useSearchParams } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Outlet, useLocation, useSearchParams, useNavigate } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import AchievementToast from './AchievementToast'
@@ -12,17 +12,39 @@ const ROUTE_TITLES: Record<string, string> = {
   '/games':     'Games',
   '/ranks':     'Rank',
   '/mall':      'Mall',
+  '/streak':    'Streak',
+  '/settings':  'Settings',
 }
 
+// Top-level pages — no back button shown
+const TOP_LEVEL_ROUTES = [
+  '/dashboard', '/games', '/chat', '/profile',
+  '/ranks', '/mall', '/streak', '/settings',
+]
+
 export default function AppLayout() {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen]           = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const { pathname } = useLocation()
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+
+  // Auto-collapse sidebar on medium desktops (1024–1279px)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1279px)')
+    setSidebarCollapsed(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setSidebarCollapsed(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
 
   const title =
     pathname === '/coming-soon'
       ? searchParams.get('feature') || 'Coming Soon'
       : ROUTE_TITLES[pathname] || 'Dashboard'
+
+  const isTopLevel = TOP_LEVEL_ROUTES.includes(pathname)
+  const sidebarWidth = sidebarCollapsed ? 72 : 280
 
   return (
     <div className="min-h-screen relative" style={{ background: 'var(--bg)' }}>
@@ -34,17 +56,45 @@ export default function AppLayout() {
         <div className="bubble" style={{ width: 180, height: 180, background: '#3ecf8e', right: '25%', top: '5%', animationDuration: '32s', animationDelay: '-12s' }} />
       </div>
 
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <Topbar title={title} onMenuClick={() => setSidebarOpen(true)} />
+      <Sidebar
+        open={sidebarOpen}
+        collapsed={sidebarCollapsed}
+        onClose={() => setSidebarOpen(false)}
+        onToggleCollapse={() => setSidebarCollapsed(c => !c)}
+      />
+
+      <Topbar
+        title={title}
+        showBack={!isTopLevel}
+        onBack={() => navigate(-1)}
+        onMenuClick={() => setSidebarOpen(true)}
+      />
+
       <AchievementToast />
 
-      {/*
-        Desktop (≥1024px lg): sidebar is always visible, offset main by sidebar width.
-        Tablet (768–1023px): sidebar slides in as drawer, main takes full width.
-        Mobile (<768px): same as tablet.
-      */}
-      <main className="lg:pl-[280px] pt-[68px] px-4 sm:px-6 md:px-8 pb-12 relative z-10">
-        <Outlet />
+      <main
+        className="pt-[68px] pb-12 relative z-10 transition-all duration-300"
+        style={{ paddingLeft: 'clamp(1rem, 4vw, 2rem)', paddingRight: 'clamp(1rem, 4vw, 2rem)' }}
+      >
+        {/* On desktop, push content right by sidebar width */}
+        <div
+          className="hidden lg:block transition-all duration-300"
+          style={{ paddingLeft: sidebarWidth }}
+        />
+        <div
+          className="lg:transition-all lg:duration-300"
+          style={{ paddingLeft: 0 }}
+        >
+          {/* Inline responsive offset */}
+          <style>{`
+            @media (min-width: 1024px) {
+              .cv-main-inner { padding-left: ${sidebarWidth + 24}px !important; }
+            }
+          `}</style>
+          <div className="cv-main-inner">
+            <Outlet />
+          </div>
+        </div>
       </main>
     </div>
   )
