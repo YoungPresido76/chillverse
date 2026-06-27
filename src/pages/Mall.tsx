@@ -3,7 +3,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, ChevronRight, Image as ImageIcon, Shirt, Zap,
-  Gem, Lock, Star, X, ShoppingBag, Heart,
+  Gem, Lock, Star, X, ShoppingBag, Heart, Diamond,
 } from 'lucide-react'
 import { ripple } from '../lib/ripple'
 import { supabase } from '../lib/supabase'
@@ -490,6 +490,29 @@ export default function Mall() {
             </div>
           </div>
         )}
+
+        {/* Buy Diamonds row */}
+        <div
+          onClick={(e) => { ripple(e); navigate('/buy-diamonds') }}
+          className="ripple-wrap"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 14, background: 'var(--surface)',
+            border: '1px solid rgba(79,142,247,0.25)', borderRadius: 18, padding: 16, marginBottom: 20,
+            cursor: 'pointer', position: 'relative', overflow: 'hidden',
+            boxShadow: '4px 4px 10px var(--neu-dark),-2px -2px 8px var(--neu-light)',
+            animation: 'feedIn 0.35s ease-out both',
+          }}
+        >
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg,rgba(79,142,247,0.06),rgba(155,109,255,0.04))', pointerEvents: 'none' }} />
+          <div style={{ width: 44, height: 44, borderRadius: 13, flexShrink: 0, background: 'rgba(79,142,247,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4f8ef7', boxShadow: '2px 2px 6px var(--neu-dark),-1px -1px 4px var(--neu-light)' }}>
+            <Gem size={19} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--text)' }}>Buy Diamonds</div>
+            <div style={{ fontSize: 11.5, color: 'var(--text-dim)', marginTop: 2 }}>Top up your diamond balance</div>
+          </div>
+          <ChevronRight size={16} color="var(--text-muted)" />
+        </div>
 
         {/* Section menu */}
         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 12 }}>Browse</div>
