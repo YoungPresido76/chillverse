@@ -28,6 +28,10 @@ declare global {
 const CLOSED_IMG = 'https://gnobzfxtxrtcxfhhfjni.supabase.co/storage/v1/object/public/Adverts/Movie/28e5fc395ea155e514992ad139d28208.webp.jpg'
 const REFRESH_IMG = 'https://gnobzfxtxrtcxfhhfjni.supabase.co/storage/v1/object/public/Adverts/Movie/file_00000000037c71fb8124569759590e74.png'
 
+const AD_VIDEO_ID = '7WY0cnJ5LNk' // Chillverse ad
+const AD_TITLE = 'Advert_chillverse'
+const AD_SKIP_AFTER = 5 // seconds before skip button appears
+
 const OPEN_HOUR = 5    // 5:00 AM
 const CLOSE_HOUR = 24  // midnight
 const REFRESH_INTERVAL = 5 * 60 * 60 * 1000 // 5 hours in ms
@@ -195,9 +199,82 @@ function CategoryPicker({ onPick, onExit, secsLeft }: { onPick: (cat: Category) 
   )
 }
 
+// ── Ad Player ────────────────────────────────────────────────────────────────
+function AdPlayer({ onDone }: { onDone: () => void }) {
+  const [skipCountdown, setSkipCountdown] = useState(AD_SKIP_AFTER)
+  const [canSkip, setCanSkip] = useState(false)
+  const adIframeId = useRef(`yt-ad-${Math.random().toString(36).slice(2)}`).current
+  const adPlayerRef = useRef<{ destroy: () => void } | null>(null)
+
+  // Countdown to skip
+  useEffect(() => {
+    const t = setInterval(() => {
+      setSkipCountdown(s => {
+        if (s <= 1) { setCanSkip(true); clearInterval(t); return 0 }
+        return s - 1
+      })
+    }, 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  // Attach YT API to detect ad end
+  useEffect(() => {
+    function attach() {
+      if (!window.YT?.Player) return
+      adPlayerRef.current?.destroy()
+      adPlayerRef.current = new window.YT.Player(adIframeId, {
+        events: { onStateChange: (e) => { if (e.data === window.YT!.PlayerState.ENDED) onDone() } },
+      })
+    }
+    if (window.YT?.Player) { attach() }
+    else { window.onYouTubeIframeAPIReady = attach }
+    return () => { adPlayerRef.current?.destroy(); adPlayerRef.current = null }
+  }, [adIframeId, onDone])
+
+  const adUrl = `https://www.youtube.com/embed/${AD_VIDEO_ID}?autoplay=1&modestbranding=1&rel=0&disablekb=1&fs=0&iv_load_policy=3&playsinline=1&enablejsapi=1&origin=${window.location.origin}&controls=0`
+
+  return (
+    <div style={{ position: 'relative', borderRadius: 18, overflow: 'hidden', background: '#000', boxShadow: '0 12px 40px rgba(0,0,0,0.7)', marginBottom: 12 }}>
+      {/* 16:9 wrapper */}
+      <div style={{ paddingTop: '56.25%', position: 'relative' }}>
+        <iframe
+          id={adIframeId}
+          src={adUrl}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
+          allow="autoplay; encrypted-media"
+          allowFullScreen={false}
+          referrerPolicy="strict-origin-when-cross-origin"
+        />
+        <div style={{ position: 'absolute', inset: 0, zIndex: 10, cursor: 'default' }} onContextMenu={e => e.preventDefault()} />
+
+        {/* AD badge top-left */}
+        <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 20, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ background: 'rgba(0,0,0,0.75)', border: '1px solid rgba(255,200,0,0.6)', color: '#ffd700', fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 5, letterSpacing: '0.8px', textTransform: 'uppercase' }}>AD</span>
+          <span style={{ background: 'rgba(0,0,0,0.65)', color: 'rgba(255,255,255,0.7)', fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 5 }}>{AD_TITLE}</span>
+        </div>
+
+        {/* Skip button bottom-right */}
+        <div style={{ position: 'absolute', bottom: 12, right: 12, zIndex: 20 }}>
+          {canSkip ? (
+            <button onClick={onDone}
+              style={{ background: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '6px 14px', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              Skip Ad ›
+            </button>
+          ) : (
+            <div style={{ background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.5)', fontSize: 11, padding: '6px 12px', borderRadius: 8 }}>
+              Skip in {skipCountdown}s
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Player screen ─────────────────────────────────────────────────────────────
 function PlayerScreen({ category, sources, onBack, secsLeft }: { category: Category; sources: MovieSource[]; onBack: () => void; secsLeft: number }) {
   const [idx, setIdx] = useState(0)
+  const [showAd, setShowAd] = useState(true) // show ad before first video + between videos
   const shuffled = useRef(shuffle(sources)).current
   const hasContent = shuffled.length > 0
   const current = hasContent ? shuffled[idx % shuffled.length] : null
@@ -205,25 +282,28 @@ function PlayerScreen({ category, sources, onBack, secsLeft }: { category: Categ
   const iframeId = useRef(`yt-player-${Math.random().toString(36).slice(2)}`).current
   const playerRef = useRef<{ destroy: () => void } | null>(null)
 
-  const advance = useCallback(() => setIdx(i => i + 1), [])
+  // When video ends → show ad before next one
+  const advance = useCallback(() => {
+    setShowAd(true)
+    setIdx(i => i + 1)
+  }, [])
 
-  // Bind the YouTube IFrame API to the current iframe so we know when it ends.
+  const handleAdDone = useCallback(() => setShowAd(false), [])
+
+  // Bind YT API when showing movie (not ad)
   useEffect(() => {
-    if (!hasContent) return
+    if (!hasContent || showAd) return
 
     function attach() {
       if (!window.YT?.Player) return
       playerRef.current?.destroy()
       playerRef.current = new window.YT.Player(iframeId, {
-        events: {
-          onStateChange: (e) => { if (e.data === window.YT!.PlayerState.ENDED) advance() },
-        },
+        events: { onStateChange: (e) => { if (e.data === window.YT!.PlayerState.ENDED) advance() } },
       })
     }
 
-    if (window.YT?.Player) {
-      attach()
-    } else {
+    if (window.YT?.Player) { attach() }
+    else {
       if (!document.getElementById('yt-iframe-api')) {
         const tag = document.createElement('script')
         tag.id = 'yt-iframe-api'
@@ -234,7 +314,7 @@ function PlayerScreen({ category, sources, onBack, secsLeft }: { category: Categ
     }
 
     return () => { playerRef.current?.destroy(); playerRef.current = null }
-  }, [idx, hasContent, iframeId, advance])
+  }, [idx, hasContent, iframeId, advance, showAd])
 
   return (
     <div style={S.root}>
@@ -253,35 +333,44 @@ function PlayerScreen({ category, sources, onBack, secsLeft }: { category: Categ
           </div>
         ) : (
           <>
-            <div style={{ position: 'relative', borderRadius: 18, overflow: 'hidden', background: '#000', boxShadow: '0 12px 40px rgba(0,0,0,0.7)', marginBottom: 16 }}>
-              <div style={{ paddingTop: '56.25%', position: 'relative' }}>
-                <iframe
-                  key={`${current!.id}-${idx}`}
-                  id={iframeId}
-                  src={embedUrl}
-                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
-                  allow="autoplay; encrypted-media; picture-in-picture"
-                  allowFullScreen={false}
-                  referrerPolicy="strict-origin-when-cross-origin"
-                />
-                <div style={{ position: 'absolute', inset: 0, zIndex: 10, cursor: 'default' }} onContextMenu={(e) => e.preventDefault()} />
+            {/* Ad or Movie player */}
+            {showAd ? (
+              <AdPlayer onDone={handleAdDone} />
+            ) : (
+              <div style={{ position: 'relative', borderRadius: 18, overflow: 'hidden', background: '#000', boxShadow: '0 12px 40px rgba(0,0,0,0.7)', marginBottom: 16 }}>
+                <div style={{ paddingTop: '56.25%', position: 'relative' }}>
+                  <iframe
+                    key={`${current!.id}-${idx}`}
+                    id={iframeId}
+                    src={embedUrl}
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
+                    allow="autoplay; encrypted-media; picture-in-picture"
+                    allowFullScreen={false}
+                    referrerPolicy="strict-origin-when-cross-origin"
+                  />
+                  <div style={{ position: 'absolute', inset: 0, zIndex: 10, cursor: 'default' }} onContextMenu={(e) => e.preventDefault()} />
+                </div>
               </div>
-            </div>
+            )}
 
-            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ff6b00', boxShadow: '0 0 8px #ff6b00', animation: 'blink 1.2s infinite' }} />
-              <div style={{ flex: 1 }}>
-                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginBottom: 2 }}>NOW PLAYING</div>
-                <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>{current!.title}</div>
-              </div>
-              <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12 }}>{idx + 1} / {shuffled.length}</div>
-            </div>
-
-            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '12px 16px' }}>
-              <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, lineHeight: 1.6 }}>
-                🔒 Content is curated and auto-plays. Next content loads automatically when this ends.
-              </div>
-            </div>
+            {/* Now playing info — only show when movie is playing */}
+            {!showAd && (
+              <>
+                <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ff6b00', boxShadow: '0 0 8px #ff6b00', animation: 'blink 1.2s infinite' }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginBottom: 2 }}>NOW PLAYING</div>
+                    <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>{current!.title}</div>
+                  </div>
+                  <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12 }}>{idx + 1} / {shuffled.length}</div>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '12px 16px' }}>
+                  <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, lineHeight: 1.6 }}>
+                    🔒 Content is curated and auto-plays. Next content loads automatically when this ends.
+                  </div>
+                </div>
+              </>
+            )}
           </>
         )}
       </div>
