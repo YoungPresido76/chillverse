@@ -126,6 +126,13 @@ export default function PlayerProfile() {
     if (myId && userId === myId) navigate('/profile', { replace: true })
   }, [myId, userId, navigate])
 
+  // Log profile view + notify
+  useEffect(() => {
+    if (!userId || !myId || userId === myId) return
+    supabase.from('profile_views').insert({ viewer_id: myId, profile_id: userId })
+    notifyProfileView(myId, userId)
+  }, [userId, myId])
+
   // Load player data
   useEffect(() => {
     if (!userId) return
@@ -241,6 +248,7 @@ export default function PlayerProfile() {
         setLiked(true)
         setLikeCount(c => c + 1)
         setToast('Like added ❤️')
+        notifyProfileLike(myId, userId)
       }
     }
     setLiking(false)
