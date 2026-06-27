@@ -354,12 +354,31 @@ function NotificationsPage({ onBack }: { onBack: () => void }) {
 
 // ─── Privacy ──────────────────────────────────────────
 function PrivacyPage({ onBack }: { onBack: () => void }) {
+  const { profile } = useProfile()
   const [settings, setSettings] = useState<Record<string, string>>({
     who_can_message: 'Friends only',
     who_can_invite: 'Everyone',
     show_online: 'Everyone',
     show_activity: 'Friends only',
   })
+  const [showFollowCounts, setShowFollowCounts] = useState(true)
+  const [savingFollowToggle, setSavingFollowToggle] = useState(false)
+
+  useEffect(() => {
+    if (!profile?.id) return
+    supabase.from('profiles').select('show_follow_counts').eq('id', profile.id).single()
+      .then(({ data }) => { if (typeof data?.show_follow_counts === 'boolean') setShowFollowCounts(data.show_follow_counts) })
+  }, [profile?.id])
+
+  async function toggleShowFollowCounts() {
+    if (!profile?.id || savingFollowToggle) return
+    const next = !showFollowCounts
+    setShowFollowCounts(next)
+    setSavingFollowToggle(true)
+    const { error } = await supabase.from('profiles').update({ show_follow_counts: next }).eq('id', profile.id)
+    setSavingFollowToggle(false)
+    if (error) setShowFollowCounts(!next) // revert on failure
+  }
 
   return (
     <SubPage title="Privacy" onBack={onBack}>
@@ -383,6 +402,18 @@ function PrivacyPage({ onBack }: { onBack: () => void }) {
           </div>
         </div>
       ))}
+
+      <SectionTitle>Profile</SectionTitle>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 16, marginBottom: 9, boxShadow: '3px 3px 9px var(--neu-dark),-2px -2px 7px var(--neu-light)' }}>
+        <div style={{ width: 30, height: 30, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(79,142,247,0.12)', color: '#4f8ef7' }}>
+          <Eye size={15} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>Show follower & following counts</div>
+          <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 1 }}>Let other players see these on your profile</div>
+        </div>
+        <Toggle on={showFollowCounts} onToggle={toggleShowFollowCounts} />
+      </div>
 
       <SectionTitle>Blocked users</SectionTitle>
       <Row icon={<EyeOff size={15} />} iconBg="rgba(155,109,255,0.12)" iconColor="#9b6dff"

@@ -4,44 +4,41 @@ import type React from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Settings, Edit3, Users, UserPlus,
-  Zap, Flame, Sprout, Shield, Moon, Crown, Sword,
-  Gamepad2, Trophy, X, Check, Search, Heart,
-  ImageIcon, Package,
+  Zap, X, Check, Search, Heart,
+  ImageIcon, Package, Star, Trophy, Gamepad2,
+  Sparkles, Sunrise, Moon as MoonIcon, Globe2,
 } from 'lucide-react'
 import { useProfile } from '../hooks/useProfile'
 import { supabase } from '../lib/supabase'
 import { ripple } from '../lib/ripple'
+import { getUserRankTier, type RankTier } from '../lib/ranks'
+import { GAMES, getGameMeta } from '../lib/games'
+import { getAllPlayerRanks } from '../lib/gameSession'
+import EditProfileModal, { type EditProfileSavedFields } from '../components/EditProfileModal'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type LucideIcon = React.ComponentType<any>
+/** Use the real rank system (lib/ranks.ts) everywhere on this page —
+ *  this used to be a hardcoded 7-tier placeholder ("Newcomer" etc).
+ *  getRank() is now a thin wrapper so call sites barely changed. */
+function getRank(xp: number): RankTier { return getUserRankTier(xp) }
 
-const RANKS = [
-  { min: 0,      max: 999,      title: 'Newcomer', color: '#888899' },
-  { min: 1000,   max: 4999,     title: 'Scout',    color: '#3ecf8e' },
-  { min: 5000,   max: 9999,     title: 'Warrior',  color: '#4f8ef7' },
-  { min: 10000,  max: 24999,    title: 'Elite',    color: '#9b6dff' },
-  { min: 25000,  max: 49999,    title: 'Shadow',   color: '#ff4d8b' },
-  { min: 50000,  max: 99999,    title: 'Legend',   color: '#f5c542' },
-  { min: 100000, max: Infinity, title: 'Mythic',   color: '#ff6b00' },
-]
-const RANK_ICONS: Record<string, LucideIcon> = {
-  Newcomer: Sprout, Scout: Zap, Warrior: Sword,
-  Elite: Shield, Shadow: Moon, Legend: Crown, Mythic: Flame,
-}
-function getRank(xp: number) { return RANKS.find(r => xp >= r.min && xp <= r.max) ?? RANKS[0] }
+const GAME_LABELS: Record<string, string> = Object.fromEntries(GAMES.map(g => [g.dbKey, g.name]))
 
-const GAME_LABELS: Record<string, string> = {
-  neon_blitz: 'Neon Blitz', grid_ghost: 'Grid Ghost', flux_sort: 'Flux Sort',
-  trivia_clash: 'Trivia Clash', tac_zone: 'Tac Zone', flag_rush: 'Flag Rush',
-}
-
-type Presence = 'online' | 'away' | 'offline'
+// Real presence values, matching Settings.tsx / the profiles.presence column.
+type Presence = 'online' | 'idle' | 'offline' | 'invisible'
 
 const PRESENCE_COLORS: Record<Presence, string> = {
   online: '#3ecf8e',
-  away: '#f5c542',
+  idle: '#f5c542',
   offline: '#888899',
+  invisible: '#555566',
 }
+
+// ── Game rank (beginner/intermediate/advanced/master) -> star count ──
+const GAME_RANK_STARS: Record<string, number> = {
+  beginner: 1, intermediate: 3, advanced: 4, master: 5,
+}
+
+
 
 interface WishlistItem {
   id: string
@@ -87,60 +84,61 @@ function PresenceDot({ status }: { status: Presence }) {
   )
 }
 
-// ── Edit Sheet ────────────────────────────────────────────────
-function EditSheet({ profile, onClose, onSaved }: {
-  profile: { display_name: string | null; username: string; id: string }
-  onClose: () => void
-  onSaved: (displayName: string) => void
+const GENDER_LABELS: Record<string, string> = { male: 'Male', female: 'Female', other: 'Other' }
+
+// ── Info tag pills — renders the player's chosen tags (max 2) under the
+//    avatar. Preferred-play-time shows icon-only by design. ──────────────
+function InfoTagPills({
+  tags, gender, playTime, country, presence,
+}: {
+  tags: string[]
+  gender: string | null
+  playTime: string | null
+  country: string | null
+  presence: Presence
 }) {
-  const [visible, setVisible] = useState(false)
-  const [displayName, setDisplayName] = useState(profile.display_name || '')
-  const [username, setUsername] = useState(profile.username)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-
-  useEffect(() => { requestAnimationFrame(() => setVisible(true)) }, [])
-  function close() { setVisible(false); setTimeout(onClose, 320) }
-
-  async function save() {
-    setSaving(true); setError('')
-    const { error: err } = await supabase.from('profiles')
-      .update({ display_name: displayName.trim() || username.trim(), username: username.trim() })
-      .eq('id', profile.id)
-    setSaving(false)
-    if (err) { setError(err.message); return }
-    onSaved(displayName.trim() || username.trim()); close()
+  function Pill({ icon, label }: { icon: React.ReactNode; label?: string }) {
+    return (
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.1)', background: 'var(--surface)', boxShadow: '2px 2px 6px var(--neu-dark)' }}>
+        {icon}
+        {label && <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-dim)' }}>{label}</span>}
+      </div>
+    )
   }
 
   return (
     <>
-      <div className="overlay-backdrop" onClick={close} style={{ zIndex: 355 }} />
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 360 }}>
-        <div style={{ background: 'var(--surface2)', borderRadius: '28px 28px 0 0', padding: '28px 24px 36px', borderTop: '1px solid rgba(255,255,255,0.08)', transform: visible ? 'translateY(0)' : 'translateY(100%)', transition: 'transform 0.32s cubic-bezier(0.34,1.56,0.64,1)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
-            <p style={{ fontSize: 17, fontWeight: 800, color: 'var(--text)' }}>Edit Profile</p>
-            <button type="button" onClick={close} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
-          </div>
-          {[
-            { key: 'displayName', label: 'Display Name', value: displayName, set: setDisplayName },
-            { key: 'username',    label: 'Username',     value: username,     set: setUsername    },
-          ].map(({ key, label, value, set }) => (
-            <div key={key} style={{ marginBottom: 14 }}>
-              <label style={{ display: 'block', fontSize: 11, color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>{label}</label>
-              <input type="text" value={value} onChange={e => set(e.target.value)}
-                style={{ width: '100%', background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '11px 14px', color: 'var(--text)', fontSize: 14, outline: 'none', boxShadow: 'inset 2px 2px 6px var(--neu-dark)', boxSizing: 'border-box' }}
-                onFocus={e => { e.target.style.borderColor = 'rgba(255,107,0,0.4)' }}
-                onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.07)' }} />
-            </div>
-          ))}
-          {error && <p style={{ fontSize: 12, color: '#ff6b6b', marginBottom: 10 }}>{error}</p>}
-          <button type="button" onClick={save} disabled={saving} className="btn-primary"
-            style={{ width: '100%', padding: 13, borderRadius: 14, fontSize: 14, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: saving ? 0.7 : 1 }}>
-            {saving ? <span style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} /> : <><Check size={14} /> Save Changes</>}
-          </button>
-        </div>
-      </div>
+      {tags.includes('gender') && gender && (
+        <Pill icon={<Users size={12} style={{ color: 'var(--text-muted)' }} />} label={GENDER_LABELS[gender] ?? gender} />
+      )}
+      {tags.includes('play_time') && playTime && (
+        <Pill icon={playTime === 'morning' ? <Sunrise size={13} style={{ color: '#f5c542' }} /> : <MoonIcon size={13} style={{ color: '#9b6dff' }} />} />
+      )}
+      {tags.includes('country') && country && (
+        <Pill icon={<Globe2 size={12} style={{ color: 'var(--text-muted)' }} />} label={country} />
+      )}
+      {tags.includes('presence') && (
+        <Pill icon={<span style={{ width: 7, height: 7, borderRadius: '50%', background: PRESENCE_COLORS[presence], display: 'inline-block' }} />} label={presence.charAt(0).toUpperCase() + presence.slice(1)} />
+      )}
     </>
+  )
+}
+
+// ── Save toast — slides down from the top on "Save Changes" ─────
+function SaveToast({ message, onDone }: { message: string; onDone: () => void }) {
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    requestAnimationFrame(() => setVisible(true))
+    const t = setTimeout(() => { setVisible(false); setTimeout(onDone, 280) }, 2400)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  return (
+    <div style={{ position: 'fixed', top: visible ? 16 : -80, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, transition: 'top 0.32s cubic-bezier(0.34,1.56,0.64,1)', background: 'rgba(20,20,24,0.96)', border: '1px solid rgba(62,207,142,0.4)', borderRadius: 14, padding: '11px 18px', display: 'flex', alignItems: 'center', gap: 9, boxShadow: '0 8px 32px rgba(0,0,0,0.55)', backdropFilter: 'blur(10px)', whiteSpace: 'nowrap' }}>
+      <Check size={14} color="#3ecf8e" />
+      <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)' }}>{message}</span>
+    </div>
   )
 }
 
@@ -216,7 +214,7 @@ function AddFriendSheet({ myId, onClose, onFollowed }: {
                     </button>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{p.display_name || p.username}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>@{p.username} · <span style={{ color: rank.color }}>{rank.title}</span></div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>@{p.username} · <span style={{ color: rank.color }}>{rank.name}</span></div>
                     </div>
                     <button type="button" onClick={() => follow(p.id)} disabled={isFollowed}
                       style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 20, border: 'none', cursor: isFollowed ? 'default' : 'pointer', fontSize: 12, fontWeight: 700, background: isFollowed ? 'rgba(62,207,142,0.15)' : 'linear-gradient(135deg,var(--accent),var(--accent2))', color: isFollowed ? '#3ecf8e' : '#fff', flexShrink: 0 }}>
@@ -287,7 +285,6 @@ function FollowListSheet({ profileId, mode, onClose }: {
               </div>
             ) : list.map(p => {
               const rank = getRank(p.xp)
-              const RankIcon = RANK_ICONS[rank.title] ?? Zap
               return (
                 <button key={p.id} type="button" onClick={() => { close(); navigate(`/profile/${p.id}`) }}
                   style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 4px', borderBottom: '1px solid rgba(255,255,255,0.04)', width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', borderRadius: 10 }}>
@@ -295,8 +292,8 @@ function FollowListSheet({ profileId, mode, onClose }: {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>{p.display_name || p.username}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <RankIcon size={10} style={{ color: rank.color }} />
-                      <span style={{ color: rank.color }}>{rank.title}</span>
+                      <span style={{ fontSize: 11 }}>{rank.emoji}</span>
+                      <span style={{ color: rank.color }}>{rank.name}</span>
                       <span>· @{p.username}</span>
                     </div>
                   </div>
@@ -376,6 +373,140 @@ function WishlistSheet({ profileId, onClose }: { profileId: string; onClose: () 
   )
 }
 
+// ── Achievements detail modal — shows 3 most recent unlocks ─────
+function AchievementsModal({
+  total, recent, onClose,
+}: {
+  total: number
+  recent: { id: string; title: string; icon: string }[]
+  onClose: () => void
+}) {
+  const [visible, setVisible] = useState(false)
+  useEffect(() => { requestAnimationFrame(() => setVisible(true)) }, [])
+  function close() { setVisible(false); setTimeout(onClose, 280) }
+
+  return (
+    <>
+      <div className="overlay-backdrop" onClick={close} style={{ zIndex: 505 }} />
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 510 }}>
+        <div style={{ background: 'var(--surface2)', borderRadius: '28px 28px 0 0', padding: '24px 20px 36px', borderTop: '1px solid rgba(255,255,255,0.08)', transform: visible ? 'translateY(0)' : 'translateY(100%)', transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <p style={{ fontSize: 17, fontWeight: 800, color: 'var(--text)' }}>Achievements</p>
+            <button type="button" onClick={close} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+          </div>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 18 }}>{total} unlocked total</p>
+          {recent.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '24px 0' }}>
+              <Trophy size={28} style={{ color: 'var(--text-muted)', display: 'block', margin: '0 auto 8px' }} />
+              <p style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>No achievements unlocked yet</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {recent.map(a => (
+                <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 14, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <span style={{ fontSize: 22 }}>{a.icon}</span>
+                  <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>{a.title}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ── Rank detail modal — "comment shaped" card explaining current rank ──
+function RankModal({ tier, onClose }: { tier: RankTier; onClose: () => void }) {
+  const [visible, setVisible] = useState(false)
+  useEffect(() => { requestAnimationFrame(() => setVisible(true)) }, [])
+  function close() { setVisible(false); setTimeout(onClose, 280) }
+
+  return (
+    <>
+      <div className="overlay-backdrop" onClick={close} style={{ zIndex: 505 }} />
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 510 }}>
+        <div style={{ background: 'var(--surface2)', borderRadius: '28px 28px 0 0', padding: '28px 20px 36px', borderTop: '1px solid rgba(255,255,255,0.08)', transform: visible ? 'translateY(0)' : 'translateY(100%)', transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)', textAlign: 'center' }}>
+          <button type="button" onClick={close} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+          <div style={{ fontSize: 44, marginBottom: 10 }}>{tier.emoji}</div>
+          <p style={{ fontSize: 18, fontWeight: 800, color: tier.color, marginBottom: 6 }}>{tier.name}</p>
+          <p style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>You're currently in {tier.name} rank.</p>
+        </div>
+      </div>
+    </>
+  )
+}
+
+
+// ── Album grid — tap a small box to see the full image in a modal,
+//    with the mall item name shown underneath. ──────────────────
+function AlbumGrid({
+  albumPics, rankColor, onEquipBanner,
+}: {
+  albumPics: AlbumPic[]
+  rankColor: string
+  onEquipBanner: (pic: AlbumPic) => void
+}) {
+  const [opened, setOpened] = useState<AlbumPic | null>(null)
+
+  return (
+    <>
+      <div style={{ display: 'flex', gap: 12 }}>
+        {albumPics.slice(0, 2).map(pic => (
+          <button key={pic.id} type="button" onClick={() => setOpened(pic)}
+            style={{ flex: 1, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}>
+            <div style={{ height: 90, borderRadius: 14, overflow: 'hidden', border: pic.equippedAsBanner ? `2px solid ${rankColor}` : '1px solid rgba(255,255,255,0.08)', boxShadow: pic.equippedAsBanner ? `0 0 14px ${rankColor}44` : '2px 2px 8px var(--neu-dark)' }}>
+              <img src={pic.imageUrl} alt={pic.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </div>
+            <div style={{ marginTop: 6, fontSize: 10, color: 'var(--text-muted)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pic.label}</div>
+          </button>
+        ))}
+      </div>
+
+      {opened && (
+        <AlbumDetailModal pic={opened} rankColor={rankColor} onEquipBanner={onEquipBanner} onClose={() => setOpened(null)} />
+      )}
+    </>
+  )
+}
+
+function AlbumDetailModal({
+  pic, rankColor, onEquipBanner, onClose,
+}: {
+  pic: AlbumPic
+  rankColor: string
+  onEquipBanner: (pic: AlbumPic) => void
+  onClose: () => void
+}) {
+  const [visible, setVisible] = useState(false)
+  useEffect(() => { requestAnimationFrame(() => setVisible(true)) }, [])
+  function close() { setVisible(false); setTimeout(onClose, 280) }
+
+  return (
+    <>
+      <div className="overlay-backdrop" onClick={close} style={{ zIndex: 505 }} />
+      <div style={{ position: 'fixed', inset: 0, zIndex: 510, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+        <div style={{ width: '100%', maxWidth: 320, background: 'var(--surface2)', borderRadius: 22, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 80px rgba(0,0,0,0.7)', padding: 18, transform: visible ? 'scale(1)' : 'scale(0.9)', opacity: visible ? 1 : 0, transition: 'all 0.25s ease' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+            <button type="button" onClick={close} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={16} /></button>
+          </div>
+          <div style={{ height: 200, borderRadius: 16, overflow: 'hidden', border: pic.equippedAsBanner ? `2px solid ${rankColor}` : '1px solid rgba(255,255,255,0.1)' }}>
+            <img src={pic.imageUrl} alt={pic.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          </div>
+          <p style={{ fontSize: 13, color: 'var(--text-dim)', textAlign: 'center', marginTop: 12 }}>
+            You've acquired <strong style={{ color: 'var(--text)' }}>{pic.label}</strong>
+          </p>
+          <button type="button" onClick={() => onEquipBanner(pic)}
+            style={{ marginTop: 12, width: '100%', padding: '10px 0', borderRadius: 12, border: 'none', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, background: pic.equippedAsBanner ? `${rankColor}20` : 'rgba(255,255,255,0.06)', color: pic.equippedAsBanner ? rankColor : 'var(--text-dim)' }}>
+            {pic.equippedAsBanner ? '✓ Set as Banner' : 'Set as Banner'}
+          </button>
+        </div>
+      </div>
+    </>
+  )
+}
+
+
 // ── Main Profile Page ─────────────────────────────────────────
 export default function Profile() {
   const { profile, loading } = useProfile()
@@ -385,33 +516,36 @@ export default function Profile() {
   const [showAddFriend, setShowAddFriend]           = useState(false)
   const [followListMode, setFollowListMode]         = useState<ListMode | null>(null)
   const [showWishlist, setShowWishlist]             = useState(false)
-  const [displayNameOverride, setDisplayNameOverride] = useState<string | null>(null)
+  const [showAchievements, setShowAchievements]     = useState(false)
+  const [showRankInfo, setShowRankInfo]             = useState(false)
+  const [profileOverride, setProfileOverride]       = useState<Partial<EditProfileSavedFields>>({})
   const [followers, setFollowers]                   = useState<number | null>(null)
   const [following, setFollowing]                   = useState<number | null>(null)
+  const [showFollowCounts, setShowFollowCounts]     = useState(true)
   const [presence, setPresence]                     = useState<Presence>('online')
   const [lbPosition, setLbPosition]                 = useState<number | null>(null)
   const [wishlistCount, setWishlistCount]           = useState(0)
   const [equippedAvatar, setEquippedAvatar]         = useState<string | null>(null)
+  const [equippedArtifact, setEquippedArtifact]     = useState<string | null>(null)
   const [currentlyPlaying, setCurrentlyPlaying]     = useState<string | null>(null)
   const [albumPics, setAlbumPics]                   = useState<AlbumPic[]>([])
   const [bannerUrl, setBannerUrl]                   = useState<string | null>(null)
-  const [xpBarWidth, setXpBarWidth]                 = useState(0)
+  const [favoriteGameRank, setFavoriteGameRank]     = useState<string | null>(null)
+  const [recentAchievements, setRecentAchievements] = useState<{ id: string; title: string; icon: string }[]>([])
+  const [achievementCount, setAchievementCount]     = useState(0)
   const [liked, setLiked]                           = useState(false)
   const [likeCount, setLikeCount]                   = useState(0)
   const [liking, setLiking]                         = useState(false)
   const [likeToast, setLikeToast]                   = useState<string | null>(null)
+  const [saveToast, setSaveToast]                   = useState<string | null>(null)
 
-  const displayName = displayNameOverride ?? profile?.display_name ?? profile?.username ?? ''
-
-  // Animate XP bar
-  useEffect(() => {
-    if (!profile) return
-    setXpBarWidth(0)
-    const t = setTimeout(() => {
-      setXpBarWidth(Math.min(100, Math.round(((profile.xp % 1000) / 1000) * 100)))
-    }, 120)
-    return () => clearTimeout(t)
-  }, [profile?.xp])
+  const displayName = profileOverride.display_name ?? profile?.display_name ?? profile?.username ?? ''
+  const bio          = profileOverride.bio          ?? profile?.bio          ?? null
+  const infoTags     = profileOverride.info_tags    ?? profile?.info_tags    ?? []
+  const genderVal    = profileOverride.gender       ?? profile?.gender       ?? null
+  const playTimeVal  = profileOverride.play_time    ?? profile?.play_time    ?? null
+  const favoriteGame = profileOverride.favorite_game ?? profile?.favorite_game ?? null
+  const gridCards    = profileOverride.grid_cards   ?? profile?.grid_cards   ?? []
 
   // Load follow counts
   const loadCounts = () => {
@@ -454,10 +588,11 @@ export default function Profile() {
   // Load equipped avatar + album pics + banner
   useEffect(() => {
     if (!profile?.id) return
-    supabase.from('profiles').select('equipped_avatar, banner_url').eq('id', profile.id).single()
+    supabase.from('profiles').select('equipped_avatar, banner_url, show_follow_counts').eq('id', profile.id).single()
       .then(({ data }) => {
         if (data?.equipped_avatar) setEquippedAvatar(data.equipped_avatar)
         if (data?.banner_url) setBannerUrl(data.banner_url)
+        if (typeof data?.show_follow_counts === 'boolean') setShowFollowCounts(data.show_follow_counts)
       })
     // Load album pics from user_items
     supabase.from('user_items').select('item_id, item_name, item_image, equipped_as_banner')
@@ -470,6 +605,37 @@ export default function Profile() {
           equippedAsBanner: !!d.equipped_as_banner,
         })))
       })
+    // Load equipped artifact (shown "untappable" alongside avatar/album)
+    supabase.from('user_items').select('item_name').eq('user_id', profile.id)
+      .eq('item_type', 'artifact').eq('is_equipped', true).maybeSingle()
+      .then(({ data }) => { if (data?.item_name) setEquippedArtifact(data.item_name as string) })
+  }, [profile?.id])
+
+  // Load this player's rank (beginner..master) for their chosen favorite game,
+  // used to render the 1-5 star score on the favorite-game card.
+  useEffect(() => {
+    if (!profile?.id || !favoriteGame) { setFavoriteGameRank(null); return }
+    getAllPlayerRanks(profile.id).then(ranks => {
+      const row = ranks[favoriteGame as keyof typeof ranks]
+      setFavoriteGameRank(row?.rank ?? null)
+    })
+  }, [profile?.id, favoriteGame])
+
+  // Load achievement count + 3 most recent (for the Achievements grid card)
+  useEffect(() => {
+    if (!profile?.id) return
+    supabase.from('player_achievements').select('achievement_id, unlocked_at, achievements(title, icon)')
+      .eq('user_id', profile.id).order('unlocked_at', { ascending: false }).limit(3)
+      .then(({ data }) => {
+        const rows = (data ?? []) as unknown as { achievement_id: string; achievements: { title: string; icon: string } | null }[]
+        setRecentAchievements(rows.map(r => ({
+          id: r.achievement_id,
+          title: r.achievements?.title ?? 'Achievement',
+          icon: r.achievements?.icon ?? '🏆',
+        })))
+      })
+    supabase.from('player_achievements').select('achievement_id', { count: 'exact', head: true }).eq('user_id', profile.id)
+      .then(({ count }) => setAchievementCount(count ?? 0))
   }, [profile?.id])
 
   // Check if currently playing a game (active session in last 5 mins)
@@ -537,15 +703,18 @@ export default function Profile() {
   }
 
   const rank = getRank(profile.xp)
-  const RankIcon = RANK_ICONS[rank.title] ?? Zap
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: 60 }}>
 
       {/* ── Banner ── */}
       <div style={{ position: 'relative', zIndex: 1, width: '100%', height: 160, background: bannerUrl ? 'transparent' : `linear-gradient(135deg, ${rank.color}44, #4f8ef722)`, overflow: 'hidden' }}>
-        {bannerUrl && (
+        {bannerUrl ? (
           <img src={bannerUrl} alt="banner" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} />
+        ) : (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ImageIcon size={26} style={{ color: 'rgba(255,255,255,0.18)' }} />
+          </div>
         )}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.6) 100%)' }} />
 
@@ -564,7 +733,7 @@ export default function Profile() {
       </div>
 
       {/* ── Profile pic + name row ── */}
-      <div style={{ padding: '0 20px', marginTop: -44, marginBottom: 16, position: 'relative', zIndex: 2 }}>
+      <div style={{ padding: '0 20px', marginTop: -44, marginBottom: 10, position: 'relative', zIndex: 2 }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14 }}>
 
           {/* Square profile pic — left aligned */}
@@ -574,13 +743,6 @@ export default function Profile() {
                 {displayName.charAt(0).toUpperCase()}
               </div>
             </div>
-            {/* Like — below avatar, left side. Self-likes count too, once. */}
-            <button type="button" onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); handleLike() }} disabled={liking}
-              className="ripple-wrap"
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 20, border: `1px solid ${liked ? 'rgba(255,77,139,0.4)' : 'rgba(255,255,255,0.1)'}`, background: liked ? 'rgba(255,77,139,0.14)' : 'var(--surface)', cursor: liking ? 'default' : 'pointer', boxShadow: '2px 2px 6px var(--neu-dark)' }}>
-              <Heart size={14} color={liked ? '#ff4d8b' : 'var(--text-muted)'} style={{ fill: liked ? '#ff4d8b' : 'none' }} />
-              <span style={{ fontSize: 12, fontWeight: 700, color: liked ? '#ff4d8b' : 'var(--text-dim)' }}>{likeCount}</span>
-            </button>
           </div>
 
           {/* Name + presence */}
@@ -594,12 +756,29 @@ export default function Profile() {
         </div>
       </div>
 
+      {/* ── Bio ── */}
+      {bio && (
+        <div style={{ padding: '0 20px', marginBottom: 14 }}>
+          <p style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 }}>{bio}</p>
+        </div>
+      )}
+
+      {/* ── Info tags row (Likes locked + up to 2 chosen) ── */}
+      <div style={{ padding: '0 20px', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <button type="button" onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); handleLike() }} disabled={liking}
+          className="ripple-wrap"
+          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 20, border: `1px solid ${liked ? 'rgba(255,77,139,0.4)' : 'rgba(255,255,255,0.1)'}`, background: liked ? 'rgba(255,77,139,0.14)' : 'var(--surface)', cursor: liking ? 'default' : 'pointer', boxShadow: '2px 2px 6px var(--neu-dark)' }}>
+          <Heart size={13} color={liked ? '#ff4d8b' : 'var(--text-muted)'} style={{ fill: liked ? '#ff4d8b' : 'none' }} />
+          <span style={{ fontSize: 12, fontWeight: 700, color: liked ? '#ff4d8b' : 'var(--text-dim)' }}>{likeCount}</span>
+        </button>
+        <InfoTagPills tags={infoTags} gender={genderVal} playTime={playTimeVal} country={profile.country} presence={presence} />
+      </div>
+
       {/* ── Rank badge ── */}
       <div style={{ padding: '0 20px', marginBottom: 16 }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 20, background: rank.color + '18', border: `1px solid ${rank.color}44` }}>
-          <RankIcon size={12} style={{ color: rank.color }} />
-          <span style={{ fontSize: 12, fontWeight: 700, color: rank.color }}>{rank.title}</span>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>· Lv {profile.level}</span>
+          <span style={{ fontSize: 13 }}>{rank.emoji}</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: rank.color }}>{rank.name}</span>
         </div>
       </div>
 
@@ -614,37 +793,80 @@ export default function Profile() {
         </div>
       )}
 
-      {/* ── XP bar ── */}
+      {/* ── Grid Advert: rectangle bars, tap for detail ── */}
       <div style={{ padding: '0 20px', marginBottom: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>
-          <span>Level {profile.level}</span>
-          <span style={{ color: rank.color, fontWeight: 700 }}>{profile.xp.toLocaleString()} XP</span>
-        </div>
-        <div className="xp-track">
-          <div className="xp-fill" style={{ width: `${xpBarWidth}%`, background: `linear-gradient(90deg, ${rank.color}, #4f8ef7)`, boxShadow: `0 0 10px ${rank.color}66`, transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
-        </div>
-      </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-      {/* ── Stats grid ── */}
-      <div style={{ padding: '0 20px', marginBottom: 20 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-          {[
-            { label: 'Followers', value: followers === null ? '—' : followers.toLocaleString(), onClick: () => setFollowListMode('followers'), icon: <Users size={14} />, color: '#4f8ef7' },
-            { label: 'Following', value: following === null ? '—' : following.toLocaleString(), onClick: () => setFollowListMode('following'), icon: <Users size={14} />, color: '#9b6dff' },
-            { label: 'Streak',    value: `${profile.streak}d`,  onClick: null, icon: <Flame size={14} />, color: 'var(--accent)' },
-            { label: 'Leaderboard', value: lbPosition ? `#${lbPosition}` : '—', onClick: () => navigate('/ranks'), icon: <Trophy size={14} />, color: '#f5c542' },
-            { label: 'Wishlist',  value: wishlistCount.toString(), onClick: () => setShowWishlist(true), icon: <Heart size={14} />, color: '#ff4d8b' },
-            { label: 'Total XP',  value: profile.xp >= 1000 ? `${(profile.xp / 1000).toFixed(1)}k` : profile.xp.toString(), onClick: null, icon: <Zap size={14} />, color: '#f5c542' },
-          ].map(s => (
-            <button key={s.label} type="button" onClick={s.onClick ?? undefined} disabled={!s.onClick}
-              style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '12px 10px', textAlign: 'center', cursor: s.onClick ? 'pointer' : 'default', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)', transition: 'transform 0.15s' }}
-              onMouseEnter={e => { if (s.onClick) e.currentTarget.style.transform = 'translateY(-1px)' }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)' }}>
-              <div style={{ color: s.color, marginBottom: 4, display: 'flex', justifyContent: 'center' }}>{s.icon}</div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)', marginBottom: 2 }}>{s.value}</div>
-              <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>{s.label}</div>
+          {/* Locked: Followers / Following (combined, can't be removed) */}
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button type="button" onClick={() => showFollowCounts && setFollowListMode('followers')} disabled={!showFollowCounts}
+              style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '13px 16px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', cursor: showFollowCounts ? 'pointer' : 'default', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
+              <Users size={15} style={{ color: '#4f8ef7' }} />
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>{!showFollowCounts ? '—' : (followers ?? 0).toLocaleString()}</div>
+                <div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Followers</div>
+              </div>
             </button>
-          ))}
+            <button type="button" onClick={() => showFollowCounts && setFollowListMode('following')} disabled={!showFollowCounts}
+              style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '13px 16px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', cursor: showFollowCounts ? 'pointer' : 'default', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
+              <Users size={15} style={{ color: '#9b6dff' }} />
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>{!showFollowCounts ? '—' : (following ?? 0).toLocaleString()}</div>
+                <div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Following</div>
+              </div>
+            </button>
+          </div>
+
+          {/* Locked: Wishlist */}
+          <button type="button" onClick={() => setShowWishlist(true)}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Heart size={15} style={{ color: '#ff4d8b' }} />
+              <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>Wishlist</span>
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-dim)' }}>{wishlistCount}/10</span>
+          </button>
+
+          {/* Locked: Current XP (tap does nothing) */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Zap size={15} style={{ color: '#f5c542' }} />
+              <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>Current XP</span>
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 800, color: rank.color }}>{profile.xp.toLocaleString()}</span>
+          </div>
+
+          {/* Optional, up to 3: Achievements / Rank / Leaderboard */}
+          {gridCards.includes('achievements') && (
+            <button type="button" onClick={() => setShowAchievements(true)}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Trophy size={15} style={{ color: '#f5c542' }} />
+                <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>Achievements</span>
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-dim)' }}>{achievementCount}</span>
+            </button>
+          )}
+          {gridCards.includes('rank') && (
+            <button type="button" onClick={() => setShowRankInfo(true)}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 15 }}>{rank.emoji}</span>
+                <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>Rank</span>
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 800, color: rank.color }}>{rank.name}</span>
+            </button>
+          )}
+          {gridCards.includes('leaderboard') && (
+            <button type="button" onClick={() => navigate('/ranks')}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Trophy size={15} style={{ color: '#4f8ef7' }} />
+                <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>Leaderboard</span>
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-dim)' }}>{lbPosition ? `#${lbPosition}` : '—'}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -662,18 +884,32 @@ export default function Profile() {
         </button>
       </div>
 
-      {/* ── Equipped Avatar ── */}
-      {equippedAvatar && (
-        <div style={{ padding: '0 20px', marginBottom: 24 }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 10 }}>Equipped Avatar</p>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 14, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.07)', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: rank.color, boxShadow: `0 0 8px ${rank.color}` }} />
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{equippedAvatar}</span>
+      {/* ── Middle Advert: favorite game, with star score ── */}
+      {favoriteGame && (() => {
+        const meta = getGameMeta(favoriteGame)
+        if (!meta) return null
+        const stars = GAME_RANK_STARS[favoriteGameRank ?? ''] ?? 0
+        return (
+          <div style={{ padding: '0 20px', marginBottom: 24 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 10 }}>Favorite Game</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
+              <div style={{ width: 40, height: 40, borderRadius: 11, background: `${meta.accent}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <meta.icon size={19} style={{ color: meta.accent }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', marginBottom: 3 }}>{meta.name}</div>
+                <div style={{ display: 'flex', gap: 2 }}>
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star key={i} size={12} style={{ color: i < stars ? '#f5c542' : 'var(--surface3)' }} fill={i < stars ? '#f5c542' : 'none'} />
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
-      {/* ── Album ── */}
+      {/* ── Down Last: Album, Avatar, Artifact ── */}
       <div style={{ padding: '0 20px', marginBottom: 24 }}>
         <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 10 }}>Album</p>
         {albumPics.length === 0 ? (
@@ -683,26 +919,52 @@ export default function Profile() {
             <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>Earn album pics through ranks</p>
           </div>
         ) : (
-          <div style={{ display: 'flex', gap: 12 }}>
-            {albumPics.slice(0, 2).map(pic => (
-              <div key={pic.id} style={{ flex: 1, position: 'relative' }}>
-                <div style={{ height: 110, borderRadius: 14, overflow: 'hidden', border: pic.equippedAsBanner ? `2px solid ${rank.color}` : '1px solid rgba(255,255,255,0.08)', boxShadow: pic.equippedAsBanner ? `0 0 14px ${rank.color}44` : '2px 2px 8px var(--neu-dark)' }}>
-                  <img src={pic.imageUrl} alt={pic.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                </div>
-                <div style={{ marginTop: 6, fontSize: 10, color: 'var(--text-muted)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pic.label}</div>
-                <button type="button" onClick={() => equipAsBanner(pic)}
-                  style={{ marginTop: 4, width: '100%', padding: '5px 0', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 700, background: pic.equippedAsBanner ? `${rank.color}20` : 'rgba(255,255,255,0.06)', color: pic.equippedAsBanner ? rank.color : 'var(--text-muted)' }}>
-                  {pic.equippedAsBanner ? '✓ Banner' : 'Set as Banner'}
-                </button>
-              </div>
-            ))}
-          </div>
+          <AlbumGrid albumPics={albumPics} rankColor={rank.color} onEquipBanner={equipAsBanner} />
         )}
+      </div>
+
+      <div style={{ padding: '0 20px', marginBottom: 24, display: 'flex', gap: 12 }}>
+        {/* Equipped Avatar — icon + name only, not tappable */}
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 10 }}>Avatar</p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '16px 10px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: equippedAvatar ? `${rank.color}20` : 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Sparkles size={17} style={{ color: equippedAvatar ? rank.color : 'var(--text-muted)' }} />
+            </div>
+            <span style={{ fontSize: 11.5, fontWeight: 700, color: equippedAvatar ? 'var(--text)' : 'var(--text-muted)', textAlign: 'center' }}>
+              {equippedAvatar || 'No avatar equipped'}
+            </span>
+          </div>
+        </div>
+
+        {/* Equipped Artifact — icon + name only, not tappable */}
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 10 }}>Artifact</p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '16px 10px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: equippedArtifact ? `${rank.color}20` : 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Package size={17} style={{ color: equippedArtifact ? rank.color : 'var(--text-muted)' }} />
+            </div>
+            <span style={{ fontSize: 11.5, fontWeight: 700, color: equippedArtifact ? 'var(--text)' : 'var(--text-muted)', textAlign: 'center' }}>
+              {equippedArtifact || 'No artifact equipped'}
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Sheets */}
       {showEdit && (
-        <EditSheet profile={profile} onClose={() => setShowEdit(false)} onSaved={(name) => setDisplayNameOverride(name)} />
+        <EditProfileModal
+          profile={profile}
+          albumPics={albumPics}
+          bannerUrl={bannerUrl}
+          presence={presence}
+          onClose={() => setShowEdit(false)}
+          onSaved={(updates) => {
+            setProfileOverride(prev => ({ ...prev, ...updates }))
+            setBannerUrl(updates.banner_url)
+          }}
+          onToast={(msg) => setSaveToast(msg)}
+        />
       )}
       {showAddFriend && profile?.id && (
         <AddFriendSheet myId={profile.id} onClose={() => setShowAddFriend(false)} onFollowed={loadCounts} />
@@ -713,12 +975,19 @@ export default function Profile() {
       {showWishlist && profile?.id && (
         <WishlistSheet profileId={profile.id} onClose={() => setShowWishlist(false)} />
       )}
+      {showAchievements && (
+        <AchievementsModal total={achievementCount} recent={recentAchievements} onClose={() => setShowAchievements(false)} />
+      )}
+      {showRankInfo && (
+        <RankModal tier={rank} onClose={() => setShowRankInfo(false)} />
+      )}
       {likeToast && (
         <div style={{ position: 'fixed', bottom: 90, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: 'rgba(20,20,24,0.96)', border: '1px solid rgba(255,77,139,0.4)', borderRadius: 14, padding: '11px 18px', display: 'flex', alignItems: 'center', gap: 9, boxShadow: '0 8px 32px rgba(0,0,0,0.55)', backdropFilter: 'blur(10px)', whiteSpace: 'nowrap' }}>
           <Heart size={14} color="#ff4d8b" style={{ fill: '#ff4d8b' }} />
           <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{likeToast}</span>
         </div>
       )}
+      {saveToast && <SaveToast message={saveToast} onDone={() => setSaveToast(null)} />}
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }

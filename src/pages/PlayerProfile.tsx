@@ -4,40 +4,30 @@ import type React from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, UserPlus, UserCheck, ShieldOff, Swords, X,
-  MessageCircle, Zap, Flame, Sprout, Shield, Heart,
-  Moon, Crown, Sword, Gamepad2, Trophy, Users, ImageIcon, Film,
+  MessageCircle, Zap, Heart, Star, Package,
+  Gamepad2, Trophy, Users, ImageIcon, Film,
+  Sparkles, Sunrise, Moon as MoonIcon, Globe2,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { ripple } from '../lib/ripple'
 import { notifyFollow, notifyProfileView, notifyProfileLike } from '../lib/achievements'
+import { getUserRankTier, type RankTier } from '../lib/ranks'
+import { GAMES, getGameMeta } from '../lib/games'
+import { getAllPlayerRanks } from '../lib/gameSession'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type LucideIcon = React.ComponentType<any>
+function getRank(xp: number): RankTier { return getUserRankTier(xp) }
 
-const RANKS = [
-  { min: 0,      max: 999,      title: 'Newcomer', color: '#888899' },
-  { min: 1000,   max: 4999,     title: 'Scout',    color: '#3ecf8e' },
-  { min: 5000,   max: 9999,     title: 'Warrior',  color: '#4f8ef7' },
-  { min: 10000,  max: 24999,    title: 'Elite',    color: '#9b6dff' },
-  { min: 25000,  max: 49999,    title: 'Shadow',   color: '#ff4d8b' },
-  { min: 50000,  max: 99999,    title: 'Legend',   color: '#f5c542' },
-  { min: 100000, max: Infinity, title: 'Mythic',   color: '#ff6b00' },
-]
-const RANK_ICONS: Record<string, LucideIcon> = {
-  Newcomer: Sprout, Scout: Zap, Warrior: Sword,
-  Elite: Shield, Shadow: Moon, Legend: Crown, Mythic: Flame,
-}
-function getRank(xp: number) { return RANKS.find(r => xp >= r.min && xp <= r.max) ?? RANKS[0] }
+const GAME_LABELS: Record<string, string> = Object.fromEntries(GAMES.map(g => [g.dbKey, g.name]))
 
-const GAME_LABELS: Record<string, string> = {
-  neon_blitz: 'Neon Blitz', grid_ghost: 'Grid Ghost', flux_sort: 'Flux Sort',
-  trivia_clash: 'Trivia Clash', tac_zone: 'Tac Zone', flag_rush: 'Flag Rush',
+const GAME_RANK_STARS: Record<string, number> = {
+  beginner: 1, intermediate: 3, advanced: 4, master: 5,
 }
 
-type Presence = 'online' | 'away' | 'offline'
+// Real presence values, matching Settings.tsx / the profiles.presence column.
+type Presence = 'online' | 'idle' | 'offline' | 'invisible'
 const PRESENCE_COLORS: Record<Presence, string> = {
-  online: '#3ecf8e', away: '#f5c542', offline: '#888899',
+  online: '#3ecf8e', idle: '#f5c542', offline: '#888899', invisible: '#555566',
 }
 function PresenceDot({ status }: { status: Presence }) {
   return (
@@ -47,6 +37,46 @@ function PresenceDot({ status }: { status: Presence }) {
     </div>
   )
 }
+
+const GENDER_LABELS: Record<string, string> = { male: 'Male', female: 'Female', other: 'Other' }
+
+// ── Info tag pills — mirrors Profile.tsx, but reads the owner's saved
+//    choices (read-only here, no editing on the viewer-facing page). ──
+function InfoTagPills({
+  tags, gender, playTime, country, presence,
+}: {
+  tags: string[]
+  gender: string | null
+  playTime: string | null
+  country: string | null
+  presence: Presence
+}) {
+  function Pill({ icon, label }: { icon: React.ReactNode; label?: string }) {
+    return (
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.1)', background: 'var(--surface)', boxShadow: '2px 2px 6px var(--neu-dark)' }}>
+        {icon}
+        {label && <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-dim)' }}>{label}</span>}
+      </div>
+    )
+  }
+  return (
+    <>
+      {tags.includes('gender') && gender && (
+        <Pill icon={<Users size={12} style={{ color: 'var(--text-muted)' }} />} label={GENDER_LABELS[gender] ?? gender} />
+      )}
+      {tags.includes('play_time') && playTime && (
+        <Pill icon={playTime === 'morning' ? <Sunrise size={13} style={{ color: '#f5c542' }} /> : <MoonIcon size={13} style={{ color: '#9b6dff' }} />} />
+      )}
+      {tags.includes('country') && country && (
+        <Pill icon={<Globe2 size={12} style={{ color: 'var(--text-muted)' }} />} label={country} />
+      )}
+      {tags.includes('presence') && (
+        <Pill icon={<span style={{ width: 7, height: 7, borderRadius: '50%', background: PRESENCE_COLORS[presence], display: 'inline-block' }} />} label={presence.charAt(0).toUpperCase() + presence.slice(1)} />
+      )}
+    </>
+  )
+}
+
 
 // ── Toast ─────────────────────────────────────────────────────
 function MiniToast({ msg, onDone }: { msg: string; onDone: () => void }) {
@@ -93,8 +123,15 @@ interface PlayerData {
   xp: number
   level: number
   streak: number
+  bio: string | null
+  gender: string | null
+  play_time: 'morning' | 'night' | null
+  info_tags: string[]
+  favorite_game: string | null
+  grid_cards: string[]
+  show_follow_counts: boolean
 }
-interface AlbumPic { id: string; label: string; imageUrl: string }
+interface AlbumPic { id: string; label: string; imageUrl: string; equippedAsBanner?: boolean }
 
 export default function PlayerProfile() {
   const { userId } = useParams<{ userId: string }>()
@@ -116,6 +153,13 @@ export default function PlayerProfile() {
   const [equippedAvatar, setEquippedAvatar] = useState<string | null>(null)
   const [bannerUrl, setBannerUrl] = useState<string | null>(null)
   const [albumPics, setAlbumPics] = useState<AlbumPic[]>([])
+  const [wishlistCount, setWishlistCount] = useState(0)
+  const [achievementCount, setAchievementCount] = useState(0)
+  const [recentAchievements, setRecentAchievements] = useState<{ id: string; title: string; icon: string }[]>([])
+  const [favoriteGameRank, setFavoriteGameRank] = useState<string | null>(null)
+  const [equippedArtifact, setEquippedArtifact] = useState<string | null>(null)
+  const [showAchievements, setShowAchievements] = useState(false)
+  const [showWishlist, setShowWishlist] = useState(false)
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
   const [liking, setLiking] = useState(false)
@@ -138,7 +182,7 @@ export default function PlayerProfile() {
   useEffect(() => {
     if (!userId) return
     setLoading(true)
-    supabase.from('profiles').select('id, username, display_name, avatar, country, interests, xp, level, streak')
+    supabase.from('profiles').select('id, username, display_name, avatar, country, interests, xp, level, streak, bio, gender, play_time, info_tags, favorite_game, grid_cards, show_follow_counts')
       .eq('id', userId).single()
       .then(({ data }) => {
         setPlayer(data as PlayerData)
@@ -228,7 +272,7 @@ export default function PlayerProfile() {
     return () => { supabase.removeChannel(channel) }
   }, [userId])
 
-  // Load equipped avatar + banner + album pics
+  // Load equipped avatar + banner + album pics + artifact
   useEffect(() => {
     if (!userId) return
     supabase.from('profiles').select('equipped_avatar, banner_url').eq('id', userId).single()
@@ -236,13 +280,48 @@ export default function PlayerProfile() {
         if (data?.equipped_avatar) setEquippedAvatar(data.equipped_avatar)
         if (data?.banner_url) setBannerUrl(data.banner_url)
       })
-    supabase.from('user_items').select('item_id, item_name, item_image').eq('user_id', userId).eq('item_type', 'album_pic')
+    supabase.from('user_items').select('item_id, item_name, item_image, equipped_as_banner').eq('user_id', userId).eq('item_type', 'album_pic')
       .then(({ data }) => {
         setAlbumPics((data ?? []).map((d: Record<string, unknown>) => ({
           id: d.item_id as string, label: d.item_name as string, imageUrl: d.item_image as string,
+          equippedAsBanner: !!d.equipped_as_banner,
         })))
       })
+    supabase.from('user_items').select('item_name').eq('user_id', userId)
+      .eq('item_type', 'artifact').eq('is_equipped', true).maybeSingle()
+      .then(({ data }) => { if (data?.item_name) setEquippedArtifact(data.item_name as string) })
   }, [userId])
+
+  // Load wishlist count (always visible to viewers — wishlist can't be hidden)
+  useEffect(() => {
+    if (!userId) return
+    supabase.from('wishlist').select('id', { count: 'exact', head: true }).eq('user_id', userId)
+      .then(({ count }) => setWishlistCount(count ?? 0))
+  }, [userId])
+
+  // Load achievement count + 3 most recent
+  useEffect(() => {
+    if (!userId) return
+    supabase.from('player_achievements').select('achievement_id, unlocked_at, achievements(title, icon)')
+      .eq('user_id', userId).order('unlocked_at', { ascending: false }).limit(3)
+      .then(({ data }) => {
+        const rows = (data ?? []) as unknown as { achievement_id: string; achievements: { title: string; icon: string } | null }[]
+        setRecentAchievements(rows.map(r => ({
+          id: r.achievement_id, title: r.achievements?.title ?? 'Achievement', icon: r.achievements?.icon ?? '🏆',
+        })))
+      })
+    supabase.from('player_achievements').select('achievement_id', { count: 'exact', head: true }).eq('user_id', userId)
+      .then(({ count }) => setAchievementCount(count ?? 0))
+  }, [userId])
+
+  // Load this player's rank for their favorite game (for the star score)
+  useEffect(() => {
+    if (!userId || !player?.favorite_game) { setFavoriteGameRank(null); return }
+    getAllPlayerRanks(userId).then(ranks => {
+      const row = ranks[player.favorite_game as keyof typeof ranks]
+      setFavoriteGameRank(row?.rank ?? null)
+    })
+  }, [userId, player?.favorite_game])
 
   // Load like count + whether I've already liked this profile
   useEffect(() => {
@@ -344,7 +423,6 @@ export default function PlayerProfile() {
   }
 
   const rank = getRank(player.xp)
-  const RankIcon = RANK_ICONS[rank.title] ?? Zap
   const displayName = player.display_name || player.username
 
   return (
@@ -352,7 +430,13 @@ export default function PlayerProfile() {
 
       {/* ── Banner ── */}
       <div style={{ position: 'relative', zIndex: 1, width: '100%', height: 160, background: bannerUrl ? 'transparent' : `linear-gradient(135deg, ${rank.color}44, #4f8ef722)`, overflow: 'hidden' }}>
-        {bannerUrl && <img src={bannerUrl} alt="banner" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} />}
+        {bannerUrl ? (
+          <img src={bannerUrl} alt="banner" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} />
+        ) : (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ImageIcon size={26} style={{ color: 'rgba(255,255,255,0.18)' }} />
+          </div>
+        )}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.6) 100%)' }} />
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px' }}>
           <button type="button" onClick={() => navigate(-1)}
@@ -365,7 +449,7 @@ export default function PlayerProfile() {
       </div>
 
       {/* ── Profile pic + name row ── */}
-      <div style={{ padding: '0 20px', marginTop: -44, marginBottom: 16, position: 'relative', zIndex: 2 }}>
+      <div style={{ padding: '0 20px', marginTop: -44, marginBottom: 10, position: 'relative', zIndex: 2 }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14 }}>
           <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
             <div style={{ width: 80, height: 80, borderRadius: 20, padding: 3, background: `linear-gradient(135deg, ${rank.color}, #4f8ef7)`, boxShadow: `0 0 20px ${rank.color}55`, border: '3px solid var(--bg)' }}>
@@ -373,13 +457,6 @@ export default function PlayerProfile() {
                 {displayName.charAt(0).toUpperCase()}
               </div>
             </div>
-            {/* Like — below avatar, left side */}
-            <button type="button" onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); handleLike() }} disabled={liking}
-              className="ripple-wrap"
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 20, border: `1px solid ${liked ? 'rgba(255,77,139,0.4)' : 'rgba(255,255,255,0.1)'}`, background: liked ? 'rgba(255,77,139,0.14)' : 'var(--surface)', cursor: liking ? 'default' : 'pointer', boxShadow: '2px 2px 6px var(--neu-dark)' }}>
-              <Heart size={14} color={liked ? '#ff4d8b' : 'var(--text-muted)'} style={{ fill: liked ? '#ff4d8b' : 'none' }} />
-              <span style={{ fontSize: 12, fontWeight: 700, color: liked ? '#ff4d8b' : 'var(--text-dim)' }}>{likeCount}</span>
-            </button>
           </div>
 
           <div style={{ flex: 1, minWidth: 0, paddingBottom: 6 }}>
@@ -392,12 +469,29 @@ export default function PlayerProfile() {
         </div>
       </div>
 
+      {/* ── Bio ── */}
+      {player.bio && (
+        <div style={{ padding: '0 20px', marginBottom: 14 }}>
+          <p style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 }}>{player.bio}</p>
+        </div>
+      )}
+
+      {/* ── Info tags row (Likes locked + owner's chosen tags) ── */}
+      <div style={{ padding: '0 20px', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <button type="button" onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); handleLike() }} disabled={liking}
+          className="ripple-wrap"
+          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 20, border: `1px solid ${liked ? 'rgba(255,77,139,0.4)' : 'rgba(255,255,255,0.1)'}`, background: liked ? 'rgba(255,77,139,0.14)' : 'var(--surface)', cursor: liking ? 'default' : 'pointer', boxShadow: '2px 2px 6px var(--neu-dark)' }}>
+          <Heart size={13} color={liked ? '#ff4d8b' : 'var(--text-muted)'} style={{ fill: liked ? '#ff4d8b' : 'none' }} />
+          <span style={{ fontSize: 12, fontWeight: 700, color: liked ? '#ff4d8b' : 'var(--text-dim)' }}>{likeCount}</span>
+        </button>
+        <InfoTagPills tags={player.info_tags ?? []} gender={player.gender} playTime={player.play_time} country={player.country} presence={presence} />
+      </div>
+
       {/* ── Rank badge ── */}
       <div style={{ padding: '0 20px', marginBottom: 16 }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 20, background: rank.color + '18', border: `1px solid ${rank.color}44` }}>
-          <RankIcon size={12} style={{ color: rank.color }} />
-          <span style={{ fontSize: 12, fontWeight: 700, color: rank.color }}>{rank.title}</span>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>· Lv {player.level}</span>
+          <span style={{ fontSize: 13 }}>{rank.emoji}</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: rank.color }}>{rank.name}</span>
         </div>
       </div>
 
@@ -423,35 +517,77 @@ export default function PlayerProfile() {
         </div>
       )}
 
-      {/* ── XP bar ── */}
+      {/* ── Grid Advert ── */}
       <div style={{ padding: '0 20px', marginBottom: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>
-          <span>Level {player.level}</span>
-          <span style={{ color: rank.color, fontWeight: 700 }}>{player.xp.toLocaleString()} XP</span>
-        </div>
-        <div className="xp-track">
-          <div className="xp-fill" style={{ width: `${xpBarWidth}%`, background: `linear-gradient(90deg, ${rank.color}, #4f8ef7)`, boxShadow: `0 0 10px ${rank.color}66`, transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
-        </div>
-      </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-      {/* ── Stats grid ── */}
-      <div style={{ padding: '0 20px', marginBottom: 20 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-          {[
-            { label: 'Followers',   value: followers.toLocaleString(), icon: <Users size={14} />, color: '#4f8ef7' },
-            { label: 'Following',   value: following.toLocaleString(), icon: <Users size={14} />, color: '#9b6dff' },
-            { label: 'Streak',      value: `${player.streak}d`, icon: <Flame size={14} />, color: 'var(--accent)' },
-            { label: 'Leaderboard', value: lbPosition ? `#${lbPosition}` : '—', icon: <Trophy size={14} />, color: '#f5c542' },
-            { label: 'Level',       value: player.level, icon: <Zap size={14} />, color: '#3ecf8e' },
-            { label: 'Total XP',    value: player.xp >= 1000 ? `${(player.xp / 1000).toFixed(1)}k` : player.xp.toString(), icon: <Zap size={14} />, color: '#f5c542' },
-          ].map(s => (
-            <div key={s.label}
-              style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '12px 10px', textAlign: 'center', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
-              <div style={{ color: s.color, marginBottom: 4, display: 'flex', justifyContent: 'center' }}>{s.icon}</div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)', marginBottom: 2 }}>{s.value}</div>
-              <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>{s.label}</div>
+          {/* Followers / Following — hidden if owner turned this off */}
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '13px 16px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
+              <Users size={15} style={{ color: '#4f8ef7' }} />
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>{player.show_follow_counts ? followers.toLocaleString() : '—'}</div>
+                <div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Followers</div>
+              </div>
             </div>
-          ))}
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '13px 16px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
+              <Users size={15} style={{ color: '#9b6dff' }} />
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>{player.show_follow_counts ? following.toLocaleString() : '—'}</div>
+                <div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Following</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Wishlist — always visible to viewers */}
+          <button type="button" onClick={() => setShowWishlist(true)}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Heart size={15} style={{ color: '#ff4d8b' }} />
+              <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>Wishlist</span>
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-dim)' }}>{wishlistCount}/10</span>
+          </button>
+
+          {/* Current XP */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Zap size={15} style={{ color: '#f5c542' }} />
+              <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>Current XP</span>
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 800, color: rank.color }}>{player.xp.toLocaleString()}</span>
+          </div>
+
+          {/* Owner's chosen optional cards */}
+          {(player.grid_cards ?? []).includes('achievements') && (
+            <button type="button" onClick={() => setShowAchievements(true)}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Trophy size={15} style={{ color: '#f5c542' }} />
+                <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>Achievements</span>
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-dim)' }}>{achievementCount}</span>
+            </button>
+          )}
+          {(player.grid_cards ?? []).includes('rank') && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 15 }}>{rank.emoji}</span>
+                <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>Rank</span>
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 800, color: rank.color }}>{rank.name}</span>
+            </div>
+          )}
+          {(player.grid_cards ?? []).includes('leaderboard') && (
+            <button type="button" onClick={() => navigate('/ranks')}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Trophy size={15} style={{ color: '#4f8ef7' }} />
+                <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>Leaderboard</span>
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-dim)' }}>{lbPosition ? `#${lbPosition}` : '—'}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -475,18 +611,32 @@ export default function PlayerProfile() {
         </button>
       </div>
 
-      {/* ── Equipped Avatar ── */}
-      {equippedAvatar && (
-        <div style={{ padding: '0 20px', marginBottom: 24 }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 10 }}>Equipped Avatar</p>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 14, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.07)', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: rank.color, boxShadow: `0 0 8px ${rank.color}` }} />
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{equippedAvatar}</span>
+      {/* ── Middle Advert: favorite game ── */}
+      {player.favorite_game && (() => {
+        const meta = getGameMeta(player.favorite_game!)
+        if (!meta) return null
+        const stars = GAME_RANK_STARS[favoriteGameRank ?? ''] ?? 0
+        return (
+          <div style={{ padding: '0 20px', marginBottom: 24 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 10 }}>Favorite Game</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
+              <div style={{ width: 40, height: 40, borderRadius: 11, background: `${meta.accent}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <meta.icon size={19} style={{ color: meta.accent }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', marginBottom: 3 }}>{meta.name}</div>
+                <div style={{ display: 'flex', gap: 2 }}>
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star key={i} size={12} style={{ color: i < stars ? '#f5c542' : 'var(--surface3)' }} fill={i < stars ? '#f5c542' : 'none'} />
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
-      {/* ── Album ── */}
+      {/* ── Down Last: Album, Avatar, Artifact ── */}
       <div style={{ padding: '0 20px', marginBottom: 24 }}>
         <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 10 }}>Album</p>
         {albumPics.length === 0 ? (
@@ -495,20 +645,49 @@ export default function PlayerProfile() {
             <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>No album pics yet</p>
           </div>
         ) : (
-          <div style={{ display: 'flex', gap: 12 }}>
-            {albumPics.slice(0, 2).map(pic => (
-              <div key={pic.id} style={{ flex: 1 }}>
-                <div style={{ height: 110, borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '2px 2px 8px var(--neu-dark)' }}>
-                  <img src={pic.imageUrl} alt={pic.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                </div>
-                <div style={{ marginTop: 6, fontSize: 10, color: 'var(--text-muted)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pic.label}</div>
-              </div>
-            ))}
-          </div>
+          <ViewerAlbumGrid albumPics={albumPics} rankColor={rank.color} />
         )}
       </div>
 
+      <div style={{ padding: '0 20px', marginBottom: 24, display: 'flex', gap: 12 }}>
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 10 }}>Avatar</p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '16px 10px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: equippedAvatar ? `${rank.color}20` : 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Sparkles size={17} style={{ color: equippedAvatar ? rank.color : 'var(--text-muted)' }} />
+            </div>
+            <span style={{ fontSize: 11.5, fontWeight: 700, color: equippedAvatar ? 'var(--text)' : 'var(--text-muted)', textAlign: 'center' }}>
+              {equippedAvatar || 'No avatar equipped'}
+            </span>
+          </div>
+        </div>
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 10 }}>Artifact</p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '16px 10px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: equippedArtifact ? `${rank.color}20` : 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Package size={17} style={{ color: equippedArtifact ? rank.color : 'var(--text-muted)' }} />
+            </div>
+            <span style={{ fontSize: 11.5, fontWeight: 700, color: equippedArtifact ? 'var(--text)' : 'var(--text-muted)', textAlign: 'center' }}>
+              {equippedArtifact || 'No artifact equipped'}
+            </span>
+          </div>
+        </div>
+      </div>
+
       {challengeOpen && <ChallengeModal name={displayName} onClose={() => setChallengeOpen(false)} />}
+      {showAchievements && (
+        <SimpleListModal title="Achievements" subtitle={`${achievementCount} unlocked total`} onClose={() => setShowAchievements(false)}>
+          {recentAchievements.length === 0 ? (
+            <p style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0' }}>No achievements unlocked yet</p>
+          ) : recentAchievements.map(a => (
+            <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 14, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', marginBottom: 8 }}>
+              <span style={{ fontSize: 22 }}>{a.icon}</span>
+              <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>{a.title}</span>
+            </div>
+          ))}
+        </SimpleListModal>
+      )}
+      {showWishlist && <ViewerWishlistModal userId={userId!} onClose={() => setShowWishlist(false)} />}
       {toast && <MiniToast msg={toast} onDone={() => setToast(null)} />}
 
       <style>{`
@@ -516,5 +695,90 @@ export default function PlayerProfile() {
         @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
       `}</style>
     </div>
+  )
+}
+
+// ── Simple bottom-sheet list modal (achievements) ────────────────
+function SimpleListModal({ title, subtitle, children, onClose }: { title: string; subtitle?: string; children: React.ReactNode; onClose: () => void }) {
+  const [visible, setVisible] = useState(false)
+  useEffect(() => { requestAnimationFrame(() => setVisible(true)) }, [])
+  function close() { setVisible(false); setTimeout(onClose, 280) }
+  return (
+    <>
+      <div className="overlay-backdrop" onClick={close} style={{ zIndex: 505 }} />
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 510 }}>
+        <div style={{ background: 'var(--surface2)', borderRadius: '28px 28px 0 0', padding: '24px 20px 36px', borderTop: '1px solid rgba(255,255,255,0.08)', transform: visible ? 'translateY(0)' : 'translateY(100%)', transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <p style={{ fontSize: 17, fontWeight: 800, color: 'var(--text)' }}>{title}</p>
+            <button type="button" onClick={close} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+          </div>
+          {subtitle && <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 18 }}>{subtitle}</p>}
+          {children}
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ── Viewer wishlist (read-only) ──────────────────────────────────
+function ViewerWishlistModal({ userId, onClose }: { userId: string; onClose: () => void }) {
+  const [items, setItems] = useState<{ id: string; item_name: string; item_image: string | null }[]>([])
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    supabase.from('wishlist').select('id, item_name, item_image').eq('user_id', userId).order('added_at', { ascending: false })
+      .then(({ data }) => { setItems(data ?? []); setLoading(false) })
+  }, [userId])
+  return (
+    <SimpleListModal title="Wishlist" onClose={onClose}>
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+          <span style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid var(--surface3)', borderTopColor: 'var(--accent)', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />
+        </div>
+      ) : items.length === 0 ? (
+        <p style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0' }}>Wishlist is empty</p>
+      ) : items.map(item => (
+        <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 12, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', marginBottom: 8 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 9, background: 'var(--surface2)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {item.item_image ? <img src={item.item_image} alt={item.item_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ImageIcon size={14} style={{ color: 'var(--text-muted)' }} />}
+          </div>
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)' }}>{item.item_name}</span>
+        </div>
+      ))}
+    </SimpleListModal>
+  )
+}
+
+// ── Viewer album grid (tap to view full image, no banner control) ──
+function ViewerAlbumGrid({ albumPics, rankColor }: { albumPics: AlbumPic[]; rankColor: string }) {
+  const [opened, setOpened] = useState<AlbumPic | null>(null)
+  return (
+    <>
+      <div style={{ display: 'flex', gap: 12 }}>
+        {albumPics.slice(0, 2).map(pic => (
+          <button key={pic.id} type="button" onClick={() => setOpened(pic)}
+            style={{ flex: 1, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}>
+            <div style={{ height: 90, borderRadius: 14, overflow: 'hidden', border: pic.equippedAsBanner ? `2px solid ${rankColor}` : '1px solid rgba(255,255,255,0.08)', boxShadow: '2px 2px 8px var(--neu-dark)' }}>
+              <img src={pic.imageUrl} alt={pic.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </div>
+            <div style={{ marginTop: 6, fontSize: 10, color: 'var(--text-muted)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pic.label}</div>
+          </button>
+        ))}
+      </div>
+      {opened && (
+        <div onClick={() => setOpened(null)} style={{ position: 'fixed', inset: 0, zIndex: 510, background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 320, background: 'var(--surface2)', borderRadius: 22, border: '1px solid rgba(255,255,255,0.08)', padding: 18 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+              <button type="button" onClick={() => setOpened(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={16} /></button>
+            </div>
+            <div style={{ height: 200, borderRadius: 16, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <img src={opened.imageUrl} alt={opened.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </div>
+            <p style={{ fontSize: 13, color: 'var(--text-dim)', textAlign: 'center', marginTop: 12 }}>
+              Acquired <strong style={{ color: 'var(--text)' }}>{opened.label}</strong>
+            </p>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
