@@ -14,6 +14,7 @@ import {
 import type { GameKey } from '../lib/gameSession'
 import { useAuth } from '../hooks/useAuth'
 import { ProModal } from '../context/ProModal'
+import { triggerAchievementCheck } from '../lib/triggerAchievements'
 import type { GameRank } from './games/types'
 import { getRankConfig, RankProgressBar } from './games/GameShell'
 import type { GameEndPayload } from './games/types'
@@ -35,8 +36,6 @@ import CloseCall from './games/CloseCall'
 const MAX_PLAYS    = 7
 const GLOBAL_LIMIT = 15
 
-
-
 // ─── Game registry ───────────────────────────────────────────
 type GameId =
   | 'arrow-dash' | 'pattern-memory' | 'rapid-sort'
@@ -52,24 +51,30 @@ interface GameMeta {
   tagline: string
   accent: string
   unlimitedPlays?: boolean
-  sessionCost?: number   // how many global sessions this game costs (default 1)
+  sessionCost?: number
   icon: LucideIcon
 }
 
-const GAMES: GameMeta[] = [
+// Standard games — default session cost (1)
+const STANDARD_GAMES: GameMeta[] = [
   { id: 'arrow-dash',     dbKey: 'arrow_dash',     name: 'Arrow Dash',            tagline: 'Tap the arrow direction. Fast.',                  accent: '#4f8ef7', icon: Move         },
   { id: 'pattern-memory', dbKey: 'pattern_memory', name: 'Pattern Memory',        tagline: 'Watch the sequence, then repeat it.',             accent: '#9b6dff', icon: Brain        },
   { id: 'rapid-sort',     dbKey: 'rapid_sort',     name: 'Rapid Sort',            tagline: 'Sort items into categories fast!',                accent: '#ff4d8b', icon: Layers       },
-  { id: 'trivia-clash',   dbKey: 'trivia_clash',   name: 'Trivia Clash',          tagline: 'Drop knowledge. Wreck the scoreboard.',           accent: '#ff9a3c', icon: BookOpen     },
   { id: 'tac-zone',       dbKey: 'tac_zone',       name: 'Tac Zone',              tagline: 'Three in a row. No mercy.',                      accent: '#3ecf8e', icon: Grid3X3, unlimitedPlays: true },
   { id: 'flag-rush',      dbKey: 'flag_rush',      name: 'Flag Rush',             tagline: "Flags don't lie. Can you read them?",             accent: '#4f8ef7', icon: Flag         },
   { id: 'two-truths',     dbKey: 'two_truths',     name: 'Two Truths, One False', tagline: 'Spot the lie among three claims.',                accent: '#9b6dff', icon: Eye          },
   { id: 'speed-math',     dbKey: 'speed_math',     name: 'Speed Math',            tagline: 'Solve as many equations as you can.',             accent: '#3ecf8e', icon: Calculator   },
   { id: 'liars-grid',     dbKey: 'liars_grid',     name: "Liar's Grid",           tagline: 'Find the one wrong equation. One is lying.',      accent: '#ff4f4f', icon: LayoutGrid   },
-  { id: 'hangman',        dbKey: 'hangman',        name: 'Hangman',               tagline: 'Guess the word. One letter at a time.',           accent: '#ff6b00', icon: Hash,   sessionCost: 3 },
-  { id: 'close-call',     dbKey: 'close_call',     name: 'Close Call',            tagline: 'Type the closest answer you can. Fast.',          accent: '#ff4d8b', icon: Target, sessionCost: 4 },
 ]
 
+// Higher session games — cost more sessions
+const PREMIUM_GAMES: GameMeta[] = [
+  { id: 'trivia-clash',   dbKey: 'trivia_clash',   name: 'Trivia Clash',          tagline: 'Drop knowledge. Wreck the scoreboard.',           accent: '#ff9a3c', icon: BookOpen, sessionCost: 6 },
+  { id: 'hangman',        dbKey: 'hangman',        name: 'Hangman',               tagline: 'Guess the word. One letter at a time.',           accent: '#ff6b00', icon: Hash,     sessionCost: 3 },
+  { id: 'close-call',     dbKey: 'close_call',     name: 'Close Call',            tagline: 'Type the closest answer you can. Fast.',          accent: '#ff4d8b', icon: Target,   sessionCost: 4 },
+]
+
+const GAMES: GameMeta[] = [...STANDARD_GAMES, ...PREMIUM_GAMES]
 
 // ─── Lobby Card ───────────────────────────────────────────────
 function LobbyCard({
@@ -87,7 +92,6 @@ function LobbyCard({
   const Icon = game.icon
   const rankCfg = getRankConfig(rank)
   const cost = game.sessionCost ?? 1
-  // Only lock after data has loaded — prevents false locks at 0/15
   const maxed = dataLoaded && !game.unlimitedPlays && playsToday >= MAX_PLAYS
   const notEnoughSessions = dataLoaded && (globalCount + cost > globalLimit)
   const globalLimitReached = dataLoaded && (globalCount >= globalLimit)
@@ -99,7 +103,6 @@ function LobbyCard({
       onClick={(e) => { if (!locked) { ripple(e as Parameters<typeof ripple>[0]); onPlay() } }}
       style={{ padding: 18, cursor: locked ? 'not-allowed' : 'pointer', opacity: locked ? 0.6 : 1, position: 'relative', overflow: 'hidden' }}
     >
-      {/* accent glow */}
       <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%', background: `${game.accent}18`, filter: 'blur(20px)', pointerEvents: 'none' }} />
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
@@ -116,7 +119,6 @@ function LobbyCard({
       <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{game.name}</p>
       <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10, lineHeight: 1.4 }}>{game.tagline}</p>
 
-      {/* session cost badge for Hangman */}
       {cost > 1 && (
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: game.accent, background: `${game.accent}12`, border: `1px solid ${game.accent}30`, borderRadius: 8, padding: '2px 7px', marginBottom: 8 }}>
           <Zap size={9} /> Costs {cost} sessions
@@ -149,7 +151,6 @@ export default function Games() {
   const [globalReset, setGlobalReset] = useState(0)
   const [sessionResetTime, setSessionResetTime] = useState('')
 
-  // Live countdown using resetAt from session store
   useEffect(() => {
     function computeReset() {
       if (!globalReset) return
@@ -171,7 +172,6 @@ export default function Games() {
     setGlobalReset(info.resetAt)
   }, [userId])
 
-  // load player data
   useEffect(() => {
     if (!userId) return
     refreshGlobalInfo()
@@ -182,9 +182,9 @@ export default function Games() {
       setDataLoaded(true)
     })
     getAllPlayerRanks(userId).then(allRanks => {
-      const rankMap:     Partial<Record<GameId, GameRank>> = {}
-      const streakMap:   Partial<Record<GameId, number>>   = {}
-      const allTimeMap:  Partial<Record<GameId, number>>   = {}
+      const rankMap:    Partial<Record<GameId, GameRank>> = {}
+      const streakMap:  Partial<Record<GameId, number>>   = {}
+      const allTimeMap: Partial<Record<GameId, number>>   = {}
       GAMES.forEach(g => {
         const row = allRanks[g.dbKey as GameKey]
         rankMap[g.id]    = row?.rank ?? 'beginner'
@@ -210,7 +210,6 @@ export default function Games() {
     if (!userId) return
 
     const cost = game.sessionCost ?? 1
-    // Save one real DB entry but increment session counter by cost
     await saveGameSession(userId, {
       game: game.dbKey,
       score: payload.score,
@@ -220,11 +219,13 @@ export default function Games() {
       streak: payload.streak,
       metadata: payload.detail as Record<string, unknown>,
     })
-    // Deduct the full session cost locally (static import at top of file)
     incrementGlobalSession(userId, cost)
 
     await savePlayerRank(userId, game.dbKey, payload.rank, payload.streak,
       Math.max(payload.streak, allTimeStreaks[payload.gameId as GameId] ?? 0))
+
+    // Fire achievement check in background
+    triggerAchievementCheck(userId).catch(console.error)
 
     refreshGlobalInfo()
   }
@@ -237,17 +238,17 @@ export default function Games() {
     onBack: () => setActiveGame(null),
   }
 
-  if (activeGame === 'arrow-dash')     return <ArrowDash        {...gameProps} />
-  if (activeGame === 'pattern-memory') return <PatternMemory    {...gameProps} />
-  if (activeGame === 'rapid-sort')     return <RapidSort        {...gameProps} />
-  if (activeGame === 'trivia-clash')   return <TriviaClash      {...gameProps} />
-  if (activeGame === 'tac-zone')       return <TacZone          {...gameProps} />
-  if (activeGame === 'flag-rush')      return <FlagRush         {...gameProps} />
+  if (activeGame === 'arrow-dash')     return <ArrowDash         {...gameProps} />
+  if (activeGame === 'pattern-memory') return <PatternMemory     {...gameProps} />
+  if (activeGame === 'rapid-sort')     return <RapidSort         {...gameProps} />
+  if (activeGame === 'trivia-clash')   return <TriviaClash       {...gameProps} />
+  if (activeGame === 'tac-zone')       return <TacZone           {...gameProps} />
+  if (activeGame === 'flag-rush')      return <FlagRush          {...gameProps} />
   if (activeGame === 'two-truths')     return <TwoTruthsOneFalse {...gameProps} />
-  if (activeGame === 'speed-math')     return <SpeedMath        {...gameProps} />
-  if (activeGame === 'liars-grid')     return <LiarsGrid        {...gameProps} />
-  if (activeGame === 'hangman')        return <Hangman          {...gameProps} />
-  if (activeGame === 'close-call')     return <CloseCall        {...gameProps} />
+  if (activeGame === 'speed-math')     return <SpeedMath         {...gameProps} />
+  if (activeGame === 'liars-grid')     return <LiarsGrid         {...gameProps} />
+  if (activeGame === 'hangman')        return <Hangman           {...gameProps} />
+  if (activeGame === 'close-call')     return <CloseCall         {...gameProps} />
 
   return (
     <div>
@@ -259,7 +260,7 @@ export default function Games() {
 
       <div style={{ maxWidth:720, margin:'0 auto', paddingBottom:48 }}>
 
-        {/* Low session warning — 4 or fewer left */}
+        {/* Low session warning */}
         {!globalLimitReached && dataLoaded && (GLOBAL_LIMIT - globalCount) <= 4 && (GLOBAL_LIMIT - globalCount) > 0 && (
           <div style={{ background:'rgba(245,197,66,0.08)', border:'1px solid rgba(245,197,66,0.25)', borderRadius:16, padding:'12px 16px', marginBottom:12, display:'flex', alignItems:'center', gap:10 }}>
             <Clock size={16} style={{ color:'#f5c542', flexShrink:0 }} />
@@ -304,11 +305,34 @@ export default function Games() {
           </div>
         </section>
 
-        {/* Game grid */}
+        {/* Standard games grid */}
         <section className="su d2">
           <p className="section-label">Games</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {GAMES.map(game => (
+            {STANDARD_GAMES.map(game => (
+              <LobbyCard
+                key={game.id}
+                game={game}
+                rank={(ranks[game.id] ?? 'beginner') as GameRank}
+                streak={streaks[game.id] ?? 0}
+                playsToday={playsToday[game.id] ?? 0}
+                globalCount={globalCount}
+                globalLimit={GLOBAL_LIMIT}
+                dataLoaded={dataLoaded}
+                onPlay={() => setActiveGame(game.id)}
+              />
+            ))}
+          </div>
+        </section>
+
+        {/* Higher session games */}
+        <section className="su d3">
+          <p className="section-label">Higher Session Games</p>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: -8, marginBottom: 14 }}>
+            These games cost more sessions but offer a deeper experience.
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {PREMIUM_GAMES.map(game => (
               <LobbyCard
                 key={game.id}
                 game={game}
@@ -325,7 +349,7 @@ export default function Games() {
         </section>
 
         {/* Recent results */}
-        <section className="su d3">
+        <section className="su d4">
           <p className="section-label">Recent Results</p>
           {results.length === 0 ? (
             <div className="neu-card-sm" style={{ padding:'32px 20px', textAlign:'center', color:'var(--text-muted)', fontSize:13 }}>
