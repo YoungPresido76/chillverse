@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
   Gamepad2, ShoppingBag, Film, Swords, Sparkles,
-  Brain, Bot, Flame, Zap, User, ChevronRight,
+  Bot, Flame, Zap, User, ChevronRight,
 } from 'lucide-react'
 import { useProfile } from '../hooks/useProfile'
 import { getXpProgress } from '../lib/level'
