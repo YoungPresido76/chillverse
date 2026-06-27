@@ -201,3 +201,105 @@ export async function getUnreadCount(userId: string): Promise<number> {
     .eq('read', false)
   return count ?? 0
 }
+
+// ── Social notification senders ───────────────────────────────
+export async function notifyFollow(followerId: string, targetId: string) {
+  const { data: follower } = await supabase
+    .from('profiles').select('display_name, username').eq('id', followerId).single()
+  if (!follower) return
+  const name = follower.display_name || follower.username
+  await supabase.rpc('insert_notification', {
+    p_user_id: targetId,
+    p_type:    'follow',
+    p_title:   `${name} followed you`,
+    p_body:    `${name} is now following you on Chillverse.`,
+    p_icon:    'user-plus',
+    p_meta:    { follower_id: followerId },
+  })
+}
+
+export async function notifyProfileView(viewerId: string, profileId: string) {
+  if (viewerId === profileId) return
+  const { data: viewer } = await supabase
+    .from('profiles').select('display_name, username').eq('id', viewerId).single()
+  if (!viewer) return
+  const name = viewer.display_name || viewer.username
+  await supabase.rpc('insert_notification', {
+    p_user_id: profileId,
+    p_type:    'profile_view',
+    p_title:   `${name} viewed your profile`,
+    p_body:    `${name} checked out your Chillverse profile.`,
+    p_icon:    'eye',
+    p_meta:    { viewer_id: viewerId },
+  })
+}
+
+export async function notifyProfileLike(likerId: string, profileId: string) {
+  if (likerId === profileId) return
+  const { data: liker } = await supabase
+    .from('profiles').select('display_name, username').eq('id', likerId).single()
+  if (!liker) return
+  const name = liker.display_name || liker.username
+  await supabase.rpc('insert_notification', {
+    p_user_id: profileId,
+    p_type:    'profile_like',
+    p_title:   `${name} liked your profile`,
+    p_body:    `${name} gave your profile a like! 💖`,
+    p_icon:    'heart',
+    p_meta:    { liker_id: likerId },
+  })
+}
+
+export async function notifyRankUp(userId: string, rankTitle: string) {
+  await supabase.rpc('insert_notification', {
+    p_user_id: userId,
+    p_type:    'rank_up',
+    p_title:   `You reached ${rankTitle}!`,
+    p_body:    `Congrats — you've climbed to ${rankTitle} rank. Keep going!`,
+    p_icon:    'zap',
+    p_meta:    { rank: rankTitle },
+  })
+}
+
+// Notify all followers when someone reaches a new rank
+export async function notifyFollowersRankUp(userId: string, rankTitle: string) {
+  const { data: person } = await supabase
+    .from('profiles').select('display_name, username').eq('id', userId).single()
+  if (!person) return
+  const name = person.display_name || person.username
+  const { data: followers } = await supabase
+    .from('follows').select('follower_id').eq('following_id', userId)
+  if (!followers?.length) return
+  for (const { follower_id } of followers) {
+    await supabase.rpc('insert_notification', {
+      p_user_id: follower_id,
+      p_type:    'followed_rank_up',
+      p_title:   `${name} reached ${rankTitle}!`,
+      p_body:    `${name}, someone you follow, just levelled up to ${rankTitle}.`,
+      p_icon:    'crown',
+      p_meta:    { user_id: userId, rank: rankTitle },
+    })
+  }
+}
+
+// Notify all followers when someone hits a high streak
+export async function notifyFollowersStreak(userId: string, streak: number) {
+  if (streak < 7) return // only notify for noteworthy streaks
+  const { data: person } = await supabase
+    .from('profiles').select('display_name, username').eq('id', userId).single()
+  if (!person) return
+  const name = person.display_name || person.username
+  const { data: followers } = await supabase
+    .from('follows').select('follower_id').eq('following_id', userId)
+  if (!followers?.length) return
+  for (const { follower_id } of followers) {
+    await supabase.rpc('insert_notification', {
+      p_user_id: follower_id,
+      p_type:    'streak',
+      p_title:   `${name} is on a ${streak}-day streak! 🔥`,
+      p_body:    `${name} has been playing for ${streak} days straight. Can you beat that?`,
+      p_icon:    'flame',
+      p_meta:    { user_id: userId, streak },
+    })
+  }
+}
