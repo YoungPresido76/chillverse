@@ -13,6 +13,7 @@ import { GAMES, type GameMeta, type GameId } from '../lib/games'
 import { useAuth } from '../hooks/useAuth'
 import { ProModal } from '../context/ProModal'
 import { triggerAchievementCheck } from '../lib/triggerAchievements'
+import { updateMissionProgress } from '../lib/weeklyMissions'
 import type { GameRank } from './games/types'
 import { getRankConfig, RankProgressBar } from './games/GameShell'
 import type { GameEndPayload } from './games/types'
@@ -189,6 +190,55 @@ export default function Games() {
 
     // Fire achievement check in background
     triggerAchievementCheck(userId).catch(console.error)
+
+    // ── Weekly mission progress ──────────────────────────────
+    updateMissionProgress(userId, 'sessions_played', 1).catch(console.error)
+
+    if (payload.score > 0) {
+      updateMissionProgress(userId, 'games_won', 1).catch(console.error)
+    }
+
+    if (payload.streak >= 3) {
+      updateMissionProgress(userId, 'win_streak', payload.streak).catch(console.error)
+    }
+
+    updateMissionProgress(userId, 'unique_games_played', 1).catch(console.error)
+
+    const gameMetricMap: Partial<Record<GameId, string[]>> = {
+      'hangman':        ['hangman_played'],
+      'speed-math':     ['speed_math_played'],
+      'pattern-memory': ['pattern_memory_played'],
+      'flag-rush':      ['flag_rush_played'],
+    }
+    const extraMetrics = gameMetricMap[payload.gameId as GameId]
+    if (extraMetrics) {
+      for (const mk of extraMetrics) {
+        updateMissionProgress(userId, mk, 1).catch(console.error)
+      }
+    }
+
+    if (payload.gameId === 'hangman' && payload.correct > 0) {
+      updateMissionProgress(userId, 'hangman_correct', payload.correct).catch(console.error)
+    }
+
+    if (payload.gameId === 'speed-math' && payload.total > 0) {
+      const acc = Math.round((payload.correct / payload.total) * 100)
+      if (acc >= 80) updateMissionProgress(userId, 'speed_math_80pct', 1).catch(console.error)
+    }
+
+    if (payload.gameId === 'pattern-memory' && payload.correct === payload.total && payload.total > 0) {
+      updateMissionProgress(userId, 'pattern_memory_perfect', 1).catch(console.error)
+    }
+
+    if (payload.gameId === 'flag-rush' && payload.score > 0) {
+      updateMissionProgress(userId, 'flag_rush_won', 1).catch(console.error)
+    }
+
+    updateMissionProgress(userId, 'games_today', 1).catch(console.error)
+
+    if (payload.xpEarned > 0) {
+      updateMissionProgress(userId, 'xp_earned', payload.xpEarned).catch(console.error)
+    }
 
     refreshGlobalInfo()
   }
