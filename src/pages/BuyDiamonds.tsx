@@ -540,29 +540,35 @@ export default function BuyDiamonds() {
         diamonds: pack.diamonds,
         is_first_purchase: isFirstPurchase,
       },
-      callback: async (response: { reference: string }) => {
+      callback: function (response: { reference: string }) {
+        // Paystack's inline.js (v1) rejects async functions for `callback`
+        // (its validator checks the function's shape, and async functions
+        // don't pass). Keep this wrapper synchronous and run the actual
+        // async work in an inner IIFE.
         setLoading(true)
-        try {
-          const { error } = await supabase.functions.invoke('credit-diamonds', {
-            body: {
-              reference: response.reference,
-              user_id: user.id,
-              diamonds: pack.diamonds,
-              is_first_purchase: isFirstPurchase,
-            },
-          })
-          if (error) throw error
-          setActivePack(pack)
-          setModal('success')
-        } catch (err) {
-          console.error('credit-diamonds error:', err)
-          // Still show success since Paystack confirmed payment;
-          // webhook will credit as fallback.
-          setActivePack(pack)
-          setModal('success')
-        } finally {
-          setLoading(false)
-        }
+        ;(async () => {
+          try {
+            const { error } = await supabase.functions.invoke('credit-diamonds', {
+              body: {
+                reference: response.reference,
+                user_id: user.id,
+                diamonds: pack.diamonds,
+                is_first_purchase: isFirstPurchase,
+              },
+            })
+            if (error) throw error
+            setActivePack(pack)
+            setModal('success')
+          } catch (err) {
+            console.error('credit-diamonds error:', err)
+            // Still show success since Paystack confirmed payment;
+            // webhook will credit as fallback.
+            setActivePack(pack)
+            setModal('success')
+          } finally {
+            setLoading(false)
+          }
+        })()
       },
       onClose: () => {
         setActivePack(pack)
