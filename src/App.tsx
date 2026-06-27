@@ -24,6 +24,7 @@ const Ranks              = lazy(() => import('./pages/Ranks'))
 const Watch              = lazy(() => import('./pages/Watch'))
 const Mall               = lazy(() => import('./pages/Mall'))
 const GiftPage           = lazy(() => import('./pages/Gift'))
+const BuyDiamonds        = lazy(() => import('./pages/BuyDiamonds'))
 const Achievements       = lazy(() => import('./pages/Achievements'))
 const Notifications      = lazy(() => import('./pages/Notifications'))
 const Inventory          = lazy(() => import('./pages/Inventory'))
@@ -93,6 +94,7 @@ export default function App() {
         <Route path="/games"                            element={<Games />} />
         <Route path="/mall"                             element={<Suspense fallback={<Fallback />}><Mall /></Suspense>} />
         <Route path="/gift"                             element={<Suspense fallback={<Fallback />}><GiftPage /></Suspense>} />
+        <Route path="/buy-diamonds"                     element={<Suspense fallback={<Fallback />}><BuyDiamonds /></Suspense>} />
         <Route path="/profile"                          element={<Suspense fallback={<Fallback />}><Profile /></Suspense>} />
         <Route path="/profile/:userId"                  element={<Suspense fallback={<Fallback />}><PlayerProfile /></Suspense>} />
         <Route path="/chat"                             element={<Suspense fallback={<Fallback />}><Chat /></Suspense>} />
