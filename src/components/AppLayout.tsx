@@ -23,6 +23,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/mall':      'Mall',
   '/streak':    'Streak',
   '/settings':  'Settings',
+  '/halo':      'Halo AI',
 }
 
 // Top-level pages — no back button shown
