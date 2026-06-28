@@ -490,7 +490,15 @@ export default function Mall() {
   const [toast, setToast] = useState<string | null>(null)
   const [purchaseToast, setPurchaseToast] = useState<string | null>(null)
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({})
-  const diamondBalance = wallet?.gem_balance ?? 0
+  const [localBalance, setLocalBalance] = useState<number | null>(null)
+
+  // Keep localBalance in sync with the fetched wallet, but allow immediate
+  // optimistic deductions without waiting for a refetch round-trip.
+  useEffect(() => {
+    if (wallet != null) setLocalBalance(wallet.gem_balance)
+  }, [wallet])
+
+  const diamondBalance = localBalance ?? wallet?.gem_balance ?? 0
 
   // Load like counts for all visible items + subscribe to realtime changes
   useEffect(() => {
@@ -675,6 +683,11 @@ export default function Mall() {
           onClose={() => setSelectedItem(null)}
           onPurchased={(item) => {
             setPurchaseToast(`${item.name} added to your inventory!`)
+            // Deduct immediately so the UI reflects the new balance right away,
+            // then also refetch to confirm the server value.
+            if (item.price_gems != null) {
+              setLocalBalance(prev => (prev ?? wallet?.gem_balance ?? 0) - item.price_gems!)
+            }
             refetchWallet?.()
           }}
         />

@@ -7,6 +7,7 @@ import {
 import { ripple } from '../lib/ripple'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
+import { useProfile } from '../hooks/useProfile'
 import type { MallItem, MallRarity } from '../types'
 
 /* ══════════════════════════════════════════════════
@@ -325,6 +326,7 @@ export default function Inventory() {
   const { session } = useAuth()
   const userId = session?.user?.id ?? null
 
+  const { refetch: refetchProfile } = useProfile()
   const { inventory, setInventory, loading } = useInventory(userId)
   const [selected, setSelected] = useState<InventoryEntry | null>(null)
   const [toast, setToast]       = useState<ToastMsg | null>(null)
@@ -362,7 +364,8 @@ export default function Inventory() {
       await supabase.from('profiles').update({ banner_url: item.image_url }).eq('id', userId)
     }
     // consumables: no profile change — timer handled separately
-  }, [inventory, setInventory, userId])
+    refetchProfile()
+  }, [inventory, setInventory, userId, refetchProfile])
 
   const unequip = useCallback(async (entry: InventoryEntry) => {
     const { item } = entry
@@ -381,7 +384,8 @@ export default function Inventory() {
     } else if (item.sub_category === 'album') {
       await supabase.from('profiles').update({ banner_url: null }).eq('id', userId)
     }
-  }, [setInventory, userId])
+    refetchProfile()
+  }, [setInventory, userId, refetchProfile])
 
   const avatars     = inventory.filter(e => e.item.category === 'avatar_skin')
   const consumables = inventory.filter(e => e.item.category === 'xp_booster' || e.item.is_consumable)
