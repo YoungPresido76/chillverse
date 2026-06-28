@@ -80,7 +80,7 @@ export interface FeedItem {
 // ── Mall ────────────────────────────────────────────────────────────────────
 
 export type MallRarity = 'Common' | 'Rare' | 'Epic' | 'Mythic'
-export type MallItemCategory = 'avatar_skin' | 'profile_pic' | 'chat_theme' | 'xp_booster'
+export type MallItemCategory = 'avatar_skin' | 'profile_pic' | 'chat_theme' | 'xp_booster' | 'banner'
 
 /** user_items.item_type — broader than MallItemCategory since some items
  *  (album pics, artifacts) are granted directly via rank rewards rather
