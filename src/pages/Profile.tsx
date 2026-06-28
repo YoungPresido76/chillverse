@@ -61,15 +61,19 @@ interface FollowEntry {
   username: string
   display_name: string | null
   xp: number
+  avatar: string | null
 }
 
 // ── Mini avatar ───────────────────────────────────────────────
-function MiniAvatar({ name, size = 38 }: { name: string; size?: number }) {
+function MiniAvatar({ name, avatar, size = 38 }: { name: string; avatar?: string | null; size?: number }) {
   const colors = ['#ff6b6b','#4f8ef7','#9b6dff','#3ecf8e','#f5c542','#ff4d8b','#ff9a3c']
   const color = colors[(name.charCodeAt(0) || 0) % colors.length]
   return (
-    <div style={{ width: size, height: size, borderRadius: Math.round(size * 0.3), background: color, color: '#fff', fontWeight: 700, fontSize: size * 0.36, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-      {(name || '?').charAt(0).toUpperCase()}
+    <div style={{ width: size, height: size, borderRadius: Math.round(size * 0.3), background: color, color: '#fff', fontWeight: 700, fontSize: size * 0.36, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+      {avatar && avatar.startsWith('http')
+        ? <img src={avatar} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+        : (name || '?').charAt(0).toUpperCase()
+      }
     </div>
   )
 }
@@ -165,7 +169,7 @@ function AddFriendSheet({ myId, onClose, onFollowed }: {
     setSearching(true)
     timer.current = setTimeout(async () => {
       const { data } = await supabase.from('profiles')
-        .select('id, username, display_name, xp')
+        .select('id, username, display_name, xp, avatar')
         .or(`username.ilike.%${query.trim()}%,display_name.ilike.%${query.trim()}%`)
         .neq('id', myId).limit(8)
       setResults((data ?? []) as FollowEntry[])
@@ -210,7 +214,7 @@ function AddFriendSheet({ myId, onClose, onFollowed }: {
                 return (
                   <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 4px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                     <button type="button" onClick={() => { close(); navigate(`/profile/${p.id}`) }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                      <MiniAvatar name={p.display_name || p.username} size={42} />
+                      <MiniAvatar name={p.display_name || p.username} avatar={p.avatar} size={42} />
                     </button>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{p.display_name || p.username}</div>
@@ -252,11 +256,11 @@ function FollowListSheet({ profileId, mode, onClose }: {
     const fetch = async () => {
       if (mode === 'followers') {
         const { data } = await supabase.from('follows')
-          .select('profiles!follower_id(id, username, display_name, xp)').eq('following_id', profileId)
+          .select('profiles!follower_id(id, username, display_name, xp, avatar)').eq('following_id', profileId)
         setList((data ?? []).map((r: Record<string, unknown>) => r.profiles as FollowEntry).filter(Boolean))
       } else {
         const { data } = await supabase.from('follows')
-          .select('profiles!following_id(id, username, display_name, xp)').eq('follower_id', profileId)
+          .select('profiles!following_id(id, username, display_name, xp, avatar)').eq('follower_id', profileId)
         setList((data ?? []).map((r: Record<string, unknown>) => r.profiles as FollowEntry).filter(Boolean))
       }
       setLoading(false)
@@ -288,7 +292,7 @@ function FollowListSheet({ profileId, mode, onClose }: {
               return (
                 <button key={p.id} type="button" onClick={() => { close(); navigate(`/profile/${p.id}`) }}
                   style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 4px', borderBottom: '1px solid rgba(255,255,255,0.04)', width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', borderRadius: 10 }}>
-                  <MiniAvatar name={p.display_name || p.username} size={44} />
+                  <MiniAvatar name={p.display_name || p.username} avatar={p.avatar} size={44} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>{p.display_name || p.username}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -509,7 +513,7 @@ function AlbumDetailModal({
 
 // ── Main Profile Page ─────────────────────────────────────────
 export default function Profile() {
-  const { profile, loading } = useProfile()
+  const { profile, loading, refetch: refetchProfile } = useProfile()
   const navigate = useNavigate()
 
   const [showEdit, setShowEdit]                     = useState(false)
@@ -558,6 +562,18 @@ export default function Profile() {
       })
   }
   useEffect(loadCounts, [profile?.id])
+
+  // Re-fetch profile when avatar/banner changes (e.g. equipped from Inventory)
+  useEffect(() => {
+    if (!profile?.id) return
+    const channel = supabase
+      .channel(`profile-avatar-${profile.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${profile.id}`,
+      }, () => { refetchProfile() })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [profile?.id, refetchProfile])
 
   // Load presence from profiles
   useEffect(() => {
@@ -739,9 +755,13 @@ export default function Profile() {
           {/* Square profile pic — left aligned */}
           <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
             <div style={{ width: 80, height: 80, borderRadius: 20, padding: 3, background: `linear-gradient(135deg, ${rank.color}, #4f8ef7)`, boxShadow: `0 0 20px ${rank.color}55`, border: '3px solid var(--bg)' }}>
-              <div style={{ width: '100%', height: '100%', borderRadius: 16, background: 'linear-gradient(135deg, var(--purple), var(--blue))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 800, color: '#fff' }}>
-                {displayName.charAt(0).toUpperCase()}
-              </div>
+              {profile?.avatar && profile.avatar.startsWith('http') ? (
+                <img src={profile.avatar} alt={displayName} style={{ width: '100%', height: '100%', borderRadius: 16, objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
+              ) : (
+                <div style={{ width: '100%', height: '100%', borderRadius: 16, background: 'linear-gradient(135deg, var(--purple), var(--blue))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 800, color: '#fff' }}>
+                  {displayName.charAt(0).toUpperCase()}
+                </div>
+              )}
             </div>
           </div>
 

@@ -228,8 +228,11 @@ export default function Dashboard() {
 
             {/* Avatar — NO level badge */}
             <div style={{ flexShrink: 0 }}>
-              <div style={{ width: 54, height: 54, borderRadius: 16, background: 'linear-gradient(135deg, var(--purple), var(--blue))', boxShadow: '0 4px 16px rgba(155,109,255,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 800, color: '#fff' }}>
-                {displayName.charAt(0).toUpperCase()}
+              <div style={{ width: 54, height: 54, borderRadius: 16, background: 'linear-gradient(135deg, var(--purple), var(--blue))', boxShadow: '0 4px 16px rgba(155,109,255,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 800, color: '#fff', overflow: 'hidden' }}>
+                {profile.avatar && profile.avatar.startsWith('http')
+                  ? <img src={profile.avatar} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }} />
+                  : displayName.charAt(0).toUpperCase()
+                }
               </div>
               <div className="flex gap-2 mt-3">
                 <span style={{ background: 'var(--surface2)', padding: '4px 8px', borderRadius: 8, fontSize: 11, color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: 4 }}>

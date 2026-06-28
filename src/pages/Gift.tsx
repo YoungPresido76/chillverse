@@ -25,14 +25,18 @@ interface SearchedUser {
   id: string
   username: string
   display_name: string | null
+  avatar: string | null
 }
 
-function Avatar({ name, size = 32 }: { name: string; size?: number }) {
+function Avatar({ name, avatar, size = 32 }: { name: string; avatar?: string | null; size?: number }) {
   const colors = ['#ff6b6b','#4f8ef7','#9b6dff','#3ecf8e','#f5c542','#ff4d8b','#ff9a3c','#00e5ff']
   const color = colors[(name.charCodeAt(0) || 0) % colors.length]
   return (
-    <div style={{ width:size, height:size, borderRadius:size*0.32, background:color, color:'#fff', fontWeight:700, fontSize:size*0.4, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-      {(name || '?').charAt(0).toUpperCase()}
+    <div style={{ width:size, height:size, borderRadius:size*0.32, background:color, color:'#fff', fontWeight:700, fontSize:size*0.4, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, overflow:'hidden' }}>
+      {avatar && avatar.startsWith('http')
+        ? <img src={avatar} alt={name} style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'center top' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+        : (name || '?').charAt(0).toUpperCase()
+      }
     </div>
   )
 }
@@ -92,7 +96,7 @@ function SendModal({ item, senderName, onClose, onSent }: {
     searchTimer.current = setTimeout(async () => {
       const { data } = await supabase
         .from('profiles')
-        .select('id, username, display_name')
+        .select('id, username, display_name, avatar')
         .ilike('username', `%${q}%`)
         .limit(6)
       setResults((data as SearchedUser[]) ?? [])
@@ -247,7 +251,7 @@ function SendModal({ item, senderName, onClose, onSent }: {
                       style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 13px', width:'100%', background:'transparent', border:'none', cursor:'pointer', textAlign:'left' }}
                       onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
-                      <Avatar name={u.display_name || u.username} size={30} />
+                      <Avatar name={u.display_name || u.username} avatar={u.avatar} size={30} />
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontSize:12.5, fontWeight:700, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{u.display_name || u.username}</div>
                         <div style={{ fontSize:11, color:'var(--text-muted)' }}>@{u.username}</div>
