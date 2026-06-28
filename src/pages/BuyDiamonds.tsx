@@ -103,6 +103,8 @@ const PACKS: Pack[] = [
     badgeBg: 'rgba(224,64,251,0.15)',
     image:
       'https://gnobzfxtxrtcxfhhfjni.supabase.co/storage/v1/object/public/Adverts/Diamond%20purchase/file_000000009fd071f4838edf08c8b4f12b.png',
+  },
+]
 
 interface FlashPack {
   id: string
