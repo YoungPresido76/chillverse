@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Calculator } from 'lucide-react'
 import type { GameRank, GameEndPayload } from './types'
 import { useGamePresence } from '../../hooks/useGamePresence'
-import { getRankConfig, calcSessionXP } from './types'
+import { getRankConfig } from './types'
 import { PreGameModal, GameHUD, StatChip, ResultScreen, QuitModal, TimerBar, useRankStreak } from './GameShell'
 import { SPEED_MATH_POOL, generateMathQuestion, generateDistractors } from './gameData'
 import { ripple } from '../../lib/ripple'
@@ -23,6 +23,30 @@ const RANK_CONFIG: Record<GameRank, RankMathConfig> = {
   advanced:     { timeSec: 25, difficulty: 'medium', streakRequired: 5 },
   master:       { timeSec: 20, difficulty: 'mixed',  streakRequired: 5 },
 }
+
+// Difficulty lever: time allowed per question, scaled by current game rank (seconds)
+const RANK_QUESTION_TIME: Record<GameRank, number> = {
+  beginner:     8,
+  intermediate: 6.5,
+  advanced:     5,
+  master:       3.5,
+}
+
+function getQuestionTime(rank: GameRank): number {
+  return RANK_QUESTION_TIME[rank]
+}
+
+// Base XP per correct answer, scaled by current game rank
+const RANK_XP: Record<GameRank, number> = {
+  beginner:     10,
+  intermediate: 12,
+  advanced:     14,
+  master:       16,
+}
+
+const STREAK_THRESHOLD = 10
+const STREAK_MULTIPLIER = 1.5
+const SESSION_XP_CAP = 300
 
 interface Question { eq: string; answer: number; options: [number, number, number, number]; correctIdx: 0 | 1 | 2 | 3 }
 
@@ -65,6 +89,7 @@ export default function SpeedMath({ rank: initialRank, onEnd, onBack }: Props) {
   const [question, setQuestion] = useState<Question | null>(null)
   const [score, setScore] = useState(0)
   const [timeLeft, setTimeLeft] = useState(30)
+  const [questionPct, setQuestionPct] = useState(100)
   const [selected, setSelected] = useState<number | null>(null)
   const [promoted, setPromoted] = useState<GameRank | null>(null)
   const [result, setResult] = useState<GameEndPayload | null>(null)
@@ -73,26 +98,52 @@ export default function SpeedMath({ rank: initialRank, onEnd, onBack }: Props) {
   const correctRef = useRef(0)
   const totalRef = useRef(0)
   const startRef = useRef(Date.now())
+  const sessionXpRef = useRef(0)
+  const sessionStreakRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const advanceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const questionDeadlineRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const questionTickRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   function getRankCfg() { return RANK_CONFIG[rankState.rank] }
 
   function clearTimers() {
     if (timerRef.current) clearInterval(timerRef.current)
     if (advanceRef.current) clearTimeout(advanceRef.current)
+    if (questionDeadlineRef.current) clearTimeout(questionDeadlineRef.current)
+    if (questionTickRef.current) clearInterval(questionTickRef.current)
   }
 
   function nextQuestion() {
     const cfg = getRankCfg()
     setQuestion(buildQuestion(cfg.difficulty))
     setSelected(null)
+
+    // Per-question countdown — reads rank fresh on every new question
+    if (questionDeadlineRef.current) clearTimeout(questionDeadlineRef.current)
+    if (questionTickRef.current) clearInterval(questionTickRef.current)
+    const windowMs = getQuestionTime(rankState.rank) * 1000
+    const qStart = Date.now()
+    setQuestionPct(100)
+    questionTickRef.current = setInterval(() => {
+      const remaining = Math.max(0, 1 - (Date.now() - qStart) / windowMs)
+      setQuestionPct(remaining * 100)
+    }, 50)
+    questionDeadlineRef.current = setTimeout(() => {
+      // Timed out — counts as a miss
+      if (questionTickRef.current) clearInterval(questionTickRef.current)
+      totalRef.current += 1
+      onWrong()
+      sessionStreakRef.current = 0
+      setSelected(-1)
+      advanceRef.current = setTimeout(() => nextQuestion(), 280)
+    }, windowMs)
   }
 
   function endGame() {
     clearTimers()
     const dur = Math.floor((Date.now() - startRef.current) / 1000)
-    const xp = calcSessionXP(correctRef.current, Math.max(totalRef.current, 1), rankState.bestStreak, 3)
+    const xp = Math.min(sessionXpRef.current, SESSION_XP_CAP)
     const payload: GameEndPayload = {
       gameId: GAME_ID,
       gameName: 'Speed Math',
@@ -113,6 +164,7 @@ export default function SpeedMath({ rank: initialRank, onEnd, onBack }: Props) {
   function start() {
     const cfg = getRankCfg()
     scoreRef.current = 0; correctRef.current = 0; totalRef.current = 0
+    sessionXpRef.current = 0; sessionStreakRef.current = 0
     setScore(0); setPromoted(null); setResult(null)
     setTimeLeft(cfg.timeSec)
     startRef.current = Date.now()
@@ -125,15 +177,24 @@ export default function SpeedMath({ rank: initialRank, onEnd, onBack }: Props) {
 
   function pick(idx: number) {
     if (selected !== null || !question) return
+    if (questionDeadlineRef.current) clearTimeout(questionDeadlineRef.current)
+    if (questionTickRef.current) clearInterval(questionTickRef.current)
     setSelected(idx)
     totalRef.current += 1
     if (idx === question.correctIdx) {
       scoreRef.current += 10; correctRef.current += 1
       setScore(scoreRef.current)
+      sessionStreakRef.current += 1
+      const baseXp = RANK_XP[rankState.rank]
+      const xpForAnswer = Math.round(
+        baseXp * (sessionStreakRef.current > STREAK_THRESHOLD ? STREAK_MULTIPLIER : 1)
+      )
+      sessionXpRef.current += xpForAnswer
       const { promoted: promo } = onCorrect(getRankConfig(rankState.rank).streakRequired)
       if (promo) setPromoted(promo)
     } else {
       onWrong()
+      sessionStreakRef.current = 0
     }
     advanceRef.current = setTimeout(() => nextQuestion(), 280)
   }
@@ -146,7 +207,8 @@ export default function SpeedMath({ rank: initialRank, onEnd, onBack }: Props) {
 
   const rules = [
     { icon: '🔢', text: `Solve as many equations as you can in ${cfg.timeSec}s` },
-    { icon: '⚡', text: 'Tap the correct answer immediately' },
+    { icon: '⏱', text: `${getQuestionTime(rankState.rank)}s per question at ${rankCfg.label} rank` },
+    { icon: '⚡', text: 'Tap the correct answer before time runs out' },
     { icon: '📈', text: `${cfg.difficulty === 'mixed' ? 'Mixed' : cfg.difficulty.charAt(0).toUpperCase() + cfg.difficulty.slice(1)} difficulty at ${rankCfg.label}` },
     { icon: '🔥', text: '5 correct in a row = rank up' },
   ]
@@ -189,9 +251,9 @@ export default function SpeedMath({ rank: initialRank, onEnd, onBack }: Props) {
         }
       />
 
-      {/* Timer bar */}
+      {/* Per-question timer bar — shortens as rank increases */}
       <div style={{ padding: '8px 16px 4px' }}>
-        <TimerBar pct={timePct} accent={ACCENT} urgent />
+        <TimerBar pct={questionPct} accent={ACCENT} urgent />
       </div>
 
       {/* Equation display */}
