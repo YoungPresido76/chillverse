@@ -1,7 +1,7 @@
 // src/pages/Wallet.tsx
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Gem, TrendingDown, Clock, ShoppingBag, Ticket } from 'lucide-react'
+import { ArrowLeft, Gem, Clock, ShoppingBag, Ticket } from 'lucide-react'
 import { ripple } from '../lib/ripple'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
@@ -180,37 +180,41 @@ export default function Wallet() {
   useEffect(() => {
     if (!user) return
     setTxLoading(true)
-
-    // Try fetching from diamond_transactions table; gracefully degrade if it doesn't exist
-    supabase
-      .from('diamond_transactions')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(30)
-      .then(({ data }) => {
+    ;(async () => {
+      try {
+        const { data } = await supabase
+          .from('diamond_transactions')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(30)
         setDiamondTxs((data as DiamondTx[]) ?? [])
+      } catch {
+        // table may not exist yet
+      } finally {
         setTxLoading(false)
-      })
-      .catch(() => setTxLoading(false))
+      }
+    })()
   }, [user])
 
   useEffect(() => {
     if (!user) return
     setSpendsLoading(true)
-
-    // Try fetching spending history from purchase_history / user_purchases table
-    supabase
-      .from('purchase_history')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(40)
-      .then(({ data }) => {
+    ;(async () => {
+      try {
+        const { data } = await supabase
+          .from('purchase_history')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(40)
         setSpends((data as SpendEntry[]) ?? [])
+      } catch {
+        // table may not exist yet
+      } finally {
         setSpendsLoading(false)
-      })
-      .catch(() => setSpendsLoading(false))
+      }
+    })()
   }, [user])
 
   const diamonds = wallet?.gem_balance ?? 0
