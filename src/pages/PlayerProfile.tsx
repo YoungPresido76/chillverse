@@ -442,8 +442,8 @@ export default function PlayerProfile() {
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14 }}>
           <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
             <div style={{ width: 80, height: 80, borderRadius: 20, padding: 3, background: `linear-gradient(135deg, ${rank.color}, #4f8ef7)`, boxShadow: `0 0 20px ${rank.color}55`, border: '3px solid var(--bg)' }}>
-              {profile?.avatar && profile.avatar.startsWith('http') ? (
-                <img src={profile.avatar} alt={displayName} style={{ width: '100%', height: '100%', borderRadius: 16, objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
+              {player?.avatar && player.avatar.startsWith('http') ? (
+                <img src={player.avatar} alt={displayName} style={{ width: '100%', height: '100%', borderRadius: 16, objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
               ) : (
                 <div style={{ width: '100%', height: '100%', borderRadius: 16, background: 'linear-gradient(135deg, var(--purple), var(--blue))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 800, color: '#fff' }}>
                   {displayName.charAt(0).toUpperCase()}
