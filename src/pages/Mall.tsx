@@ -456,7 +456,7 @@ function BannersPage({ items, onBack, onSelect, onWishlist, wishlisted, likeCoun
   )
 }
 
-
+function EmptyState({ label }: { label: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
       <ShoppingBag size={28} style={{ opacity: 0.35 }} />
