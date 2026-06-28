@@ -190,7 +190,7 @@ export default function Dashboard() {
   const _userXp   = profile?.xp ?? 0
   const _userTier = getUserRankTier(_userXp)
   const _nextTier = getNextRankTier(_userTier)
-  const { pct: xpPct, xpIntoTier: current, xpNeeded } = getRankProgress(_userXp)
+  const { pct: xpPct } = getRankProgress(_userXp)
   const streakInfo = getStreakMessage(profile?.streak ?? 0)
 
   const QUICK_ACTIONS: QuickAction[] = [
