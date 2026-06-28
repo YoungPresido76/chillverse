@@ -101,7 +101,7 @@ function RewardBadge({ mission }: { mission: MissionWithProgress }) {
           <div style={{ fontSize: 12, fontWeight: 800, color: '#4f8ef7', lineHeight: 1 }}>
             +{mission.diamond_reward}
           </div>
-          <div style={{ fontSize: 8, color: 'var(--text-muted)' }}>Gems</div>
+          <div style={{ fontSize: 8, color: 'var(--text-muted)' }}>Diamonds</div>
         </div>
       </div>
     )

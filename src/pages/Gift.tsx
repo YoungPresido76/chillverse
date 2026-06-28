@@ -191,8 +191,7 @@ function SendModal({ item, senderName, onClose, onSent }: {
           </div>
           {/* item badge */}
           <div style={{ position:'absolute', top:14, left:16, background:'var(--surface)', borderRadius:10, padding:'5px 10px', display:'flex', alignItems:'center', gap:6, boxShadow:'0 4px 12px rgba(0,0,0,0.4)', zIndex:6 }}>
-            <Gem size={12} color="#4f8ef7" />
-            <span style={{ fontSize:12, fontWeight:700, color:'var(--text)' }}>{price} 💎</span>
+            <span style={{ fontSize:12, fontWeight:700, color:'var(--text)' }}>💎 {price}</span>
           </div>
         </div>
 
@@ -341,7 +340,7 @@ function GiftCard({ item, onSelect }: { item: MallItem; onSelect: () => void }) 
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <span style={{ fontSize:9.5, fontWeight:700, padding:'2px 6px', borderRadius:7, background:meta.bg, color:meta.color }}>{item.rarity}</span>
         <span style={{ fontSize:11.5, fontWeight:700, color:'var(--text-dim)', display:'flex', alignItems:'center', gap:3 }}>
-          <Gem size={11} color="#4f8ef7" /> {item.price_gems ?? 0}
+          💎 {item.price_gems ?? 0}
         </span>
       </div>
     </div>
@@ -423,8 +422,7 @@ export default function GiftPage() {
           </button>
           <h1 style={{ fontSize:20, fontWeight:800, color:'var(--text)', flex:1 }}>Gift Shop</h1>
           <div style={{ display:'flex', alignItems:'center', gap:5, background:'var(--surface)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:10, padding:'6px 12px', boxShadow:'2px 2px 6px var(--neu-dark)' }}>
-            <Gem size={13} color="#4f8ef7" />
-            <span style={{ fontSize:13, fontWeight:700, color:'var(--text)' }}>{wallet?.gem_balance ?? 0} 💎</span>
+            <span style={{ fontSize:13, fontWeight:700, color:'var(--text)' }}>💎 {wallet?.gem_balance ?? 0}</span>
           </div>
         </div>
 

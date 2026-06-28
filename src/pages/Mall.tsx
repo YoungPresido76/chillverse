@@ -116,7 +116,7 @@ function SquareCard({ item, onSelect, onWishlist, wishlisted, likeCount = 0 }: {
             <Lock size={13} color="var(--text-muted)" />
           ) : item.price_gems != null ? (
             <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 700, color: 'var(--text)' }}>
-              <Gem size={11} color="#4f8ef7" /> {item.price_gems.toLocaleString()}
+              💎 {item.price_gems.toLocaleString()}
             </span>
           ) : null}
           {!lock.locked && onWishlist && (
@@ -163,7 +163,7 @@ function RectCard({ item, onSelect, onWishlist, wishlisted, likeCount = 0 }: { i
             <Lock size={13} color="var(--text-muted)" />
           ) : item.price_gems != null ? (
             <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 700, color: 'var(--text)' }}>
-              <Gem size={11} color="#4f8ef7" /> {item.price_gems.toLocaleString()}
+              💎 {item.price_gems.toLocaleString()}
             </span>
           ) : item.unlock_xp != null ? (
             <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 700, color: 'var(--text)' }}>
@@ -230,7 +230,7 @@ function ItemModal({ item, walletBalance, onClose }: { item: MallItem; walletBal
           <>
             {item.price_gems != null && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--surface2)', borderRadius: 12, padding: 12, marginBottom: 14, fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>
-                <Gem size={18} color="#4f8ef7" /> {item.price_gems.toLocaleString()} Diamonds
+                💎 {item.price_gems.toLocaleString()} Diamonds
               </div>
             )}
             {item.price_gems != null && !canAfford && (
@@ -452,7 +452,7 @@ export default function Mall() {
             <ArrowLeft size={15} />
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.05)', padding: '7px 13px', borderRadius: 20, fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>
-            <Gem size={13} color="#4f8ef7" /> {diamondBalance.toLocaleString()} Diamonds
+            💎 {diamondBalance.toLocaleString()} Diamonds
           </div>
         </div>
 
@@ -484,7 +484,7 @@ export default function Mall() {
                     <RarityBadge rarity={item.rarity} />
                     {item.price_gems != null && (
                       <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, fontWeight: 800, color: 'var(--text)' }}>
-                        <Gem size={12} color="#4f8ef7" /> {item.price_gems.toLocaleString()}
+                        💎 {item.price_gems.toLocaleString()}
                       </span>
                     )}
                   </div>
@@ -508,7 +508,7 @@ export default function Mall() {
         >
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg,rgba(79,142,247,0.06),rgba(155,109,255,0.04))', pointerEvents: 'none' }} />
           <div style={{ width: 44, height: 44, borderRadius: 13, flexShrink: 0, background: 'rgba(79,142,247,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4f8ef7', boxShadow: '2px 2px 6px var(--neu-dark),-1px -1px 4px var(--neu-light)' }}>
-            <Gem size={19} />
+            💎
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--text)' }}>Buy Diamonds</div>

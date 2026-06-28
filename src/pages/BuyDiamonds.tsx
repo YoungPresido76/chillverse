@@ -16,6 +16,8 @@ declare global {
   }
 }
 
+type ModalKind = 'success' | 'cancelled' | 'error'
+
 // ─── Constants ───────────────────────────────────────────────
 const MODAL_IMG =
   'https://gnobzfxtxrtcxfhhfjni.supabase.co/storage/v1/object/public/Adverts/Onboarding/e0cda9106501f1ad6c3c37ff5c1cbe98.jpg'
@@ -187,7 +189,6 @@ function PackCard({
             color: 'var(--text)',
           }}
         >
-          <Gem size={13} color="#4f8ef7" />
           {isFirstPurchase ? (
             <span>
               <span style={{ textDecoration: 'line-through', color: 'var(--text-muted)', fontWeight: 600 }}>
@@ -250,7 +251,6 @@ function PackCard({
 }
 
 // ─── Modal (Gift.tsx SendModal big-box pattern) ───────────────
-type ModalKind = 'success' | 'cancelled'
 
 function PurchaseModal({
   kind,
@@ -387,7 +387,7 @@ function PurchaseModal({
         {/* Content */}
         <div style={{ padding: '28px 20px 22px', textAlign: 'center' }}>
           <div style={{ fontSize: 24, marginBottom: 8 }}>
-            {kind === 'success' ? '🎉' : '😔'}
+            {kind === 'success' ? '🎉' : kind === 'error' ? '⚠️' : '😔'}
           </div>
           <div
             style={{
@@ -397,7 +397,7 @@ function PurchaseModal({
               marginBottom: 6,
             }}
           >
-            {kind === 'success' ? 'Thank you for your purchase' : 'Payment cancelled'}
+            {kind === 'success' ? 'Thank you for your purchase' : kind === 'error' ? 'Payment received, crediting failed' : 'Payment cancelled'}
           </div>
           {kind === 'success' && pack && (
             <div
@@ -408,12 +408,19 @@ function PurchaseModal({
                 marginBottom: 20,
               }}
             >
-              <Gem
-                size={13}
-                color="#4f8ef7"
-                style={{ display: 'inline', verticalAlign: 'middle', marginRight: 3 }}
-              />
-              Diamonds have been added to your wallet.
+              💎 Diamonds have been added to your wallet.
+            </div>
+          )}
+          {kind === 'error' && (
+            <div
+              style={{
+                fontSize: 13,
+                color: 'var(--text-dim)',
+                lineHeight: 1.6,
+                marginBottom: 20,
+              }}
+            >
+              Your payment went through but we couldn't credit your diamonds automatically. Please contact support — your purchase is recorded and will be resolved.
             </div>
           )}
           {kind === 'cancelled' && (
@@ -561,10 +568,11 @@ export default function BuyDiamonds() {
             setModal('success')
           } catch (err) {
             console.error('credit-diamonds error:', err)
-            // Still show success since Paystack confirmed payment;
-            // webhook will credit as fallback.
+            // Payment confirmed by Paystack but crediting failed.
+            // Show error so user knows to contact support — do NOT silently
+            // show success, as that leaves them with missing diamonds.
             setActivePack(pack)
-            setModal('success')
+            setModal('error')
           } finally {
             setLoading(false)
           }
@@ -645,9 +653,8 @@ export default function BuyDiamonds() {
               boxShadow: '2px 2px 6px var(--neu-dark)',
             }}
           >
-            <Gem size={13} color="#4f8ef7" />
             <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>
-              {(wallet?.gem_balance ?? 0).toLocaleString()} 💎
+              💎 {(wallet?.gem_balance ?? 0).toLocaleString()}
             </span>
           </div>
         </div>
@@ -749,7 +756,7 @@ export default function BuyDiamonds() {
             setModal(null)
             if (modal === 'success') navigate('/wallet')
           }}
-          onRetry={modal === 'cancelled' ? handleRetry : undefined}
+          onRetry={modal === 'cancelled' || modal === 'error' ? handleRetry : undefined}
         />
       )}
 

@@ -261,7 +261,7 @@ export default function Wallet() {
         <div style={{ display: 'flex', gap: 10 }}>
           {/* Diamonds */}
           <CurrencyCard
-            icon={<Gem size={16} />}
+            icon={<span style={{ fontSize: 16 }}>💎</span>}
             label="Diamonds"
             amount={walletLoading ? '—' : fmt(diamonds)}
             sub="Premium currency"
@@ -310,7 +310,7 @@ export default function Wallet() {
           className="ripple-wrap btn-primary"
           style={{ width: '100%', marginTop: 14, padding: '11px 0', borderRadius: 13, fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
         >
-          <Gem size={14} /> Buy Diamonds
+          💎 Buy Diamonds
         </button>
       </div>
 
@@ -352,7 +352,7 @@ export default function Wallet() {
               diamondTxs.filter(t => t.amount > 0).map(tx => (
                 <TxRow
                   key={tx.id}
-                  icon={<Gem size={15} style={{ color: '#4f8ef7' }} />}
+                  icon={<span style={{ fontSize: 15 }}>💎</span>}
                   label={tx.description || 'Diamond Top-up'}
                   sub={relTime(tx.created_at)}
                   amount={`+${fmt(tx.amount)} 💎`}
