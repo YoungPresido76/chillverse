@@ -33,6 +33,7 @@ interface Pack {
   accentColor: string
   borderColor: string
   badgeBg: string
+  image: string
 }
 
 const PACKS: Pack[] = [
