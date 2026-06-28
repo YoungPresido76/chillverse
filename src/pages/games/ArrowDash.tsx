@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Move, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, type LucideIcon } from 'lucide-react'
 import type { GameRank, GameEndPayload } from './types'
 import { useGamePresence } from '../../hooks/useGamePresence'
-import { getRankConfig, calcSessionXP } from './types'
+import { getRankConfig } from './types'
 import { PreGameModal, GameHUD, StatChip, ResultScreen, QuitModal, TimerBar, useRankStreak } from './GameShell'
 import { ripple } from '../../lib/ripple'
 
@@ -13,12 +13,28 @@ const GAME_ID = 'arrow-dash' as const
 type Dir = 'up' | 'down' | 'left' | 'right'
 const ALL_DIRS: Dir[] = ['up', 'down', 'left', 'right']
 
-// Time window (ms) per rank for how long arrow is shown
+// Time window (ms) per rank for how long arrow is shown — difficulty lever
 const RANK_TIME: Record<GameRank, number> = {
-  beginner:     45000,
-  intermediate: 35000,
-  advanced:     25000,
-  master:       15000,
+  beginner:     1400,
+  intermediate: 1150,
+  advanced:     950,
+  master:       750,
+}
+
+// Base XP per correct answer, scaled by current game rank
+const RANK_XP: Record<GameRank, number> = {
+  beginner:     8,
+  intermediate: 10,
+  advanced:     12,
+  master:       14,
+}
+
+const STREAK_THRESHOLD = 25
+const STREAK_MULTIPLIER = 1.5
+const SESSION_XP_CAP = 300
+
+function getSpawnInterval(rank: GameRank): number {
+  return RANK_TIME[rank]
 }
 
 const DIR_ICON: Record<Dir, LucideIcon> = {
@@ -53,12 +69,14 @@ export default function ArrowDash({ rank: initialRank, onEnd, onBack }: Props) {
   const totalRef = useRef(0)
   const livesRef = useRef(3)
   const startRef = useRef(Date.now())
+  const sessionXpRef = useRef(0)
+  const sessionStreakRef = useRef(0)
   const arrowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const elapsedRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   function getRankTime() {
-    return RANK_TIME[rankState.rank]
+    return getSpawnInterval(rankState.rank)
   }
 
   function clearTimers() {
@@ -84,6 +102,7 @@ export default function ArrowDash({ rank: initialRank, onEnd, onBack }: Props) {
       // Timeout — counts as wrong
       totalRef.current += 1
       onWrong()
+      sessionStreakRef.current = 0
       setFlash('red')
       const newLives = livesRef.current - 1
       livesRef.current = newLives
@@ -99,7 +118,7 @@ export default function ArrowDash({ rank: initialRank, onEnd, onBack }: Props) {
   function endGame() {
     clearTimers()
     const dur = Math.floor((Date.now() - startRef.current) / 1000)
-    const xp = calcSessionXP(correctRef.current, totalRef.current, rankState.bestStreak, 4)
+    const xp = Math.min(sessionXpRef.current, SESSION_XP_CAP)
     const payload: GameEndPayload = {
       gameId: GAME_ID,
       gameName: 'Arrow Dash',
@@ -120,6 +139,7 @@ export default function ArrowDash({ rank: initialRank, onEnd, onBack }: Props) {
   function start() {
     scoreRef.current = 0; correctRef.current = 0; totalRef.current = 0
     livesRef.current = 3
+    sessionXpRef.current = 0; sessionStreakRef.current = 0
     setScore(0); setLives(3); setElapsed(0); setFlash('none')
     startRef.current = Date.now()
     setPhase('play')
@@ -137,12 +157,19 @@ export default function ArrowDash({ rank: initialRank, onEnd, onBack }: Props) {
       setFlash('green')
       scoreRef.current += 1; correctRef.current += 1
       setScore(scoreRef.current)
+      sessionStreakRef.current += 1
+      const baseXp = RANK_XP[rankState.rank]
+      const xpForAnswer = Math.round(
+        baseXp * (sessionStreakRef.current > STREAK_THRESHOLD ? STREAK_MULTIPLIER : 1)
+      )
+      sessionXpRef.current += xpForAnswer
       const { promoted: promo } = onCorrect(getRankConfig(rankState.rank).streakRequired)
       if (promo) setPromoted(promo)
       setTimeout(nextArrow, 220)
     } else {
       setFlash('red')
       onWrong()
+      sessionStreakRef.current = 0
       const newLives = livesRef.current - 1
       livesRef.current = newLives
       setLives(newLives)
@@ -169,7 +196,7 @@ export default function ArrowDash({ rank: initialRank, onEnd, onBack }: Props) {
   const rules = [
     { icon: '⚡', text: `Tap the correct arrow direction fast` },
     { icon: '❤️', text: `3 lives — wrong tap or timeout costs 1` },
-    { icon: '⏱', text: `${RANK_TIME[rankState.rank] / 1000}s window per arrow at ${rankCfg.label} rank` },
+    { icon: '⏱', text: `${RANK_TIME[rankState.rank]}ms window per arrow at ${rankCfg.label} rank` },
     { icon: '🔥', text: `10 consecutive correct = rank up` },
   ]
 
