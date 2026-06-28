@@ -66,6 +66,33 @@ export default function HaloPanel({ playerCtx }: HaloPanelProps) {
             flexShrink: 0,
           }}
         >
+          <button
+            onClick={closeHalo}
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: '50%',
+              background: 'var(--surface2)',
+              border: '1px solid rgba(255,255,255,0.06)',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.color = 'var(--text)'
+              e.currentTarget.style.background = 'var(--surface3)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.color = 'var(--text-muted)'
+              e.currentTarget.style.background = 'var(--surface2)'
+            }}
+            aria-label="Close Halo panel"
+          >
+            <X size={16} />
+          </button>
           <div
             style={{
               width: 32,
@@ -88,23 +115,6 @@ export default function HaloPanel({ playerCtx }: HaloPanelProps) {
           >
             POWERED BY CVWT
           </span>
-          <button
-            onClick={closeHalo}
-            style={{
-              marginLeft: 12,
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              background: 'none',
-              border: 'none',
-              display: 'flex',
-              alignItems: 'center',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
-            aria-label="Close Halo panel"
-          >
-            <X size={18} />
-          </button>
         </div>
 
         {/* MESSAGE LIST */}

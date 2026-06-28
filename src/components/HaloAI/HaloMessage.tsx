@@ -14,12 +14,13 @@ export default function HaloMessage({ message }: HaloMessageProps) {
       <div style={{ maxWidth: '80%' }}>
         <div
           style={{
-            background: isUser ? 'var(--accent)' : 'var(--surface2)',
+            background: 'var(--surface2)',
+            borderRight: isUser ? '2px solid var(--accent)' : undefined,
             borderLeft: isUser ? undefined : '2px solid var(--purple)',
-            borderRadius: isUser ? '12px 12px 4px 12px' : '4px 12px 12px 12px',
+            borderRadius: isUser ? '12px 4px 12px 12px' : '4px 12px 12px 12px',
             padding: '10px 14px',
             fontSize: 13,
-            color: isUser ? '#fff' : 'var(--text)',
+            color: 'var(--text)',
             whiteSpace: 'pre-wrap',
           }}
         >
@@ -30,7 +31,7 @@ export default function HaloMessage({ message }: HaloMessageProps) {
             fontSize: 10,
             marginTop: 3,
             textAlign: isUser ? 'right' : 'left',
-            color: isUser ? 'rgba(255,255,255,0.5)' : 'var(--text-muted)',
+            color: 'var(--text-muted)',
           }}
         >
           {time}
