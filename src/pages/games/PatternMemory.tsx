@@ -3,25 +3,52 @@ import { useState, useEffect, useRef } from 'react'
 import { Brain } from 'lucide-react'
 import type { GameRank, GameEndPayload } from './types'
 import { useGamePresence } from '../../hooks/useGamePresence'
-import { getRankConfig, calcSessionXP } from './types'
+import { getRankConfig } from './types'
 import { PreGameModal, GameHUD, StatChip, ResultScreen, QuitModal, useRankStreak } from './GameShell'
 
 const ACCENT = '#9b6dff'
 const GAME_ID = 'pattern-memory' as const
 
 interface RankFlashConfig {
-  maxCells: number
   flashOnMs: number
   flashOffMs: number
-  rounds: number
 }
 
 const RANK_FLASH: Record<GameRank, RankFlashConfig> = {
-  beginner:     { maxCells: 4, flashOnMs: 600, flashOffMs: 200, rounds: 3 },
-  intermediate: { maxCells: 6, flashOnMs: 450, flashOffMs: 180, rounds: 3 },
-  advanced:     { maxCells: 6, flashOnMs: 300, flashOffMs: 150, rounds: 3 },
-  master:       { maxCells: 8, flashOnMs: 250, flashOffMs: 120, rounds: 3 },
+  beginner:     { flashOnMs: 600, flashOffMs: 200 },
+  intermediate: { flashOnMs: 450, flashOffMs: 180 },
+  advanced:     { flashOnMs: 300, flashOffMs: 150 },
+  master:       { flashOnMs: 250, flashOffMs: 120 },
 }
+
+// Difficulty lever: grid size + sequence length, scaled by current game rank
+interface PatternConfig {
+  gridSize: number
+  sequenceLength: number
+}
+
+const PATTERN_CONFIG: Record<GameRank, PatternConfig> = {
+  beginner:     { gridSize: 3, sequenceLength: 3 },
+  intermediate: { gridSize: 3, sequenceLength: 4 },
+  advanced:     { gridSize: 4, sequenceLength: 5 },
+  master:       { gridSize: 4, sequenceLength: 6 },
+}
+
+function getPatternConfig(rank: GameRank): PatternConfig {
+  return PATTERN_CONFIG[rank]
+}
+
+// Base XP per correct round, scaled by current game rank
+const RANK_XP: Record<GameRank, number> = {
+  beginner:     20,
+  intermediate: 22,
+  advanced:     24,
+  master:       26,
+}
+
+const STREAK_THRESHOLD = 5
+const STREAK_MULTIPLIER = 1.5
+const SESSION_XP_CAP = 300
 
 const LEVELS = 5
 const ROUNDS_PER_LEVEL = 3
@@ -41,6 +68,7 @@ export default function PatternMemory({ rank: initialRank, onEnd, onBack }: Prop
   const [round, setRound] = useState(1)
   const [score, setScore] = useState(0)
   const [countdown, setCountdown] = useState(3)
+  const [gridSize, setGridSize] = useState(3)
   const [sequence, setSequence] = useState<number[]>([])    // flash order (with repeats)
   const [playerSeq, setPlayerSeq] = useState<number[]>([])   // player taps so far
   const [cellState, setCellState] = useState<Record<number, 'flash' | 'correct' | 'wrong' | 'dimmed'>>({})
@@ -52,16 +80,19 @@ export default function PatternMemory({ rank: initialRank, onEnd, onBack }: Prop
   const correctRoundsRef = useRef(0)
   const totalRoundsRef = useRef(0)
   const startRef = useRef(Date.now())
+  const sessionXpRef = useRef(0)
+  const sessionStreakRef = useRef(0)
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   function clearFlashTimer() {
     if (flashTimerRef.current) clearTimeout(flashTimerRef.current)
   }
 
-  function buildSequence(lvl: number): { seq: number[]; unique: number[] } {
-    const cfg = RANK_FLASH[rankState.rank]
-    const cellCount = Math.min(2 + lvl, cfg.maxCells)
-    const shuffled = Array.from({ length: 9 }, (_, i) => i).sort(() => Math.random() - 0.5)
+  function buildSequence(lvl: number): { seq: number[]; unique: number[]; gridSize: number } {
+    const cfg = getPatternConfig(rankState.rank)
+    const totalCells = cfg.gridSize * cfg.gridSize
+    const cellCount = Math.min(cfg.sequenceLength, totalCells)
+    const shuffled = Array.from({ length: totalCells }, (_, i) => i).sort(() => Math.random() - 0.5)
     const unique = shuffled.slice(0, cellCount)
     // Each cell repeated 1–3 times (more repeats at higher levels)
     const expanded: number[] = []
@@ -70,7 +101,7 @@ export default function PatternMemory({ rank: initialRank, onEnd, onBack }: Prop
       for (let i = 0; i < reps; i++) expanded.push(c)
     })
     // Shuffle expanded sequence
-    return { seq: expanded.sort(() => Math.random() - 0.5), unique }
+    return { seq: expanded.sort(() => Math.random() - 0.5), unique, gridSize: cfg.gridSize }
   }
 
   function flashSequence(seq: number[]) {
@@ -95,8 +126,9 @@ export default function PatternMemory({ rank: initialRank, onEnd, onBack }: Prop
 
   function startRound(lvl: number, rnd: number) {
     clearFlashTimer()
-    const { seq } = buildSequence(lvl)
+    const { seq, gridSize: gs } = buildSequence(lvl)
     setSequence(seq)
+    setGridSize(gs)
     setPlayerSeq([])
     setCellState({})
     setLevel(lvl); setRound(rnd)
@@ -110,6 +142,7 @@ export default function PatternMemory({ rank: initialRank, onEnd, onBack }: Prop
 
   function start() {
     scoreRef.current = 0; correctRoundsRef.current = 0; totalRoundsRef.current = 0
+    sessionXpRef.current = 0; sessionStreakRef.current = 0
     setScore(0); setPromoted(null); setResult(null)
     startRef.current = Date.now()
     startRound(1, 1)
@@ -127,6 +160,7 @@ export default function PatternMemory({ rank: initialRank, onEnd, onBack }: Prop
       setCellState(prev => ({ ...prev, [idx]: 'wrong' }))
       setPhase('feedback')
       onWrong()
+      sessionStreakRef.current = 0
       totalRoundsRef.current += 1
       setTimeout(() => {
         const dur = Math.floor((Date.now() - startRef.current) / 1000)
@@ -146,6 +180,12 @@ export default function PatternMemory({ rank: initialRank, onEnd, onBack }: Prop
       const pts = level * 10 + round * 5
       scoreRef.current += pts
       setScore(scoreRef.current)
+      sessionStreakRef.current += 1
+      const baseXp = RANK_XP[rankState.rank]
+      const xpForRound = Math.round(
+        baseXp * (sessionStreakRef.current > STREAK_THRESHOLD ? STREAK_MULTIPLIER : 1)
+      )
+      sessionXpRef.current += xpForRound
       const { promoted: promo } = onCorrect(getRankConfig(rankState.rank).streakRequired)
       if (promo) setPromoted(promo)
       setRoundMsg(`+${pts} pts`)
@@ -169,7 +209,7 @@ export default function PatternMemory({ rank: initialRank, onEnd, onBack }: Prop
 
   function endGame(dur: number) {
     clearFlashTimer()
-    const xp = calcSessionXP(correctRoundsRef.current, totalRoundsRef.current, rankState.bestStreak, 5)
+    const xp = Math.min(sessionXpRef.current, SESSION_XP_CAP)
     const payload: GameEndPayload = {
       gameId: GAME_ID,
       gameName: 'Pattern Memory',
@@ -251,8 +291,8 @@ export default function PatternMemory({ rank: initialRank, onEnd, onBack }: Prop
       )}
 
       {/* Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, maxWidth: 316, width: '100%', margin: '8px auto 0', padding: '0 12px' }}>
-        {Array.from({ length: 9 }, (_, i) => {
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${gridSize}, 1fr)`, gap: 10, maxWidth: gridSize === 4 ? 360 : 316, width: '100%', margin: '8px auto 0', padding: '0 12px' }}>
+        {Array.from({ length: gridSize * gridSize }, (_, i) => {
           const st = cellState[i]
           return (
             <button
