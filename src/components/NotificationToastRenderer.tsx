@@ -1,5 +1,5 @@
 // src/components/NotificationToastRenderer.tsx
-import { Bell, Trophy, Flame, UserPlus, Zap, Heart, Eye, Crown } from 'lucide-react'
+import { Bell, Trophy, Flame, UserPlus, Zap, Heart, Eye, Crown, Fan } from 'lucide-react'
 import type React from 'react'
 import { useNotificationToast } from '../hooks/useNotificationToast'
 import type { ToastNotif } from '../hooks/useNotificationToast'
@@ -16,6 +16,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   'flame':      Flame,
   'trophy':     Trophy,
   'bell':       Bell,
+  'fan':        Fan,
 }
 
 function ToastItem({ toast, onDismiss }: { toast: ToastNotif; onDismiss: () => void }) {
