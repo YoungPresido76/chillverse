@@ -79,11 +79,19 @@ function SendModal({ item, senderName, onClose, onSent }: {
 
   const price = item.price_gems ?? 0
   const canAfford = (wallet?.gem_balance ?? 0) >= price
-  const hasValidPick = !!selected && selected.username === query.trim().toLowerCase()
+  const hasValidPick = !!selected && (
+    selected.username.toLowerCase() === query.trim().toLowerCase() ||
+    (selected.display_name ?? '').toLowerCase() === query.trim().toLowerCase()
+  )
 
   function onQueryChange(value: string) {
     setQuery(value)
-    if (selected && value.trim().toLowerCase() !== selected.username) setSelected(null)
+    if (selected) {
+      const v = value.trim().toLowerCase()
+      const matchesUsername = selected.username.toLowerCase() === v
+      const matchesDisplay = (selected.display_name ?? '').toLowerCase() === v
+      if (!matchesUsername && !matchesDisplay) setSelected(null)
+    }
     setResults([])
   }
 
@@ -97,7 +105,7 @@ function SendModal({ item, senderName, onClose, onSent }: {
       const { data } = await supabase
         .from('profiles')
         .select('id, username, display_name, avatar')
-        .ilike('username', `%${q}%`)
+        .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
         .limit(6)
       setResults((data as SearchedUser[]) ?? [])
       setSearching(false)
@@ -107,7 +115,7 @@ function SendModal({ item, senderName, onClose, onSent }: {
 
   function pickUser(u: SearchedUser) {
     setSelected(u)
-    setQuery(u.username)
+    setQuery(u.display_name || u.username)
     setResults([])
   }
 
