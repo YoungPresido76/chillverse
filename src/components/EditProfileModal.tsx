@@ -1,5 +1,6 @@
 // src/components/EditProfileModal.tsx
 import { useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import type React from 'react'
 import {
   X, Check, ImageIcon, ChevronDown, Lock, Heart,
@@ -470,7 +471,11 @@ export default function EditProfileModal({
 
   const wordCount = countWords(bio)
 
-  return (
+  // Render straight to document.body — bypasses the app shell entirely so
+  // this is guaranteed to sit above everything and fill the real viewport,
+  // regardless of any transform/transition on an ancestor (sidebar
+  // collapse animations etc. can otherwise break position:fixed here).
+  return createPortal(
     <>
       <div style={{
         position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg)',
@@ -561,6 +566,7 @@ export default function EditProfileModal({
       )}
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </>
+    </>,
+    document.body
   )
 }
