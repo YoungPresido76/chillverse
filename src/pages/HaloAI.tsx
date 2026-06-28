@@ -13,10 +13,10 @@ import { supabase } from '../lib/supabase'
 import type { HaloPlayerContext } from '../types/halo'
 
 const PROMPT_CHIPS = [
-  'What's my current rank?',
+  "What's my current rank?",
   'Give me game tips 🎮',
   'How do I earn more XP?',
-  'What's new in Chillverse?',
+  "What's new in Chillverse?",
 ]
 
 export default function HaloAIPage() {
