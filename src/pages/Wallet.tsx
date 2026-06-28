@@ -1,7 +1,7 @@
 // src/pages/Wallet.tsx
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Gem, Clock, ShoppingBag, Ticket } from 'lucide-react'
+import { ArrowLeft, Clock, ShoppingBag, Ticket } from 'lucide-react'
 import { ripple } from '../lib/ripple'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'

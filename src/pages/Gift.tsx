@@ -1,7 +1,7 @@
 // src/pages/Gift.tsx
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Gift, Gem, X, Search, Check, AlertCircle, WifiOff, User } from 'lucide-react'
+import { ArrowLeft, Gift, X, Search, Check, AlertCircle, WifiOff, User } from 'lucide-react'
 import { ripple } from '../lib/ripple'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'

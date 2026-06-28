@@ -1,7 +1,7 @@
 // src/pages/BuyDiamonds.tsx
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Gem, X } from 'lucide-react'
+import { ArrowLeft, X } from 'lucide-react'
 import { ripple } from '../lib/ripple'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
