@@ -7,6 +7,7 @@ import {
   Bot, Flame, Zap, User, ChevronRight, Fan,
 } from 'lucide-react'
 import { useProfile } from '../hooks/useProfile'
+// HaloAI now lives at /halo — no panel context needed from Dashboard
 import { getUserRankTier, getNextRankTier, getRankProgress } from '../lib/ranks'
 import { ripple } from '../lib/ripple'
 import { supabase } from '../lib/supabase'
@@ -109,6 +110,7 @@ function getStreakMessage(streak: number): { emoji: string; message: string; col
 export default function Dashboard() {
   const { profile, loading, error } = useProfile()
   const { session } = useAuth()
+  // HaloAI navigates to /halo page — no panel open needed
   const userId = session?.user?.id ?? ''
 
   const [onlineCount, setOnlineCount]      = useState<number | null>(null)
@@ -168,7 +170,11 @@ export default function Dashboard() {
     }, 60_000)
     return () => clearInterval(iv)
   }, [])
-  const greeting = useMemo(() => getGreeting(profile?.display_name || profile?.username || 'friend'), [profile, currentHour])
+  const greeting = useMemo(
+    () => getGreeting(profile?.display_name || profile?.username || 'friend'),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [profile, currentHour],
+  )
 
   if (loading) {
     return (
@@ -320,10 +326,10 @@ export default function Dashboard() {
         <p className="section-label">Explore Chillverse</p>
         <div className="grid grid-cols-2 gap-4">
           {[
-            { label: 'Profile',         desc: 'Your stats, rank & showcase',   icon: User,     iconBg: 'rgba(62,207,142,0.12)',  iconColor: '#3ecf8e', to: '/profile'         },
-            { label: 'Games',             desc: 'Quick-fire mini games',          icon: Gamepad2, iconBg: 'rgba(79,142,247,0.12)',  iconColor: '#4f8ef7', to: '/games'           },
-            { label: 'Weekly Missions', desc: 'Complete missions, earn XP',  icon: Sparkles, iconBg: 'rgba(155,109,255,0.12)', iconColor: '#9b6dff', to: '/weekly-missions' },
-            { label: 'Artifacts',       desc: 'Collect & explore relics',    icon: Fan,      iconBg: 'rgba(239,68,68,0.12)',   iconColor: '#ef4444', to: '/artifacts'       },
+            { label: 'Profile',          desc: 'Your stats, rank & showcase',  icon: User,     iconBg: 'rgba(62,207,142,0.12)',  iconColor: '#3ecf8e', to: '/profile'         },
+            { label: 'Games',            desc: 'Quick-fire mini games',         icon: Gamepad2, iconBg: 'rgba(79,142,247,0.12)',  iconColor: '#4f8ef7', to: '/games'           },
+            { label: 'Weekly Missions',  desc: 'Complete missions, earn XP',    icon: Sparkles, iconBg: 'rgba(155,109,255,0.12)', iconColor: '#9b6dff', to: '/weekly-missions' },
+            { label: 'Artifacts',        desc: 'Collect & explore relics',      icon: Fan,      iconBg: 'rgba(239,68,68,0.12)',   iconColor: '#ef4444', to: '/artifacts'       },
           ].map((tile) => {
             const Icon = tile.icon
             return (
@@ -360,10 +366,10 @@ export default function Dashboard() {
       <section className="su" style={{ animationDelay: '0.35s', paddingBottom: 8 }}>
         <p className="section-label">Halo AI</p>
         <Link
-          to="/coming-soon?feature=Halo%20AI"
+          to="/halo"
           onClick={(e) => ripple(e)}
           className="neu-card ripple-wrap"
-          style={{ display: 'block', padding: 20, cursor: 'pointer', border: '1px solid rgba(155,109,255,0.1)', position: 'relative', overflow: 'hidden' }}
+          style={{ display: 'block', padding: 20, cursor: 'pointer', border: '1px solid rgba(155,109,255,0.1)', position: 'relative', overflow: 'hidden', textDecoration: 'none' }}
         >
           <div style={{ position: 'absolute', bottom: -20, right: -20, width: 140, height: 140, borderRadius: '50%', background: 'radial-gradient(circle, rgba(155,109,255,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--purple)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
