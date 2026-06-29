@@ -4,11 +4,13 @@ import type { HaloMessage, HaloPlayerContext } from '../types/halo'
 import { buildHaloSystemPrompt, getTopicSections } from '../lib/haloSystemPrompt'
 import { haloFallback } from '../lib/haloFallback'
 
+// BUG 6 FIX: Added greetUser to the public interface
 export interface UseHaloAIState {
   messages: HaloMessage[]
   isLoading: boolean
   sendMessage: (text: string) => Promise<void>
   clearMessages: () => void
+  greetUser: () => void
 }
 
 interface GeminiPart {
@@ -30,12 +32,6 @@ interface GeminiResponse {
   candidates?: GeminiCandidate[]
 }
 
-/**
- * GeminiRequestBody now includes systemInstruction — the correct way to pass
- * a system prompt to Gemini 2.x. This is a top-level field, NOT a contents entry.
- * Using it this way means Gemini processes it as actual instructions rather than
- * as a fake user message, which was causing unpredictable behavior previously.
- */
 interface GeminiRequestBody {
   systemInstruction: {
     parts: GeminiPart[]
@@ -55,38 +51,10 @@ function makeId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
-/**
- * Core hook managing Halo AI message history, Gemini API calls, loading state,
- * and graceful fallback routing.
- *
- * FIXES APPLIED IN THIS VERSION:
- *
- * FIX 1 — Model: gemini-1.5-flash → gemini-2.0-flash
- *   The 1.5 endpoint returns 404 on many free-tier projects due to Google's model
- *   deprecation cycle. 2.0-flash is the stable current free-tier model.
- *
- * FIX 2 — systemInstruction (real system prompt, not fake conversation turn)
- *   Previous approach injected a fake user/model exchange as the first contents entry.
- *   Gemini 2.x supports systemInstruction as a top-level field — this is processed
- *   as actual instructions, not conversation history. Removed the fake "Ready. I'm Halo"
- *   model prefill entirely (it confused the model's response generation).
- *
- * FIX 3 — messagesRef for stale closure fix
- *   useCallback with [messages] in deps caused the closure to capture a stale snapshot
- *   of messages state on every call — meaning priorContents was always missing the most
- *   recent turn. A ref that stays in sync with state fixes this without re-creating
- *   sendMessage on every message, which caused its own re-render cascade.
- *
- * FIX 4 — Full error object logged (not just message string)
- *   console.error('[HaloAI] FULL ERROR', err) instead of String(err) — surfaces
- *   HTTP status codes, stack traces, and Gemini's actual error body in DevTools.
- */
 export function useHaloAI(playerCtx: HaloPlayerContext): UseHaloAIState {
   const [messages, setMessages] = useState<HaloMessage[]>([])
   const [isLoading, setIsLoading]  = useState(false)
 
-  // FIX 3: Keep a ref in sync so sendMessage always reads current history
-  // without needing messages in its dependency array (which caused stale closures).
   const messagesRef = useRef<HaloMessage[]>(messages)
   useEffect(() => {
     messagesRef.current = messages
@@ -110,8 +78,6 @@ export function useHaloAI(playerCtx: HaloPlayerContext): UseHaloAIState {
           throw new Error('Missing VITE_GEMINI_API_KEY')
         }
 
-        // FIX 2: Build the real systemInstruction from slim persona + player context
-        // and targeted topic knowledge — two separate concerns composed cleanly here.
         const slimPersona    = buildHaloSystemPrompt(playerCtx)
         const topicKnowledge = getTopicSections(text)
 
@@ -121,14 +87,11 @@ export function useHaloAI(playerCtx: HaloPlayerContext): UseHaloAIState {
           `Keep replies to 1-4 sentences unless asked to elaborate. ` +
           `Use gaming slang naturally. Never break character.`
 
-        // FIX 3: Use the ref — always current, never stale
         const priorContents: GeminiContent[] = messagesRef.current.map(msg => ({
           role: msg.role === 'halo' ? 'model' : 'user',
           parts: [{ text: msg.content }],
         }))
 
-        // FIX 2: systemInstruction is top-level, NOT a contents entry.
-        // FIX 2: No fake user/model exchange prefill — contents is clean history + current turn.
         const body: GeminiRequestBody = {
           systemInstruction: {
             parts: [{ text: systemText }],
@@ -144,7 +107,6 @@ export function useHaloAI(playerCtx: HaloPlayerContext): UseHaloAIState {
           },
         }
 
-        // FIX 1: gemini-1.5-flash → gemini-2.0-flash (stable free-tier endpoint)
         const endpoint =
           `https://generativelanguage.googleapis.com/v1beta/models/` +
           `gemini-2.0-flash:generateContent?key=${apiKey}`
@@ -177,7 +139,6 @@ export function useHaloAI(playerCtx: HaloPlayerContext): UseHaloAIState {
         setMessages(prev => [...prev, haloMessage])
 
       } catch (err: unknown) {
-        // FIX 4: Log the full object so DevTools shows status codes + stack traces
         console.error('[HaloAI] FULL ERROR', err)
 
         const errMsg = err instanceof Error ? err.message : String(err)
@@ -196,7 +157,6 @@ export function useHaloAI(playerCtx: HaloPlayerContext): UseHaloAIState {
         } else if (errMsg.includes('404')) {
           console.error(
             '[HaloAI] ⚠️  404 — model endpoint not found. ' +
-            'The gemini-2.0-flash model may require a different API version prefix. ' +
             'Check https://ai.google.dev/gemini-api/docs/models for current model names.'
           )
           fallbackText = haloFallback(text, playerCtx)
@@ -208,7 +168,7 @@ export function useHaloAI(playerCtx: HaloPlayerContext): UseHaloAIState {
             ' (Dev: Gemini rate limit hit — check your quota in Google AI Studio.)'
 
         } else if (errMsg.includes('Empty Gemini response')) {
-          console.error('[HaloAI] ⚠️  Empty response — likely a safety filter block. Try rephrasing the prompt.')
+          console.error('[HaloAI] ⚠️  Empty response — likely a safety filter block. Try rephrasing.')
           fallbackText = haloFallback(text, playerCtx)
 
         } else {
@@ -227,14 +187,32 @@ export function useHaloAI(playerCtx: HaloPlayerContext): UseHaloAIState {
         setIsLoading(false)
       }
     },
-    // FIX 3: playerCtx only — messages read from ref, not closure
     [playerCtx]
   )
+
+  // BUG 6 FIX: greetUser injects a Halo-side welcome message directly into
+  // state without creating a user turn — keeps the empty state clean and
+  // makes the chat feel alive from first open.
+  const greetUser = useCallback(() => {
+    const hour = new Date().getHours()
+    const timeGreet =
+      hour < 12 ? 'Good morning' :
+      hour < 17 ? 'Good afternoon' :
+      hour < 21 ? 'Good evening' : 'Hey'
+
+    const greeting: HaloMessage = {
+      id: makeId(),
+      role: 'halo',
+      content: `${timeGreet}, ${playerCtx.displayName}! 👾 I'm Halo, your personal Chillverse guide. You're at ${playerCtx.rankEmoji} ${playerCtx.rankName} with ${playerCtx.xp.toLocaleString()} XP — keep grinding! 🔥 Ask me about your rank, game tips, missions, exploration, or anything else on the platform. What can I help you with today?`,
+      timestamp: new Date(),
+    }
+    setMessages([greeting])
+  }, [playerCtx])
 
   const clearMessages = useCallback(() => {
     setMessages([])
     messagesRef.current = []
   }, [])
 
-  return { messages, isLoading, sendMessage, clearMessages }
+  return { messages, isLoading, sendMessage, clearMessages, greetUser }
 }
