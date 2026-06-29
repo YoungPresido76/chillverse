@@ -5,7 +5,7 @@ import type { LucideIcon } from 'lucide-react'
 import {
   Trophy, Home, Flame, Gamepad2, ShoppingBag, Gift,
   User, Settings, Zap, X, ChevronLeft, ChevronRight,
-  Package, ChevronDown, Wallet, GamepadIcon, Compass,
+  Package, ChevronDown, Wallet, GamepadIcon, Compass, Layers,
 } from 'lucide-react'
 import { ripple } from '../lib/ripple'
 
@@ -53,7 +53,16 @@ const NAV_ITEMS: NavItem[] = [
       { label: 'Wallet',   to: '/wallet',   icon: Wallet },
     ],
   },
-  { label: 'Settings',     to: '/settings',     icon: Settings,    badge: null },
+  {
+    label: 'Settings',
+    to: '/settings',
+    icon: Settings,
+    badge: null,
+    children: [
+      { label: 'Settings', to: '/settings', icon: Settings },
+      { label: 'Version',  to: '/version',  icon: Layers   },
+    ],
+  },
 ]
 
 function isGroupActive(item: NavItem, pathname: string): boolean {
@@ -78,6 +87,7 @@ export default function Sidebar({ open, collapsed, onClose, onToggleCollapse }: 
     if (pathname === '/mall' || pathname === '/inventory') s.add('Mall')
     if (pathname === '/profile' || pathname === '/wallet') s.add('Profile')
     if (pathname === '/games' || pathname === '/exploration') s.add('Games')
+    if (pathname === '/settings' || pathname === '/version') s.add('Settings')
     return s
   })
 
