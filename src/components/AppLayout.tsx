@@ -6,12 +6,12 @@ import Topbar from './Topbar'
 import AchievementToast from './AchievementToast'
 import NotificationToastRenderer from './NotificationToastRenderer'
 import IncomingChallengeOverlay from './IncomingChallengeOverlay'
-import PromoOverlay from './PromoOverlay'
 import { useProfile } from '../hooks/useProfile'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
+import { getUserRankTier } from '../lib/ranks'
+import { getGlobalSessionInfo } from '../lib/gameSession'
 import { useChallengeListener } from '../hooks/useChallengeListener'
-import { usePromoNotifications } from '../hooks/usePromoNotifications'
 import type { IncomingChallenge } from '../hooks/useChallengeListener'
 
 const ROUTE_TITLES: Record<string, string> = {
@@ -91,16 +91,14 @@ export default function AppLayout() {
   const { pathname } = useLocation()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const { profile } = useProfile()
   const { user, session } = useAuth()
   const myId = session?.user?.id ?? null
-  const [, setWishlistNames] = useState<string[]>([])
+  const [wishlistNames, setWishlistNames] = useState<string[]>([])
 
   // ── Challenge listener ──
   const { incoming, update, clearIncoming, clearUpdate } = useChallengeListener()
   const [rematchFrom, setRematchFrom] = useState<{ opponentId: string; opponentName: string; game: string } | null>(null)
-
-  // ── Promo / announcement overlay ──
-  const { active: activePromo, dismiss: dismissPromo } = usePromoNotifications(myId)
 
   // When challenger gets an "accepted" update → navigate to challenge page to start game
   useEffect(() => {
@@ -131,6 +129,22 @@ export default function AppLayout() {
     return () => { active = false }
   }, [user])
 
+  const xp = profile?.xp ?? 0
+  const rankTier = getUserRankTier(xp)
+  const sessionInfo = user ? getGlobalSessionInfo(user.id) : { count: 0 }
+
+  const playerCtx: HaloPlayerContext = {
+    displayName:   profile?.display_name ?? 'Player',
+    rankName:      rankTier.name,
+    rankEmoji:     rankTier.emoji,
+    streakDays:    profile?.streak ?? 0,
+    favoriteGame:  profile?.favorite_game ?? null,
+    wishlistItems: wishlistNames,
+    sessionsToday: sessionInfo.count,
+    xp,
+    level: profile?.level ?? 1,
+  }
+
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 1279px)')
     setSidebarCollapsed(mq.matches)
@@ -148,6 +162,7 @@ export default function AppLayout() {
   const sidebarWidth = sidebarCollapsed ? 72 : 280
 
   return (
+    <HaloProvider>
       <div className="min-h-screen relative" style={{ background: 'var(--bg)' }}>
         {/* Ambient bubbles */}
         <div className="bubble-bg">
@@ -184,14 +199,6 @@ export default function AppLayout() {
           />
         )}
 
-        {/* Promo / announcement overlay — never shows on top of an actual challenge invite */}
-        {activePromo && !incoming && (
-          <PromoOverlay
-            notification={activePromo}
-            onDismiss={dismissPromo}
-          />
-        )}
-
         {/* Rematch banner */}
         {rematchFrom && (
           <RematchBanner
@@ -223,7 +230,9 @@ export default function AppLayout() {
             </div>
           </div>
         </main>
+
+        <HaloPanel playerCtx={playerCtx} />
       </div>
+    </HaloProvider>
   )
-    }
-          
+          }
