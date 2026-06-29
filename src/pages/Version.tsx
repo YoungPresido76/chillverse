@@ -63,16 +63,6 @@ const VERSIONS: VersionInfo[] = [
   },
 ]
 
-// Cumulative cost to unlock up to version index i (0-based)
-// index 0 = v1 (already owned), 1 = v2 costs 1900, etc.
-function cumulativeCostUpTo(targetIdx: number): number {
-  let total = 0
-  for (let i = 1; i <= targetIdx; i++) {
-    total += VERSIONS[i].cost ?? 0
-  }
-  return total
-}
-
 // ─── PRO-GATE MODAL ──────────────────────────────────────────────────────────
 
 function ProGateModal({ onClose }: { onClose: () => void }) {
