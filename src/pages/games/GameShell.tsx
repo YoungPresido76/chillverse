@@ -246,11 +246,48 @@ interface ResultScreenProps {
 
 export function ResultScreen({ payload, accent, onReplay, onBack, promoted }: ResultScreenProps) {
   const [showPromo, setShowPromo] = useState(!!promoted)
+  const [displayScore, setDisplayScore] = useState(0)
+  const [displayXP, setDisplayXP] = useState(0)
+  const [xpBannerVisible, setXpBannerVisible] = useState(false)
+  const [buttonsVisible, setButtonsVisible] = useState(false)
   const mins = Math.floor(payload.durationSec / 60)
   const secs = payload.durationSec % 60
   const durationStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
   const betterThan = Math.min(97, Math.floor(35 + (payload.score / 10) + Math.random() * 20))
   const accuracy = payload.total > 0 ? Math.round((payload.correct / payload.total) * 100) : 0
+
+  // Animate score counting up
+  useEffect(() => {
+    const target = payload.score
+    const duration = 1200
+    const steps = 40
+    const increment = target / steps
+    let current = 0
+    let step = 0
+    const t = setInterval(() => {
+      step++
+      current = Math.min(Math.round(increment * step), target)
+      setDisplayScore(current)
+      if (current >= target) {
+        clearInterval(t)
+        // After score done, animate XP
+        let xpStep = 0
+        const xpTarget = payload.xpEarned
+        const xpInc = xpTarget / 30
+        const xpTimer = setInterval(() => {
+          xpStep++
+          const xpVal = Math.min(Math.round(xpInc * xpStep), xpTarget)
+          setDisplayXP(xpVal)
+          if (xpVal >= xpTarget) {
+            clearInterval(xpTimer)
+            setTimeout(() => setXpBannerVisible(true), 200)
+            setTimeout(() => setButtonsVisible(true), 600)
+          }
+        }, 25)
+      }
+    }, duration / steps)
+    return () => clearInterval(t)
+  }, [payload.score, payload.xpEarned])
 
   useEffect(() => {
     if (promoted) {
@@ -291,8 +328,8 @@ export function ResultScreen({ payload, accent, onReplay, onBack, promoted }: Re
         </div>
 
         {/* Score */}
-        <div style={{ fontSize: 48, fontWeight: 800, fontFamily: 'monospace', color: 'var(--text)', marginBottom: 4, lineHeight: 1 }}>
-          {payload.score}
+        <div style={{ fontSize: 48, fontWeight: 800, fontFamily: 'monospace', color: 'var(--text)', marginBottom: 4, lineHeight: 1, transition: 'color 0.1s' }}>
+          {displayScore}
         </div>
         <p style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 20 }}>
           {payload.correct}/{payload.total} correct · {payload.gameName}
@@ -301,7 +338,7 @@ export function ResultScreen({ payload, accent, onReplay, onBack, promoted }: Re
         {/* Stats 2×2 grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
           {[
-            { label: 'XP EARNED',   value: `+${payload.xpEarned}`, color: 'var(--accent)' },
+            { label: 'XP EARNED',   value: `+${displayXP}`, color: 'var(--accent)' },
             { label: 'TIME',        value: durationStr,             color: 'var(--text)' },
             { label: 'STREAK',      value: payload.streak,          color: 'var(--gold)' },
             { label: 'BETTER THAN', value: `${betterThan}%`,        color: 'var(--green)' },
@@ -335,12 +372,20 @@ export function ResultScreen({ payload, accent, onReplay, onBack, promoted }: Re
           background: 'rgba(255,107,0,0.08)', border: '1px solid rgba(255,107,0,0.2)',
           borderRadius: 12, padding: '10px 16px', marginBottom: 18,
           fontSize: 13, fontWeight: 800, color: 'var(--accent)',
+          opacity: xpBannerVisible ? 1 : 0,
+          transform: xpBannerVisible ? 'translateY(0)' : 'translateY(8px)',
+          transition: 'opacity 0.4s ease, transform 0.4s ease',
         }}>
           <Zap size={15} /> +{payload.xpEarned} XP added to your profile
         </div>
 
         {/* Buttons */}
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{
+          display: 'flex', gap: 10,
+          opacity: buttonsVisible ? 1 : 0,
+          transform: buttonsVisible ? 'translateY(0)' : 'translateY(8px)',
+          transition: 'opacity 0.4s ease, transform 0.4s ease',
+        }}>
           <button type="button" onClick={onReplay} style={{
             flex: 1, padding: '12px', borderRadius: 13,
             background: `linear-gradient(135deg, ${accent}, ${accent}bb)`,
