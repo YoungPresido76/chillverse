@@ -5,7 +5,7 @@ import { ArrowLeft, X, Lock, CheckCircle2 } from 'lucide-react'
 import { useProfile } from '../hooks/useProfile'
 import { useWallet } from '../hooks/useWallet'
 import { supabase } from '../lib/supabase'
-import { ripple } from '../lib/ripple'
+
 
 // ─── Version data ────────────────────────────────────────────────────────────
 
@@ -73,9 +73,7 @@ function cumulativeCostUpTo(targetIdx: number): number {
   return total
 }
 
-const TOTAL_COST = cumulativeCostUpTo(VERSIONS.length - 2) // up to v4 (v5 is disabled)
-
-// ─── PRO-GATE MODAL ──────────────────────────────────────────────────────────
+ ──────────────────────────────────────────────────────────
 
 function ProGateModal({ onClose }: { onClose: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null)
