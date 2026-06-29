@@ -4,7 +4,7 @@
 // etc.) can reference game metadata — name, icon, accent color, dbKey —
 // without importing the full game lobby page and its game components.
 import {
-  Move, Brain, Layers, BookOpen, Grid3X3,
+  Move, Brain, Drama, BookOpen, Grid3X3,
   Eye, Calculator, LayoutGrid, Hash, Target,
   type LucideIcon,
 } from 'lucide-react'
@@ -32,7 +32,7 @@ export interface GameMeta {
 const STANDARD_GAMES: GameMeta[] = [
   { id: 'arrow-dash',     dbKey: 'arrow_dash',     name: 'Arrow Dash',            tagline: 'Tap the arrow direction. Fast.',                  accent: '#4f8ef7', icon: Move         },
   { id: 'pattern-memory', dbKey: 'pattern_memory', name: 'Pattern Memory',        tagline: 'Watch the sequence, then repeat it.',             accent: '#9b6dff', icon: Brain        },
-  { id: 'rapid-sort',     dbKey: 'rapid_sort',     name: 'Rapid Sort',            tagline: 'Sort items into categories fast!',                accent: '#ff4d8b', icon: Layers       },
+  { id: 'rapid-sort',     dbKey: 'rapid_sort',     name: 'Anime Trivia',          tagline: 'Test your anime knowledge. Time shrinks as your streak grows.', accent: '#9b6dff', icon: Drama       },
   { id: 'tac-zone',       dbKey: 'tac_zone',       name: 'Tac Zone',              tagline: 'Three in a row. No mercy.',                      accent: '#3ecf8e', icon: Grid3X3, unlimitedPlays: true },
   { id: 'two-truths',     dbKey: 'two_truths',     name: 'Two Truths, One False', tagline: 'Spot the lie among three claims.',                accent: '#9b6dff', icon: Eye          },
   { id: 'speed-math',     dbKey: 'speed_math',     name: 'Speed Math',            tagline: 'Solve as many equations as you can.',             accent: '#3ecf8e', icon: Calculator   },
