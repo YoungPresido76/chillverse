@@ -6,9 +6,11 @@ export interface Achievement {
   title: string
   description: string
   icon: string
-  category: 'xp' | 'streak' | 'games' | 'social' | 'rank' | 'special'
+  category: 'xp' | 'streak' | 'games' | 'social' | 'rank' | 'special' | 'mall' | 'premium' | 'cinema'
   xp_reward: number
   rarity: 'common' | 'rare' | 'epic' | 'legendary'
+  reward_type: 'xp' | 'profile_pic' | 'banner' | null
+  reward_url: string | null
 }
 
 export interface PlayerAchievement {
@@ -80,6 +82,21 @@ export interface AchievementCheckPayload {
   playedAfterMidnight: boolean
   completedIn30Sec: boolean
   perfectScore: boolean
+  // ── New fields ──
+  mallItemCount: number          // total mall items owned
+  modelCount: number             // models owned (sub_category = 'model')
+  diamondPurchaseCount: number   // total diamond purchase transactions
+  diamondTopUpCount: number      // total top-up events
+  ownsAllWilliamItems: boolean   // owns all items with brand = 'william'
+  animeTriviaWins: number        // times won anime_trivia game
+  totalGameWins: number          // total wins across all games
+  chillverseVersion: number      // profile app version (2 = v2)
+  completedWeeklyMission: boolean
+  ownsSabrina: boolean           // owns item named 'Sabrina'
+  totalGameLosses: number        // total game losses
+  moviesWatched: number          // movies watched count
+  giftsGiven: number             // gifts sent to other users
+  flashSalesUsed: number         // flash sale purchases made
 }
 
 export async function checkAndUnlockAchievements(payload: AchievementCheckPayload) {
@@ -176,6 +193,37 @@ export async function checkAndUnlockAchievements(payload: AchievementCheckPayloa
   if (payload.playedAfterMidnight)   await tryUnlock('special_night_owl')
   if (payload.completedIn30Sec)      await tryUnlock('special_speed_run')
   if (payload.perfectScore)          await tryUnlock('special_perfect')
+
+  // ── Mall & Inventory ──
+  if (payload.mallItemCount >= 20)    await tryUnlock('mall_hoarder')
+  if (payload.modelCount >= 5)        await tryUnlock('brands_active')
+  if (payload.ownsAllWilliamItems)    await tryUnlock('willamtronic')
+  if (payload.ownsSabrina)            await tryUnlock('sabrina_fan')
+
+  // ── Premium / Diamonds ──
+  if (payload.diamondPurchaseCount >= 1)  await tryUnlock('diamond_purse')
+  if (payload.diamondTopUpCount >= 5)     await tryUnlock('premium_lifestyle')
+
+  // ── Games extended ──
+  if (payload.animeTriviaWins >= 10)  await tryUnlock('animatron')
+  if (payload.totalGameWins >= 50)    await tryUnlock('counting_stars')
+  if (payload.totalGameLosses >= 10)  await tryUnlock('badluck')
+
+  // ── App / Platform ──
+  if (payload.chillverseVersion >= 2) await tryUnlock('gen2')
+  if (payload.completedWeeklyMission) await tryUnlock('runner_up')
+
+  // ── Social extended ──
+  if (payload.followerCount >= 100)   await tryUnlock('super_star')
+  if (payload.followerCount >= 20)    await tryUnlock('lone_star')
+  if (payload.followingCount >= 30)   await tryUnlock('that_one_follow_up')
+  if (payload.giftsGiven >= 5)        await tryUnlock('blessed_hands')
+
+  // ── Cinema ──
+  if (payload.moviesWatched >= 5)     await tryUnlock('cinema_sim')
+
+  // ── Shop / Sales ──
+  if (payload.flashSalesUsed >= 5)    await tryUnlock('smart_sim')
 }
 
 // ── Notification helpers ──────────────────────────────────────

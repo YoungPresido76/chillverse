@@ -106,7 +106,108 @@ export async function triggerAchievementCheck(userId: string): Promise<void> {
     // perfect score = a session where score hit ≥ 100 (adjust threshold if needed)
     const perfectScore = topScore >= 100
 
-    // ── 7. Fire the check ──
+    // ── 7. Mall / Inventory ──
+    const { data: inventoryItems } = await supabase
+      .from('user_items')
+      .select('item_id, quantity')
+      .eq('user_id', userId)
+
+    const ownedItemIds = (inventoryItems ?? []).map((r: { item_id: string }) => r.item_id)
+    const mallItemCount = ownedItemIds.length
+
+    // Models = items with sub_category = 'model'
+    let modelCount = 0
+    if (ownedItemIds.length > 0) {
+      const { count: mc } = await supabase
+        .from('mall_items')
+        .select('*', { count: 'exact', head: true })
+        .in('id', ownedItemIds)
+        .eq('sub_category', 'model')
+      modelCount = mc ?? 0
+    }
+
+    // William items — all items where brand = 'william' (or name contains 'william')
+    let ownsAllWilliamItems = false
+    const { data: williamItems } = await supabase
+      .from('mall_items')
+      .select('id')
+      .ilike('name', '%william%')
+    if (williamItems && williamItems.length > 0) {
+      const williamIds = williamItems.map((w: { id: string }) => w.id)
+      ownsAllWilliamItems = williamIds.every((id: string) => ownedItemIds.includes(id))
+    }
+
+    // Sabrina — owns item named 'Sabrina'
+    let ownsSabrina = false
+    const { data: sabrinaItem } = await supabase
+      .from('mall_items')
+      .select('id')
+      .ilike('name', '%sabrina%')
+      .maybeSingle()
+    if (sabrinaItem) {
+      ownsSabrina = ownedItemIds.includes(sabrinaItem.id)
+    }
+
+    // ── 8. Diamond / Premium ──
+    const { count: diamondPurchaseCount } = await supabase
+      .from('diamond_purchases')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+
+    const { count: diamondTopUpCount } = await supabase
+      .from('diamond_topups')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+
+    // ── 9. Game wins / losses ──
+    const { count: totalGameWinsCount } = await supabase
+      .from('game_sessions')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('result', 'win')
+
+    const { count: totalGameLossesCount } = await supabase
+      .from('game_sessions')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('result', 'loss')
+
+    const { count: animeTriviaWinsCount } = await supabase
+      .from('game_sessions')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('game', 'anime_trivia')
+      .eq('result', 'win')
+
+    // ── 10. App version ──
+    const chillverseVersion = Number((profile as unknown as { app_version?: number }).app_version ?? 1)
+
+    // ── 11. Weekly missions ──
+    const { count: completedMissionSets } = await supabase
+      .from('weekly_mission_completions')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+    const completedWeeklyMission = (completedMissionSets ?? 0) >= 1
+
+    // ── 12. Movies watched ──
+    const { count: moviesWatchedCount } = await supabase
+      .from('movie_watches')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+
+    // ── 13. Gifts given ──
+    const { count: giftsGivenCount } = await supabase
+      .from('gifts')
+      .select('*', { count: 'exact', head: true })
+      .eq('sender_id', userId)
+
+    // ── 14. Flash sales used ──
+    const { count: flashSalesUsedCount } = await supabase
+      .from('flash_sale_purchases')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+
+    // ── 15. Fire the check ──
     await checkAndUnlockAchievements({
       userId,
       xp,
@@ -125,6 +226,20 @@ export async function triggerAchievementCheck(userId: string): Promise<void> {
       playedAfterMidnight,
       completedIn30Sec,
       perfectScore,
+      mallItemCount,
+      modelCount,
+      diamondPurchaseCount: diamondPurchaseCount ?? 0,
+      diamondTopUpCount: diamondTopUpCount ?? 0,
+      ownsAllWilliamItems,
+      animeTriviaWins: animeTriviaWinsCount ?? 0,
+      totalGameWins: totalGameWinsCount ?? 0,
+      chillverseVersion,
+      completedWeeklyMission,
+      ownsSabrina,
+      totalGameLosses: totalGameLossesCount ?? 0,
+      moviesWatched: moviesWatchedCount ?? 0,
+      giftsGiven: giftsGivenCount ?? 0,
+      flashSalesUsed: flashSalesUsedCount ?? 0,
     })
   } catch (err) {
     // Non-critical — never let achievement errors bubble up and break the app
