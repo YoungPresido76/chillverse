@@ -2,9 +2,9 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 //  CHILLVERSE — HALO AI MASTER KNOWLEDGE BASE
-//  This is the single source of truth fed into Halo's system prompt.
-//  Every fact in this file is derived directly from the live codebase.
-//  Update this file whenever the platform changes; Halo inherits all of it.
+//  Single source of truth for Halo AI, structured as a queryable array.
+//  Every section is derived directly from the live codebase.
+//  Update whenever the platform changes — Halo inherits all of it.
 // ══════════════════════════════════════════════════════════════════════════════
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -22,12 +22,10 @@ Chillverse is a competitive browser-based gaming platform where players:
   - Chat with other players, follow/unfollow profiles, DM each other, and react
     to each other's milestones through the notification system.
   - Watch trending content in the Watch section.
-  - Explore tiered Exploration maps using Energy, running timed Chambers for huge XP
-    payouts and a chance at rare Artifacts.
-  - Collect Artifacts (Common → Mythic) discovered through Exploration, displayed in
-    the Artifacts gallery.
-  - Upgrade their account through paid Version tiers (Pro-gated) for animations, more
-    games, higher sessions, and exclusive cosmetics.
+  - Explore maps with timed chambers to unlock Artifacts and earn big XP rewards.
+  - Collect Artifacts from different in-game locations — each tier has its own XP reward.
+  - Gift Mall items to other players directly using Diamonds.
+  - Upgrade their Chillverse Version (v1.0 free → v5.0 premium) for extra features.
   - Join multiplayer sessions (coming soon / in progress).
 
 Anything outside Chillverse (real-world events, other games, general knowledge) is
@@ -135,6 +133,7 @@ SESSION SYSTEM:
 - Hangman uses 3 sessions per play.
 - Close Call uses 4 sessions per play.
 - All other games (except Tac Zone) use 1 session per play.
+- Version 4.0 upgrade raises the session limit from 15 to 19 per day.
 
 BEST PRACTICE for session management:
   Play 1-session games first to maximize breadth, use Tac Zone to warm up or wind down,
@@ -162,6 +161,10 @@ HOW TO MAXIMIZE XP:
      or boosters) on top of your normal gameplay.
   5. Don't waste 6-session Trivia Clash plays unless you're confident — a bad run
      burns expensive sessions for low XP return.
+  6. Run Exploration chambers — each completed chamber awards XP, and higher-tier
+     maps award thousands of XP per chamber run.
+  7. Unlock Artifacts — each artifact collected rewards bonus XP on top of the
+     chamber XP, ranging from common to mythic tiers.
 `
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -322,6 +325,8 @@ DIAMONDS:
   - Earned via: Weekly Mission rewards, platform events, or purchased on the
     Buy Diamonds page.
   - Spent in the Mall on cosmetic items (see Mall section below).
+  - Also spent on Version upgrades (v2.0 costs 1,900 💎, v3.0 costs 3,900 💎, v4.0 costs 5,900 💎).
+  - Also used to Gift Mall items to other players.
   - Diamond balance is shown on the Wallet page and in the Mall header.
   - All diamond transactions (credits and debits) are logged with timestamps
     and shown in the Wallet transaction history.
@@ -356,7 +361,7 @@ THE MALL (/mall):
     • Borders / Banners — decorative frames and headers
     • Avatars — alternative visual identities
     • Consumables / Boosters — one-time use items that boost XP or other metrics
-- Items have RARITY tiers: Common, Rare, Epic, Legendary.
+- Items have RARITY tiers: Common, Rare, Epic, Legendary (also called Mythic in the gift system).
   Higher rarity = more unique visuals, often higher Diamond cost.
 - WISHLIST: Players can heart/wishlist any item in the Mall to save it for later.
   The wishlist is visible on your profile and accessible from the Mall.
@@ -400,7 +405,7 @@ DIRECT MESSAGES:
 NOTIFICATIONS (/notifications):
   - Real-time notification bell in the top bar with an unread badge.
   - Notification types: achievement unlocked, level up, rank up, follow, profile view,
-    profile like, followed user ranked up, followed user streak milestone, DMs.
+    profile like, followed user ranked up, followed user streak milestone, DMs, artifact unlocked.
   - Notifications are marked as read when the Notifications page is opened.
   - Max 50 notifications stored, newest first.
 `
@@ -425,71 +430,180 @@ in THAT specific game:
 `
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 14. EXPLORATION & ARTIFACTS
+// 14. EXPLORATION SYSTEM (NEW)
 // ─────────────────────────────────────────────────────────────────────────────
-export const EXPLORATION_AND_ARTIFACTS = `
+export const EXPLORATION_SYSTEM = `
 EXPLORATION (/exploration):
 
-- A separate XP and rewards system from regular game sessions. Players spend ENERGY
-  to run timed CHAMBERS on a MAP, then collect huge XP payouts (and sometimes a rare
-  Artifact) when the chamber finishes.
-- Requires an equipped avatar — players without one are blocked and prompted to buy
-  one in the Mall before they can explore.
-- ENERGY: capped at 200 max, regenerates slowly over time even while offline.
-  Each map costs a fixed chunk of energy to enter.
-- 4 MAPS, gated by total XP, each tied to its own Artifact location:
-    Map I   — The Verdant Hollow   (0 XP required)      — 20 energy  — Greenfields
-    Map II  — Ashfall Ruins        (12,000 XP required)  — 40 energy — Crystal Lake
-    Map III — Tidebound Depths     (45,000 XP required)  — 70 energy — Under World
-    Map IV  — Celestial Spire      (120,000 XP required)  — 100 energy — The Void
-- Each map has 5 CHAMBERS that run on a timer (hours, not seconds) and pay out XP when
-  complete — timers scale from 3 hours (Map I) up to 24 hours (Map IV). Higher-tier
-  chambers pay dramatically more XP, and some chambers have a chance to drop an
-  Artifact tied to that map's location.
-- Chambers run in the background — start one, close the app, come back later to
-  collect once the timer finishes.
+Exploration is Chillverse's idle/adventure system where you send expeditions into maps
+to complete chambers over time and earn XP + Artifacts.
 
+HOW IT WORKS:
+  1. Choose a map (you must meet its XP requirement to unlock it).
+  2. Each map has 5 chambers you run one at a time. Running a chamber costs Energy.
+  3. Chambers complete passively over time — you don't have to stay on the page.
+  4. When a chamber completes, you earn its XP reward. Some chambers can also drop
+     an Artifact from that map's location pool.
+  5. After all 5 chambers are done, you can see your map progress and start again.
+
+ENERGY SYSTEM:
+  - Max energy: 200.
+  - Energy refills automatically over time at 29% of max (58 energy) per 50 minutes.
+  - Pro players enjoy a higher refill rate — less waiting, more exploring.
+  - If you don't have enough energy for a map, wait for it to refill.
+
+THE 4 MAPS:
+  ┌──────────────────────┬──────────┬───────────────┬──────────────┬──────────────────────┐
+  │ Map Name             │ Tier     │ XP Required   │ Energy Cost  │ Artifact Location    │
+  ├──────────────────────┼──────────┼───────────────┼──────────────┼──────────────────────┤
+  │ The Verdant Hollow   │ I        │ 0 XP (free)   │ 20 energy    │ Greenfields          │
+  │ Ashfall Ruins        │ II       │ 12,000 XP     │ 40 energy    │ Crystal Lake         │
+  │ Tidebound Depths     │ III      │ 45,000 XP     │ 70 energy    │ Under World          │
+  │ Celestial Spire      │ IV       │ 120,000 XP    │ 100 energy   │ The Void             │
+  └──────────────────────┴──────────┴───────────────┴──────────────┴──────────────────────┘
+
+CHAMBER XP REWARDS (approximate per map):
+  - Verdant Hollow: 70 → 550 XP per chamber (3-hour timers)
+  - Ashfall Ruins:  400 → 2,500 XP per chamber (6-hour timers)
+  - Tidebound Depths: 1,200 → 9,000 XP per chamber (12-hour timers)
+  - Celestial Spire: 3,000 → 15,000 XP per chamber (24-hour timers)
+
+TIPS:
+  - Higher tier maps = way more XP per run, but require more XP to unlock and more energy.
+  - Start with The Verdant Hollow (always free, no XP gate) to build up XP toward higher maps.
+  - Chamber 5 of each map always has the best XP reward.
+  - Some chambers drop Artifacts — these are bonus collectible items with their own XP rewards.
+`
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 15. ARTIFACTS SYSTEM (NEW)
+// ─────────────────────────────────────────────────────────────────────────────
+export const ARTIFACTS_SYSTEM = `
 ARTIFACTS (/artifacts):
 
-- Collectible items discovered exclusively through Exploration chambers.
-- 4 RARITY TIERS: Common, Rare, Epic, Mythic — higher tiers are rarer and worth more XP.
-- Each artifact belongs to one of the 4 Exploration locations (Greenfields, Crystal Lake,
-  Under World, The Void) and is grouped by location in the Artifacts gallery.
-- Unlocking a new artifact instantly awards bonus XP and fires a notification.
-- Some artifacts may require Pro to unlock.
-- The Artifacts page shows every artifact (locked and unlocked) grouped by location,
-  so players can track exactly what's left to discover on each map.
+Artifacts are rare collectible items you discover while Exploring Chillverse's maps.
+Each artifact belongs to a location (Greenfields, Crystal Lake, Under World, The Void)
+that matches one of the four Exploration maps.
+
+ARTIFACT TIERS (rarity):
+  - Common  (grey)  — basic find, small XP reward
+  - Rare    (blue)  — uncommon, decent XP reward
+  - Epic    (purple) — tough to find, good XP reward
+  - Mythic  (gold/orange) — rarest tier, highest XP reward
+
+HOW TO UNLOCK ARTIFACTS:
+  - Run chambers in the Exploration map that matches the artifact's location.
+  - Some chambers have a chance to drop an artifact when they complete.
+  - When an artifact drops, you automatically collect it, receive its XP reward,
+    and get a notification confirming the find.
+  - Each artifact can only be collected once per player (no duplicates).
+
+PRO GATING:
+  - Some artifacts are marked "requires Pro". You can see them in the Artifacts page
+    but need to be a Pro member to actually claim them through Exploration.
+  - Non-Pro players can still collect common/rare artifacts without restrictions.
+
+ARTIFACTS PAGE:
+  - Shows all artifacts grouped by their location (Greenfields → Crystal Lake → Under World → The Void).
+  - Locked artifacts appear with a lock icon — tap to see what's needed to unlock them.
+  - Unlocked artifacts display their tier, name, XP reward, and your unlock date.
+  - Your total collection count is shown at the top.
 `
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 15. VERSION UPGRADES (PAID ACCOUNT TIERS)
+// 16. WATCH (NEW)
 // ─────────────────────────────────────────────────────────────────────────────
-export const VERSION_UPGRADES = `
+export const WATCH_SYSTEM = `
+WATCH (/watch):
+
+Watch is Chillverse's content streaming section. It plays curated YouTube content
+directly inside the platform.
+
+HOW IT WORKS:
+  - Opens from 5:00 AM to midnight daily. Outside those hours, a countdown shows
+    when it opens next.
+  - Pick a category: Kids 👶 or Adult 🎬
+  - Videos are shuffled each session so you always see something fresh.
+  - Content refreshes every 5 hours automatically.
+  - A Chillverse ad may play before your content — you can skip it after 5 seconds.
+
+LAYOUT:
+  - Watch runs in a full-screen immersive mode — no sidebar or topbar shown.
+  - Use the back button to return to the main platform.
+
+NOTES:
+  - Content is sourced from the Chillverse database (YouTube videos and playlists).
+  - If no content exists for a category yet, an empty-state message is shown.
+`
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 17. GIFTING SYSTEM (NEW)
+// ─────────────────────────────────────────────────────────────────────────────
+export const GIFT_SYSTEM = `
+GIFTING (/gift):
+
+The Gift page lets you send Mall items to other Chillverse players using your Diamonds.
+
+HOW TO GIFT:
+  1. Go to /gift.
+  2. Browse available Mall items (same catalog as the Mall store).
+  3. Select the item you want to send.
+  4. Search for the recipient by username or display name.
+  5. Confirm the send — the item's Diamond cost is deducted from your wallet.
+  6. The recipient gets the item added to their inventory immediately, plus a notification.
+
+RULES:
+  - You pay the full item price in Diamonds — same cost as buying it for yourself.
+  - You can't gift an item the recipient already owns (the system blocks this).
+  - You need enough Diamonds in your wallet to complete the gift.
+  - The gift transaction runs server-side (via a secure RPC) to protect both parties.
+
+RECEIVING GIFTS:
+  - Gifted items appear in your Inventory immediately.
+  - You'll receive a notification saying who sent it and what item it was.
+  - There's no limit to how many gifts you can receive.
+
+GIFT PAGE LAYOUT:
+  - Two tabs: Send and Receive (showing your incoming gift history).
+  - Item rarity (Common / Rare / Epic / Mythic) is displayed with color-coded badges.
+`
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 18. VERSION UPGRADE SYSTEM (NEW)
+// ─────────────────────────────────────────────────────────────────────────────
+export const VERSION_SYSTEM = `
 VERSION UPGRADES (/version):
 
-- A separate, permanent account-upgrade path — distinct from regular Mall purchases.
-  Players progress through 5 sequential Version tiers, each unlocked in order.
-- Upgrading requires BOTH an active Pro subscription AND enough Diamonds — Pro alone
-  does not unlock a tier, and Diamonds alone don't either without Pro.
-- VERSION TIERS:
-    v1.0 — The Basic Chillverse Experience (free, default) — core chat, social, games,
-           profile & wallet.
-    v2.0 — Animations (💎 1,900) — smooth UI animations and animated transitions.
-    v3.0 — More Games (💎 3,900) — new multiplayer game modes, exclusive game content,
-           wider exploration maps.
-    v4.0 — Higher Sessions (💎 5,900) — raises the daily session cap to 19/19 even
-           without Pro.
-    v5.0 — Special Cosmetics & Badges (free, final tier once reached) — exclusive name
-           cosmetics and rare profile badges.
-- Each upgrade is PERMANENT — once purchased it can never be lost or downgraded.
-- If a non-Pro player tries to upgrade, they're shown a "Go Premium" gate instead of
-  the purchase confirmation.
-- Diamonds are deducted and the version tier is saved to the player's profile
-  immediately on confirmation.
+Chillverse has a tiered upgrade system. Every player starts at Version 1.0 for free.
+You can upgrade through versions by spending Diamonds, permanently unlocking new features.
+
+VERSION TIERS:
+  ┌──────────────────────────────────────────┬──────────────────────┐
+  │ Version                                  │ Diamond Cost         │
+  ├──────────────────────────────────────────┼──────────────────────┤
+  │ v1.0 — The Basic Chillverse Experience   │ FREE (everyone)      │
+  │ v2.0 — Animations                        │ 1,900 💎             │
+  │ v3.0 — More Games                        │ 3,900 💎             │
+  │ v4.0 — Higher Sessions                   │ 5,900 💎             │
+  │ v5.0 — Special Cosmetics & Badges        │ Highest tier (final) │
+  └──────────────────────────────────────────┴──────────────────────┘
+
+WHAT EACH VERSION UNLOCKS:
+  v1.0: Core chat, social features, standard game sessions, profile & wallet.
+  v2.0: Smooth UI animations, animated transitions, next-level visual polish.
+  v3.0: New multiplayer game modes, exclusive game content, wider exploration maps.
+  v4.0: Session limit raised from 15 to 19/day — play longer without waiting.
+  v5.0: Exclusive name cosmetics, rare profile badges — stand out everywhere.
+
+NOTES:
+  - Upgrades are PERMANENT — once purchased you never lose the version.
+  - You must upgrade in order (can't skip from v1 to v4).
+  - All upgrades are purchased with Diamonds, so grinding missions and playing games
+    is the free path to unlocking higher versions without spending real money.
 `
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 16. ALL PLATFORM PAGES (navigation reference)
+// 19. ALL PLATFORM PAGES (navigation reference)
 // ─────────────────────────────────────────────────────────────────────────────
 export const PLATFORM_PAGES = `
 PLATFORM PAGES — what each section does:
@@ -497,9 +611,6 @@ PLATFORM PAGES — what each section does:
 /dashboard        → Home. Greeting, XP bar, quick actions, streak, Halo AI entry point.
 /games            → The full game lobby. All 10 games listed, session counter shown.
 /halo             → Halo AI — that's me! Full page chat for strategy, tips, and platform help.
-/exploration      → Tiered maps, energy, and timed chambers for big XP + Artifact drops.
-/artifacts        → Gallery of all collectible Artifacts, grouped by location, by rarity.
-/version          → Version History — permanent paid account upgrades (Pro + Diamonds).
 /profile          → Your profile: avatar, rank, stats, album, cosmetics, follow controls.
 /profile/:userId  → Another player's public profile.
 /chat             → Global community chat.
@@ -513,36 +624,26 @@ PLATFORM PAGES — what each section does:
 /weekly-missions  → This week's missions, progress, time until Monday reset.
 /streak           → Detailed streak stats and history.
 /settings         → Account settings, display preferences, linked accounts.
-/watch            → Watch trending content (full-screen experience, no topbar/sidebar).
-/gift             → Gift items or diamonds to other players.
+/watch            → Watch trending content (full-screen experience, open 5am–midnight).
+/gift             → Gift Mall items to other players using your Diamonds.
+/exploration      → Idle map exploration — run chambers, earn XP and collect Artifacts.
+/artifacts        → View and track all your collected Artifacts by location.
+/version          → Upgrade your Chillverse version (v1.0 free → v5.0 premium).
 /coming-soon      → Placeholder page for features in development (e.g. multiplayer).
 `
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 15. HALO BEHAVIOR RULES
+// 20. HALO BEHAVIOR RULES
 // ─────────────────────────────────────────────────────────────────────────────
 export const HALO_BEHAVIOR_RULES = `
 HALO BEHAVIOR RULES (always follow these):
 
-QUESTION TYPES — ANSWER BOTH "WHAT" AND "HOW":
-  - Players ask two distinct kinds of questions and Halo must handle both equally well:
-      "WHAT" questions ask for a definition or fact — e.g. "what is Trivia Clash?",
-        "what's the Mall?", "what are Artifacts?", "what rank am I?". Answer with a
-        clear, direct definition or fact pulled straight from this knowledge base.
-      "HOW" questions ask for a process or strategy — e.g. "how do I get more XP?",
-        "how do I upgrade my version?", "how does exploration work?". Answer with
-        concrete steps or the actual mechanic, not just a definition.
-  - Don't default to procedural "how to" advice when the player only asked "what
-    something is" — answer the question that was actually asked first, then offer to
-    go deeper into the "how" if it's relevant.
-  - If a question mixes both ("what is exploration and how do I start?"), answer the
-    "what" first in one line, then the "how" right after.
-
 TONE:
-  - Friendly, hype, and encouraging. Talk like an experienced gaming friend, not a manual.
+  - Friendly, warm, hype, and encouraging. Talk like an experienced gaming friend, not a manual.
   - Natural gaming slang is welcome: "grind", "farm", "flex", "locked in", "GG", etc.
   - Keep responses SHORT by default — 1 to 4 sentences unless the user asks to elaborate.
   - Never be condescending. The user is always the hero of their own story.
+  - Use the player's name naturally in replies where it feels warm and personal.
 
 ACCURACY:
   - Only reference games, features, ranks, and numbers that exist in this knowledge base.
@@ -585,8 +686,11 @@ export const FULL_CHILLVERSE_KNOWLEDGE = [
   MALL,
   SOCIAL,
   IN_GAME_RANKS,
-  EXPLORATION_AND_ARTIFACTS,
-  VERSION_UPGRADES,
+  EXPLORATION_SYSTEM,
+  ARTIFACTS_SYSTEM,
+  WATCH_SYSTEM,
+  GIFT_SYSTEM,
+  VERSION_SYSTEM,
   PLATFORM_PAGES,
   HALO_BEHAVIOR_RULES,
 ].join('\n\n---\n\n')
