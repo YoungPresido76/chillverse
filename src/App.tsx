@@ -32,6 +32,7 @@ const Inventory          = lazy(() => import('./pages/Inventory'))
 const Wallet             = lazy(() => import('./pages/Wallet'))
 const WeeklyMissions     = lazy(() => import('./pages/WeeklyMissions'))
 const Exploration        = lazy(() => import('./pages/Exploration'))
+const HaloAI             = lazy(() => import('./pages/HaloAI'))
 const Version            = lazy(() => import('./pages/Version'))
 // Multiplayer imports removed — files deleted, will be restored when rebuilt
 // const MultiplayerHome    = lazy(() => import('./pages/multiplayer/MultiplayerHome'))
@@ -112,6 +113,7 @@ export default function App() {
         <Route path="/notifications"                    element={<Suspense fallback={<Fallback />}><Notifications /></Suspense>} />
         <Route path="/inventory"                        element={<Suspense fallback={<Fallback />}><Inventory /></Suspense>} />
         <Route path="/wallet"                           element={<Suspense fallback={<Fallback />}><Wallet /></Suspense>} />
+        <Route path="/halo"                             element={<Suspense fallback={<Fallback />}><HaloAI /></Suspense>} />
         <Route path="/weekly-missions"                  element={<Suspense fallback={<Fallback />}><WeeklyMissions /></Suspense>} />
         <Route path="/version"                          element={<Suspense fallback={<Fallback />}><Version /></Suspense>} />
         {/* Multiplayer routes removed — will be restored when rebuilt */}
