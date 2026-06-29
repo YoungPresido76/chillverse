@@ -7,9 +7,6 @@ interface GameTip {
   tip: string
 }
 
-// Per-game strategy tips, matched against the user's message so the
-// fallback engine can still give concrete game-specific advice even
-// without a live Gemini call.
 const GAME_TIPS: GameTip[] = [
   { matchers: ['arrow dash', 'arrow_dash', 'arrowdash'], tip: "Arrow Dash tip: react to the arrow's shape, not its color — color is just a distraction. Keep your eyes on the center of the screen so you catch the next prompt instantly." },
   { matchers: ['pattern memory', 'pattern_memory'], tip: 'Pattern Memory tip: chunk the sequence into groups of 3-4 instead of memorizing one long string — say the pattern in your head as you watch it.' },
@@ -32,11 +29,9 @@ function findGameTip(msg: string): string | null {
 
 /**
  * Synchronous, never-throwing keyword-match fallback for Halo AI.
- * Used whenever the Gemini API key is missing or any API call fails,
- * so the assistant always has something useful and accurate to say.
  *
- * BRANCH PRIORITY ORDER (specific → generic to prevent mis-routing):
- *  1.  Per-game strategy tips (most specific)
+ * BRANCH PRIORITY ORDER:
+ *  1.  Per-game strategy tips
  *  2.  Exploration / chambers / maps
  *  3.  Artifacts / collectibles
  *  4.  Streak
@@ -48,12 +43,16 @@ function findGameTip(msg: string): string | null {
  *  10. Gift / send
  *  11. Version / upgrade
  *  12. Achievements / badges
- *  13. XP / experience (with intent check)
- *  14. Rank / level           ← moved DOWN to avoid false matches
+ *  12b. What's new / updates          ← BUG 8 FIX
+ *  13. XP / experience (with intent)
+ *  14. Rank / level
  *  15. Tips / help / advice
  *  16. Game / play (generic)
- *  17. Greeting / hello
- *  18. Default catch-all
+ *  17a. Thanks / positive ack         ← BUG 1 FIX
+ *  17b. Time-of-day / casual openers  ← BUG 1 FIX
+ *  17c. General greetings             ← BUG 1 FIX
+ *  17d. Goodbye / farewell            ← BUG 4 FIX
+ *  18.  Default catch-all (varied)    ← BUG 4 FIX
  */
 export function haloFallback(userMessage: string, ctx: HaloPlayerContext): string {
   const msg = userMessage.toLowerCase()
@@ -62,7 +61,7 @@ export function haloFallback(userMessage: string, ctx: HaloPlayerContext): strin
   const gameTip = findGameTip(msg)
   if (gameTip) return gameTip
 
-  // 2. Exploration — checked BEFORE generic xp/rank to avoid mis-routing
+  // 2. Exploration
   if (
     msg.includes('exploration') || msg.includes('explore') ||
     msg.includes('chamber') || msg.includes('map') || msg.includes('energy') ||
@@ -128,10 +127,19 @@ export function haloFallback(userMessage: string, ctx: HaloPlayerContext): strin
 
   // 12. Achievements / badges
   if (msg.includes('achievement') || msg.includes('badge') || msg.includes('unlock')) {
-    return 'Achievements are milestone rewards you unlock by hitting XP thresholds, winning streaks, or completing special challenges. Check the Achievements page to see which ones you\'re close to and plan your grind! 🏆'
+    return "Achievements are milestone rewards you unlock by hitting XP thresholds, winning streaks, or completing special challenges. Check the Achievements page to see which ones you're close to and plan your grind! 🏆"
   }
 
-  // 13. XP / experience — checked AFTER specific topics to avoid over-broad matching
+  // 12b. BUG 8 FIX — What's new / updates / features
+  if (
+    msg.includes("what's new") || msg.includes('whats new') ||
+    msg.includes('new feature') || msg.includes('update') || msg.includes('latest') ||
+    msg.includes('new in chillverse') || msg.includes('what changed')
+  ) {
+    return "Chillverse's newest features include: the Exploration system (run chambers on maps to earn XP + Artifacts passively), the Artifact collection (/artifacts), Watch (curated video content, open 5am–midnight), the Gifting system (send Mall items to friends), and Version upgrades (v2.0–v5.0 for permanent perks). Ask me about any of these for details! 🆕"
+  }
+
+  // 13. XP / experience
   if (msg.includes('xp') || msg.includes('experience') || msg.includes('earn') || msg.includes('grind') || msg.includes('farm')) {
     const hasIntent =
       msg.includes('get') || msg.includes('earn') || msg.includes('increase') ||
@@ -143,7 +151,7 @@ export function haloFallback(userMessage: string, ctx: HaloPlayerContext): strin
     return `You're at ${ctx.rankEmoji} ${ctx.rankName} with ${ctx.xp.toLocaleString()} XP (Level ${ctx.level}). Keep grinding — every session counts!`
   }
 
-  // 14. Rank / level — checked AFTER specific topics
+  // 14. Rank / level
   if (msg.includes('rank') || msg.includes('level')) {
     return `You're at ${ctx.rankEmoji} ${ctx.rankName} with ${ctx.xp.toLocaleString()} XP (Level ${ctx.level}). Keep grinding — the next rank is closer than you think! 💪`
   }
@@ -161,11 +169,55 @@ export function haloFallback(userMessage: string, ctx: HaloPlayerContext): strin
       : `Check out the Games page — ${GAMES[0].name} and ${GAMES[1].name} are great for XP farming. And Tac Zone is always free to play! 🎮`
   }
 
-  // 17. Greeting
-  if (msg.includes('hello') || msg.includes('hi') || msg.includes('hey') || msg.includes('what can you do') || msg.includes('what do you do')) {
-    return `Hey ${ctx.displayName}! 👋 I'm Halo, your Chillverse guide. Ask me about your rank, games strategy, missions, exploration, artifacts, gifting, or anything else on the platform — I've got you!`
+  // BUG 1 FIX — 17a. Thanks / positive acknowledgement
+  if (
+    msg.includes('thank') || msg.includes('thanks') || msg.includes('ty') ||
+    msg.includes('appreciate') || msg.includes('thx')
+  ) {
+    return `No problem, ${ctx.displayName}! 😊 Always here if you need more help — just ask!`
   }
 
-  // 18. Default catch-all
-  return `Hey ${ctx.displayName}! I'm Halo, your Chillverse companion. Ask me about your rank, XP, a game's strategy, weekly missions, exploration, artifacts, gifting — anything Chillverse! 😊`
+  // BUG 1 FIX — 17b. Time-of-day greetings / casual openers
+  if (
+    msg.includes('good morning') || msg.includes('good evening') ||
+    msg.includes('good afternoon') || msg.includes('good night') ||
+    msg.includes('gm') || msg.includes('gn') || msg.includes('sup') ||
+    msg.includes('yo ') || msg === 'yo' || msg.includes("what's up") ||
+    msg.includes('whats up') || msg.includes('wassup')
+  ) {
+    const hour = new Date().getHours()
+    const timeGreet =
+      hour < 12 ? 'Good morning' :
+      hour < 17 ? 'Good afternoon' :
+      hour < 21 ? 'Good evening' : 'Hey night owl'
+    return `${timeGreet}, ${ctx.displayName}! 👾 You're sitting at ${ctx.rankEmoji} ${ctx.rankName} with ${ctx.xp.toLocaleString()} XP. Ready to grind? Ask me anything about your rank, missions, games, or the platform!`
+  }
+
+  // BUG 1 FIX — 17c. General greetings + casual reactions
+  if (
+    msg.includes('hello') || msg.includes('hi') || msg.includes('hey') ||
+    msg.includes('what can you do') || msg.includes('what do you do') ||
+    msg.includes('halo') || msg === 'ok' || msg.includes('okay') ||
+    msg.includes('lol') || msg.includes('haha') || msg.includes('cool') ||
+    msg.includes('nice') || msg.includes('awesome') || msg.includes('wow')
+  ) {
+    return `Hey ${ctx.displayName}! 👋 I'm Halo, your Chillverse guide. Ask me about your rank, game strategy, missions, exploration, artifacts, gifting, or anything else on the platform — I've got you!`
+  }
+
+  // BUG 4 FIX — 17d. Goodbye / farewell
+  if (
+    msg.includes('bye') || msg.includes('goodbye') || msg.includes('see ya') ||
+    msg.includes('later') || msg.includes('gtg') || msg.includes('gotta go') ||
+    msg.includes('peace')
+  ) {
+    return `Later, ${ctx.displayName}! 👋 Come back soon — those XP won't farm themselves! 🔥`
+  }
+
+  // BUG 4 FIX — 18. Default catch-all (varied pool)
+  const catchAlls = [
+    `Hey ${ctx.displayName}! I'm Halo, your Chillverse companion. Ask me about your rank, XP, a game's strategy, weekly missions, exploration, artifacts, gifting — anything Chillverse! 😊`,
+    `I'm here, ${ctx.displayName}! 👾 Fire away — ask me about games, your rank (${ctx.rankEmoji} ${ctx.rankName}), XP, missions, or the Mall.`,
+    `What's good, ${ctx.displayName}! Ask me anything Chillverse — I'm locked in 🔒`,
+  ]
+  return catchAlls[Math.floor(Math.random() * catchAlls.length)]
 }
