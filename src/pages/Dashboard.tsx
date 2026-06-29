@@ -4,10 +4,9 @@ import { Link } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
   Gamepad2, ShoppingBag, Film, Swords, Sparkles,
-  Bot, Flame, Zap, User, ChevronRight, Fan,
+  Flame, Zap, User, ChevronRight, Fan,
 } from 'lucide-react'
 import { useProfile } from '../hooks/useProfile'
-// HaloAI now lives at /halo — no panel context needed from Dashboard
 import { getUserRankTier, getNextRankTier, getRankProgress } from '../lib/ranks'
 import { ripple } from '../lib/ripple'
 import { supabase } from '../lib/supabase'
@@ -111,8 +110,7 @@ function getStreakMessage(streak: number): { emoji: string; message: string; col
 export default function Dashboard() {
   const { profile, loading, error } = useProfile()
   const { session } = useAuth()
-  // HaloAI navigates to /halo page — no panel open needed
-  const userId = session?.user?.id ?? ''
+    const userId = session?.user?.id ?? ''
 
   const [onlineCount, setOnlineCount]      = useState<number | null>(null)
   const [activeSessions, setActiveSessions] = useState<number>(0)
@@ -364,33 +362,7 @@ export default function Dashboard() {
         </section>
       )}
 
-      {/* ── Halo AI ── */}
-      <section className="su" style={{ animationDelay: '0.35s', paddingBottom: 8 }}>
-        <p className="section-label">Halo AI</p>
-        <Link
-          to="/halo"
-          onClick={(e) => ripple(e)}
-          className="neu-card ripple-wrap"
-          style={{ display: 'block', padding: 20, cursor: 'pointer', border: '1px solid rgba(155,109,255,0.1)', position: 'relative', overflow: 'hidden', textDecoration: 'none' }}
-        >
-          <div style={{ position: 'absolute', bottom: -20, right: -20, width: 140, height: 140, borderRadius: '50%', background: 'radial-gradient(circle, rgba(155,109,255,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--purple)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Bot size={11} /> POWERED BY CVWT
-          </div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)', marginBottom: 4 }}>Halo AI Assistant</div>
-          <div style={{ fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.5, marginBottom: 14 }}>
-            Your personal game coach — strategy, tips, and analysis on demand.
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 48, height: 48, borderRadius: '50%', flexShrink: 0, background: 'conic-gradient(#9b6dff, #4f8ef7, #3ecf8e, #9b6dff)', boxShadow: '0 0 20px rgba(155,109,255,0.4)', animation: 'spin 4s linear infinite' }} />
-            <div style={{ flex: 1, background: 'var(--bg)', borderRadius: 10, padding: '10px 14px', border: '1px solid rgba(255,255,255,0.06)', fontSize: 12, color: 'var(--text-muted)' }}>
-              Ask Halo anything…
-            </div>
-          </div>
-        </Link>
-      </section>
-
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
-}
+                                                       }
+                  
