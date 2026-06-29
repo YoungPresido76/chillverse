@@ -2,8 +2,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
-  Swords, Clock, X, Crown,
-  Grid3X3, CheckCircle, XCircle, Zap,
+  Swords, Clock, X, X as XIcon, Crown,
+  Grid3X3, CheckCircle, XCircle, Zap, Circle,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
@@ -104,6 +104,14 @@ function TicTacToeArena({
         clearInterval(tick)
         // Whoever was due to play has gone inactive
         const inactiveName = isMyTurn ? myName : opponentName
+        // Close out the challenge row so it doesn't stay "active" forever
+        // (no winner/loser/XP — this is a no-contest)
+        supabase
+          .from('challenges')
+          .update({ status: 'completed', completed_at: new Date().toISOString() })
+          .eq('id', challengeId)
+          .eq('status', 'accepted')
+          .then(() => {})
         onInactivity(inactiveName)
       }
     }, 1000)
@@ -236,25 +244,26 @@ function TicTacToeArena({
       </div>
 
       {/* Board */}
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(3, ${CELL}px)`, gap: 8, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(3, ${CELL}px)`, gridTemplateRows: `repeat(3, ${CELL}px)`, gap: 10, marginBottom: 20 }}>
         {board.map((cell, i) => {
           const inLine = line?.includes(i)
           return (
-            <button key={i} onClick={() => handleCell(i)}
+            <button key={i} onClick={() => handleCell(i)} aria-label={`Cell ${i + 1}`}
               style={{
-                width: CELL, height: CELL, borderRadius: 16,
-                border: `1.5px solid ${inLine ? (winner === 'X' ? 'var(--accent)' : '#9b6dff') : 'rgba(255,255,255,0.09)'}`,
-                background: inLine
-                  ? (winner === 'X' ? 'rgba(255,107,0,0.15)' : 'rgba(155,109,255,0.15)')
-                  : (isMyTurn && !cell && !gameOver ? 'rgba(255,255,255,0.03)' : 'var(--surface)'),
+                width: CELL, height: CELL, borderRadius: 20,
                 cursor: (cell || gameOver || !isMyTurn) ? 'default' : 'pointer',
+                background: inLine
+                  ? (winner === 'X' ? 'rgba(62,207,142,0.18)' : 'rgba(255,77,139,0.18)')
+                  : 'var(--surface)',
+                boxShadow: inLine
+                  ? `0 0 28px ${winner === 'X' ? 'rgba(62,207,142,0.5)' : 'rgba(255,77,139,0.5)'}`
+                  : '4px 4px 12px var(--neu-dark), -3px -3px 8px var(--neu-light)',
+                border: '1px solid rgba(255,255,255,0.06)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 32, fontWeight: 900,
-                color: cell === 'X' ? 'var(--accent)' : '#9b6dff',
-                transition: 'all 0.15s',
-                transform: inLine ? 'scale(1.05)' : 'scale(1)',
+                transition: 'all 0.18s',
               }}>
-              {cell === 'X' ? '✕' : cell === 'O' ? '○' : ''}
+              {cell === 'X' && <XIcon size={40} style={{ color: '#3ecf8e' }} />}
+              {cell === 'O' && <Circle size={38} style={{ color: 'var(--pink)' }} />}
             </button>
           )
         })}
