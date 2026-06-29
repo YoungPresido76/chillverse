@@ -20,6 +20,10 @@ export interface Profile {
   favorite_game: string | null   // matches a game's dbKey
   grid_cards: string[]           // up to 3 of: 'achievements' | 'rank' | 'leaderboard'
   show_follow_counts: boolean
+  // ── Halo AI ──
+  halo_messages_today: number            // default 0
+  halo_last_message_date: string | null  // ISO date string YYYY-MM-DD or null
+  version_level: number                  // 0 = v1.0 (free), 1 = v2.0, 2 = v3.0, etc.
 }
 
 export interface SignupProfileInput {
