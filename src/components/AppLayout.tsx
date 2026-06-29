@@ -132,8 +132,6 @@ export default function AppLayout() {
     return () => { active = false }
   }, [user])
 
-  const xp = profile?.xp ?? 0
-
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 1279px)')
     setSidebarCollapsed(mq.matches)
