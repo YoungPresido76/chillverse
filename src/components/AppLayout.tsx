@@ -6,11 +6,8 @@ import Topbar from './Topbar'
 import AchievementToast from './AchievementToast'
 import NotificationToastRenderer from './NotificationToastRenderer'
 import IncomingChallengeOverlay from './IncomingChallengeOverlay'
-import { useProfile } from '../hooks/useProfile'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
-import { getUserRankTier } from '../lib/ranks'
-import { getGlobalSessionInfo } from '../lib/gameSession'
 import { useChallengeListener } from '../hooks/useChallengeListener'
 import type { IncomingChallenge } from '../hooks/useChallengeListener'
 
@@ -91,10 +88,9 @@ export default function AppLayout() {
   const { pathname } = useLocation()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const { profile } = useProfile()
   const { user, session } = useAuth()
   const myId = session?.user?.id ?? null
-  const [wishlistNames, setWishlistNames] = useState<string[]>([])
+  const [, setWishlistNames] = useState<string[]>([])
 
   // ── Challenge listener ──
   const { incoming, update, clearIncoming, clearUpdate } = useChallengeListener()
@@ -105,18 +101,13 @@ export default function AppLayout() {
     if (!update) return
     if (update.status === 'accepted') {
       clearUpdate()
-      // Navigate challenger to challenges page with context
-      // (the ChallengeFullModal inside will already handle this via its own subscription,
-      //  but if the user navigated away we redirect them back)
     }
-    // Rematch requests come as new challenge inserts — handled by incoming flow
     clearUpdate()
   }, [update, clearUpdate])
 
   // ── Accept incoming challenge ──
   const handleAcceptIncoming = useCallback((challenge: IncomingChallenge) => {
     clearIncoming()
-    // Navigate challenged user to /challenges with params so the TicTacToe board opens
     navigate(`/challenges?cid=${challenge.id}&oid=${challenge.challenger_id}&oname=${encodeURIComponent(challenge.challenger_name)}&game=${challenge.game}`)
   }, [clearIncoming, navigate])
 
@@ -128,22 +119,6 @@ export default function AppLayout() {
       .then(({ data }) => { if (active) setWishlistNames((data ?? []).map((row: { item_name: string }) => row.item_name)) })
     return () => { active = false }
   }, [user])
-
-  const xp = profile?.xp ?? 0
-  const rankTier = getUserRankTier(xp)
-  const sessionInfo = user ? getGlobalSessionInfo(user.id) : { count: 0 }
-
-  const playerCtx: HaloPlayerContext = {
-    displayName:   profile?.display_name ?? 'Player',
-    rankName:      rankTier.name,
-    rankEmoji:     rankTier.emoji,
-    streakDays:    profile?.streak ?? 0,
-    favoriteGame:  profile?.favorite_game ?? null,
-    wishlistItems: wishlistNames,
-    sessionsToday: sessionInfo.count,
-    xp,
-    level: profile?.level ?? 1,
-  }
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 1279px)')
@@ -162,77 +137,74 @@ export default function AppLayout() {
   const sidebarWidth = sidebarCollapsed ? 72 : 280
 
   return (
-    <HaloProvider>
-      <div className="min-h-screen relative" style={{ background: 'var(--bg)' }}>
-        {/* Ambient bubbles */}
-        <div className="bubble-bg">
-          <div className="bubble" style={{ width: 420, height: 420, background: '#ff6b00', left: '-10%', top: '10%', animationDuration: '22s' }} />
-          <div className="bubble" style={{ width: 300, height: 300, background: '#9b6dff', right: '5%', top: '30%', animationDuration: '28s', animationDelay: '-8s' }} />
-          <div className="bubble" style={{ width: 250, height: 250, background: '#4f8ef7', left: '40%', bottom: '15%', animationDuration: '18s', animationDelay: '-4s' }} />
-          <div className="bubble" style={{ width: 180, height: 180, background: '#3ecf8e', right: '25%', top: '5%', animationDuration: '32s', animationDelay: '-12s' }} />
-        </div>
-
-        <Sidebar
-          open={sidebarOpen}
-          collapsed={sidebarCollapsed}
-          onClose={() => setSidebarOpen(false)}
-          onToggleCollapse={() => setSidebarCollapsed(c => !c)}
-        />
-
-        <Topbar
-          title={title}
-          showBack={!isTopLevel}
-          onBack={() => navigate(-1)}
-          onMenuClick={() => setSidebarOpen(true)}
-        />
-
-        <AchievementToast />
-        <NotificationToastRenderer />
-
-        {/* Global incoming challenge overlay */}
-        {incoming && myId && (
-          <IncomingChallengeOverlay
-            challenge={incoming}
-            myId={myId}
-            onAccept={handleAcceptIncoming}
-            onDismiss={clearIncoming}
-          />
-        )}
-
-        {/* Rematch banner */}
-        {rematchFrom && (
-          <RematchBanner
-            opponentName={rematchFrom.opponentName}
-            onAccept={() => {
-              navigate(`/challenges?oid=${rematchFrom.opponentId}&oname=${encodeURIComponent(rematchFrom.opponentName)}&game=${rematchFrom.game}`)
-              setRematchFrom(null)
-            }}
-            onDecline={() => setRematchFrom(null)}
-          />
-        )}
-
-        <main
-          className="pt-[68px] pb-12 relative z-10 transition-all duration-300"
-          style={{ paddingLeft: 'clamp(1rem, 4vw, 2rem)', paddingRight: 'clamp(1rem, 4vw, 2rem)' }}
-        >
-          <div
-            className="hidden lg:block transition-all duration-300"
-            style={{ paddingLeft: sidebarWidth }}
-          />
-          <div className="lg:transition-all lg:duration-300" style={{ paddingLeft: 0 }}>
-            <style>{`
-              @media (min-width: 1024px) {
-                .cv-main-inner { padding-left: ${sidebarWidth + 24}px !important; }
-              }
-            `}</style>
-            <div className="cv-main-inner">
-              <Outlet />
-            </div>
-          </div>
-        </main>
-
-        <HaloPanel playerCtx={playerCtx} />
+    <div className="min-h-screen relative" style={{ background: 'var(--bg)' }}>
+      {/* Ambient bubbles */}
+      <div className="bubble-bg">
+        <div className="bubble" style={{ width: 420, height: 420, background: '#ff6b00', left: '-10%', top: '10%', animationDuration: '22s' }} />
+        <div className="bubble" style={{ width: 300, height: 300, background: '#9b6dff', right: '5%', top: '30%', animationDuration: '28s', animationDelay: '-8s' }} />
+        <div className="bubble" style={{ width: 250, height: 250, background: '#4f8ef7', left: '40%', bottom: '15%', animationDuration: '18s', animationDelay: '-4s' }} />
+        <div className="bubble" style={{ width: 180, height: 180, background: '#3ecf8e', right: '25%', top: '5%', animationDuration: '32s', animationDelay: '-12s' }} />
       </div>
-    </HaloProvider>
+
+      <Sidebar
+        open={sidebarOpen}
+        collapsed={sidebarCollapsed}
+        onClose={() => setSidebarOpen(false)}
+        onToggleCollapse={() => setSidebarCollapsed(c => !c)}
+      />
+
+      <Topbar
+        title={title}
+        showBack={!isTopLevel}
+        onBack={() => navigate(-1)}
+        onMenuClick={() => setSidebarOpen(true)}
+      />
+
+      <AchievementToast />
+      <NotificationToastRenderer />
+
+      {/* Global incoming challenge overlay */}
+      {incoming && myId && (
+        <IncomingChallengeOverlay
+          challenge={incoming}
+          myId={myId}
+          onAccept={handleAcceptIncoming}
+          onDismiss={clearIncoming}
+        />
+      )}
+
+      {/* Rematch banner */}
+      {rematchFrom && (
+        <RematchBanner
+          opponentName={rematchFrom.opponentName}
+          onAccept={() => {
+            navigate(`/challenges?oid=${rematchFrom.opponentId}&oname=${encodeURIComponent(rematchFrom.opponentName)}&game=${rematchFrom.game}`)
+            setRematchFrom(null)
+          }}
+          onDecline={() => setRematchFrom(null)}
+        />
+      )}
+
+      <main
+        className="pt-[68px] pb-12 relative z-10 transition-all duration-300"
+        style={{ paddingLeft: 'clamp(1rem, 4vw, 2rem)', paddingRight: 'clamp(1rem, 4vw, 2rem)' }}
+      >
+        <div
+          className="hidden lg:block transition-all duration-300"
+          style={{ paddingLeft: sidebarWidth }}
+        />
+        <div className="lg:transition-all lg:duration-300" style={{ paddingLeft: 0 }}>
+          <style>{`
+            @media (min-width: 1024px) {
+              .cv-main-inner { padding-left: ${sidebarWidth + 24}px !important; }
+            }
+          `}</style>
+          <div className="cv-main-inner">
+            <Outlet />
+          </div>
+        </div>
+      </main>
+    </div>
   )
-          }
+      }
+      
