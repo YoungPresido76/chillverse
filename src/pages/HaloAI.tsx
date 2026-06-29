@@ -1,7 +1,7 @@
 // src/pages/HaloAI.tsx
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Send, Sparkles } from 'lucide-react'
+import { ArrowLeft, Send } from 'lucide-react'
 import { useHaloAI, type HaloMessage } from '../hooks/useHaloAI'
 import { useProfile } from '../hooks/useProfile'
 
@@ -446,4 +446,5 @@ export default function HaloAI() {
       </div>
     </div>
   )
-}
+      }
+                  
