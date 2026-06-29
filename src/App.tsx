@@ -34,6 +34,7 @@ const WeeklyMissions     = lazy(() => import('./pages/WeeklyMissions'))
 const Exploration        = lazy(() => import('./pages/Exploration'))
 const Version            = lazy(() => import('./pages/Version'))
 const Challenges         = lazy(() => import('./pages/Challenges'))
+const HaloAI             = lazy(() => import('./pages/HaloAI'))
 
 const Fallback = () => (
   <div style={{ color: 'var(--text-dim)', padding: 40, textAlign: 'center' }}>Loading…</div>
@@ -97,7 +98,8 @@ export default function App() {
         <Route path="/weekly-missions"  element={<Suspense fallback={<Fallback />}><WeeklyMissions /></Suspense>} />
         <Route path="/version"          element={<Suspense fallback={<Fallback />}><Version /></Suspense>} />
         <Route path="/challenges"       element={<Suspense fallback={<Fallback />}><Challenges /></Suspense>} />
+        <Route path="/halo"             element={<Suspense fallback={<Fallback />}><HaloAI /></Suspense>} />
       </Route>
     </Routes>
   )
-}
+      }
