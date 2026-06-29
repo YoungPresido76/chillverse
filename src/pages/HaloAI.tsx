@@ -1,5 +1,5 @@
 // src/pages/HaloAI.tsx
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { Send, Bot, Sparkles } from 'lucide-react'
 import { useHaloAI } from '../hooks/useHaloAI'
@@ -26,8 +26,9 @@ export default function HaloAIPage() {
   const [wishlistNames, setWishlistNames] = useState<string[]>([])
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  // BUG 6 FIX: guard so greetUser only fires once per mount
+  const hasGreeted = useRef(false)
 
-  // Pull wishlist for context (mirrors AppLayout)
   useEffect(() => {
     if (!user) { setWishlistNames([]); return }
     let active = true
@@ -46,7 +47,9 @@ export default function HaloAIPage() {
   const rankTier = getUserRankTier(xp)
   const sessionInfo = user ? getGlobalSessionInfo(user.id) : { count: 0 }
 
-  const playerCtx: HaloPlayerContext = {
+  // BUG 7 FIX: memoize playerCtx so sendMessage / greetUser are not recreated
+  // on every render due to a new object reference being constructed each time.
+  const playerCtx: HaloPlayerContext = useMemo(() => ({
     displayName: profile?.display_name ?? profile?.username ?? 'Player',
     rankName: rankTier.name,
     rankEmoji: rankTier.emoji,
@@ -56,11 +59,17 @@ export default function HaloAIPage() {
     sessionsToday: sessionInfo.count,
     xp,
     level: profile?.level ?? 1,
-  }
+  }), [profile, rankTier, wishlistNames, sessionInfo.count, xp])
 
-  const { messages, isLoading, sendMessage } = useHaloAI(playerCtx)
+  const { messages, isLoading, sendMessage, greetUser } = useHaloAI(playerCtx)
 
-  // Scroll to bottom on new messages
+  // BUG 6 FIX: auto-greet on first mount once the profile is available
+  useEffect(() => {
+    if (hasGreeted.current || !profile) return
+    hasGreeted.current = true
+    greetUser()
+  }, [profile, greetUser])
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isLoading])
@@ -70,7 +79,6 @@ export default function HaloAIPage() {
     if (!trimmed || isLoading) return
     sendMessage(trimmed)
     setInput('')
-    // Reset textarea height
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
   }
 
@@ -86,7 +94,6 @@ export default function HaloAIPage() {
     sendMessage(chip)
   }
 
-  // Auto-grow textarea
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value)
     const el = e.target
@@ -94,6 +101,8 @@ export default function HaloAIPage() {
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`
   }
 
+  // After auto-greet, messages.length will be 1 — empty state only shown
+  // before profile has loaded and greetUser has fired.
   const isEmpty = messages.length === 0
 
   return (
@@ -101,7 +110,7 @@ export default function HaloAIPage() {
       style={{
         display: 'flex',
         flexDirection: 'column',
-        height: 'calc(100dvh - 60px)', // subtract topbar height
+        height: 'calc(100dvh - 60px)',
         maxWidth: 760,
         margin: '0 auto',
         position: 'relative',
@@ -118,7 +127,6 @@ export default function HaloAIPage() {
           borderBottom: '1px solid rgba(255,255,255,0.05)',
         }}
       >
-        {/* Halo spinning orb */}
         <div
           style={{
             width: 42,
@@ -153,7 +161,6 @@ export default function HaloAIPage() {
           </p>
         </div>
 
-        {/* Rank badge top-right of header */}
         {profile && (
           <div
             style={{
@@ -189,7 +196,7 @@ export default function HaloAIPage() {
         }}
       >
         {isEmpty ? (
-          /* ── Empty state ── */
+          /* ── Empty state (only while profile is loading before greet fires) ── */
           <div
             style={{
               flex: 1,
@@ -202,7 +209,6 @@ export default function HaloAIPage() {
               textAlign: 'center',
             }}
           >
-            {/* Large orb */}
             <div
               style={{
                 width: 80,
@@ -215,14 +221,7 @@ export default function HaloAIPage() {
               }}
             />
             <div>
-              <p
-                style={{
-                  fontSize: 16,
-                  fontWeight: 700,
-                  color: 'var(--text)',
-                  marginBottom: 6,
-                }}
-              >
+              <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
                 Ask me anything 👾
               </p>
               <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6, maxWidth: 280 }}>
@@ -230,7 +229,7 @@ export default function HaloAIPage() {
               </p>
             </div>
 
-            {/* Quick prompt chips */}
+            {/* BUG 5 FIX: chips disabled + dimmed while loading */}
             <div
               style={{
                 display: 'flex',
@@ -244,6 +243,7 @@ export default function HaloAIPage() {
                 <button
                   key={chip}
                   onClick={() => handleChip(chip)}
+                  disabled={isLoading}
                   style={{
                     background: 'var(--surface)',
                     border: '1px solid rgba(155,109,255,0.18)',
@@ -251,16 +251,20 @@ export default function HaloAIPage() {
                     padding: '8px 14px',
                     fontSize: 12,
                     color: 'var(--text-dim)',
-                    cursor: 'pointer',
+                    cursor: isLoading ? 'default' : 'pointer',
                     transition: 'all 0.18s',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 5,
                     boxShadow: '3px 3px 8px var(--neu-dark), -2px -2px 6px var(--neu-light)',
+                    opacity: isLoading ? 0.4 : 1,
+                    pointerEvents: isLoading ? 'none' : 'auto',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'rgba(155,109,255,0.45)'
-                    e.currentTarget.style.color = 'var(--text)'
+                    if (!isLoading) {
+                      e.currentTarget.style.borderColor = 'rgba(155,109,255,0.45)'
+                      e.currentTarget.style.color = 'var(--text)'
+                    }
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.borderColor = 'rgba(155,109,255,0.18)'
@@ -292,7 +296,6 @@ export default function HaloAIPage() {
           borderTop: '1px solid rgba(255,255,255,0.05)',
         }}
       >
-        {/* Context chip — shown when profile loaded */}
         {profile && !isEmpty && (
           <div
             style={{
@@ -310,13 +313,7 @@ export default function HaloAIPage() {
           </div>
         )}
 
-        <div
-          style={{
-            display: 'flex',
-            gap: 10,
-            alignItems: 'flex-end',
-          }}
-        >
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
           <textarea
             ref={textareaRef}
             value={input}
@@ -341,12 +338,8 @@ export default function HaloAIPage() {
               transition: 'border-color 0.2s',
               fontFamily: 'inherit',
             }}
-            onFocus={(e) => {
-              e.currentTarget.style.borderColor = 'rgba(155,109,255,0.4)'
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = 'rgba(155,109,255,0.15)'
-            }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(155,109,255,0.4)' }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(155,109,255,0.15)' }}
           />
 
           <button
@@ -375,9 +368,7 @@ export default function HaloAIPage() {
             onMouseEnter={(e) => {
               if (input.trim() && !isLoading) e.currentTarget.style.transform = 'scale(1.05)'
             }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'scale(1)'
-            }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)' }}
           >
             <Send size={18} color={input.trim() && !isLoading ? '#fff' : 'var(--text-muted)'} />
           </button>
