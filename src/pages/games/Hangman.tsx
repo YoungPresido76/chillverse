@@ -263,9 +263,9 @@ function DiffProgressBar({ difficulty, winsInDiff, winsNeeded }: { difficulty: D
   )
 }
 
-interface Props { rank: GameRank; onEnd: (payload: GameEndPayload) => void; onBack: () => void }
+interface Props { rank: GameRank; onEnd: (payload: GameEndPayload) => void; onBack: () => void; sessionsLeft?: number; sessionCost?: number }
 
-export default function Hangman({ rank: _rank, onEnd, onBack }: Props) {
+export default function Hangman({ rank: _rank, onEnd, onBack, sessionsLeft = 99, sessionCost = 1 }: Props) {
   useGamePresence('hangman')
   const [phase, setPhase] = useState<'info' | 'play' | 'result' | 'quit'>('info')
 
@@ -419,7 +419,7 @@ export default function Hangman({ rank: _rank, onEnd, onBack }: Props) {
 
   if (phase === 'result' && result) return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
-      <ResultScreen payload={result} accent={ACCENT} onReplay={() => { setResult(null); start() }} onBack={onBack} promoted={null} />
+      <ResultScreen payload={result} accent={ACCENT} onReplay={() => { setResult(null); start() }} onBack={onBack} promoted={null} sessionsLeft={sessionsLeft} sessionCost={sessionCost} />
     </div>
   )
 

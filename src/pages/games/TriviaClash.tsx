@@ -34,9 +34,11 @@ interface Props {
   rank: GameRank
   onEnd: (payload: GameEndPayload) => void
   onBack: () => void
+  sessionsLeft?: number
+  sessionCost?: number
 }
 
-export default function TriviaClash({ rank: initialRank, onEnd, onBack }: Props) {
+export default function TriviaClash({ rank: initialRank, onEnd, onBack, sessionsLeft = 99, sessionCost = 1 }: Props) {
   const [phase, setPhase] = useState<'info' | 'play' | 'result' | 'quit'>('info')
   useGamePresence(GAME_ID)
   const { rankState, onCorrect, onWrong } = useRankStreak(GAME_ID, initialRank)
@@ -249,7 +251,7 @@ export default function TriviaClash({ rank: initialRank, onEnd, onBack }: Props)
         onReplay={() => { setResult(null); handleStart() }}
         onBack={onBack}
         promoted={promoted}
-      />
+      sessionsLeft={sessionsLeft} sessionCost={sessionCost} />
     </div>
   )
 

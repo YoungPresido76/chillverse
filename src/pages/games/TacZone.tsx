@@ -67,9 +67,11 @@ interface Props {
   rank: GameRank
   onEnd: (payload: GameEndPayload) => void
   onBack: () => void
+  sessionsLeft?: number
+  sessionCost?: number
 }
 
-export default function TacZone({ rank: initialRank, onEnd, onBack }: Props) {
+export default function TacZone({ rank: initialRank, onEnd, onBack, sessionsLeft = 99, sessionCost = 1 }: Props) {
   const [phase, setPhase] = useState<'info' | 'play' | 'result' | 'quit'>('info')
   const [mode, setMode] = useState<TacMode>('hard')
   useGamePresence(GAME_ID)
@@ -203,7 +205,7 @@ export default function TacZone({ rank: initialRank, onEnd, onBack }: Props) {
 
   if (phase === 'result' && result) return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
-      <ResultScreen payload={result} accent={ACCENT} onReplay={() => { setResult(null); start() }} onBack={onBack} />
+      <ResultScreen payload={result} accent={ACCENT} onReplay={() => { setResult(null); start() }} onBack={onBack} sessionsLeft={sessionsLeft} sessionCost={sessionCost} />
     </div>
   )
 

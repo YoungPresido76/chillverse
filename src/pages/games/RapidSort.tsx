@@ -177,9 +177,11 @@ interface Props {
   rank: GameRank
   onEnd: (payload: GameEndPayload) => void
   onBack: () => void
+  sessionsLeft?: number
+  sessionCost?: number
 }
 
-export default function RapidSort({ rank: initialRank, onEnd, onBack }: Props) {
+export default function RapidSort({ rank: initialRank, onEnd, onBack, sessionsLeft = 99, sessionCost = 1 }: Props) {
   useGamePresence(GAME_ID)
   const { rankState, onCorrect, onWrong } = useRankStreak(GAME_ID, initialRank)
 
@@ -395,7 +397,7 @@ export default function RapidSort({ rank: initialRank, onEnd, onBack }: Props) {
           onReplay={loadQuestions}
           onBack={onBack}
           promoted={promoted}
-        />
+        sessionsLeft={sessionsLeft} sessionCost={sessionCost} />
       </div>
     )
   }

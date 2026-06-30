@@ -108,9 +108,9 @@ function TimerRing({ timeLeft, total }: { timeLeft: number; total: number }) {
   )
 }
 
-interface Props { rank: GameRank; onEnd: (payload: GameEndPayload) => void; onBack: () => void }
+interface Props { rank: GameRank; onEnd: (payload: GameEndPayload) => void; onBack: () => void; sessionsLeft?: number; sessionCost?: number }
 
-export default function CloseCall({ rank: _rank, onEnd, onBack }: Props) {
+export default function CloseCall({ rank: _rank, onEnd, onBack, sessionsLeft = 99, sessionCost = 1 }: Props) {
   useGamePresence('close-call')
   const [phase, setPhase]         = useState<'info' | 'play' | 'result' | 'quit'>('info')
   const [qIndex, setQIndex]       = useState(0)
@@ -260,7 +260,7 @@ export default function CloseCall({ rank: _rank, onEnd, onBack }: Props) {
 
   if (phase === 'result' && result) return (
     <div style={{ flex:1, display:'flex', flexDirection:'column', background:'var(--bg)' }}>
-      <ResultScreen payload={result} accent={ACCENT} onReplay={() => { setResult(null); start() }} onBack={onBack} promoted={null} />
+      <ResultScreen payload={result} accent={ACCENT} onReplay={() => { setResult(null); start() }} onBack={onBack} promoted={null} sessionsLeft={sessionsLeft} sessionCost={sessionCost} />
     </div>
   )
 

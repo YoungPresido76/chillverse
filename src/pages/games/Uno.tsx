@@ -115,9 +115,11 @@ interface Props {
   rank: GameRank
   onEnd: (payload: GameEndPayload) => void
   onBack: () => void
+  sessionsLeft?: number
+  sessionCost?: number
 }
 
-export default function Uno({ rank: initialRank, onEnd, onBack }: Props) {
+export default function Uno({ rank: initialRank, onEnd, onBack, sessionsLeft = 99, sessionCost = 4 }: Props) {
   const [phase, setPhase] = useState<'info' | 'play' | 'colorPick' | 'result' | 'quit'>('info')
   useGamePresence(GAME_ID)
   const { rankState, onCorrect, onWrong } = useRankStreak(GAME_ID, initialRank)
@@ -605,9 +607,19 @@ export default function Uno({ rank: initialRank, onEnd, onBack }: Props) {
           </div>
 
           <div style={{ display: 'flex', gap: 10 }}>
-            <button type="button" onClick={newGame} style={{
-              flex: 1, padding: 12, borderRadius: 13, border: 'none', cursor: 'pointer',
-              background: `linear-gradient(135deg, ${ACCENT}, #c4a8ff)`, color: '#fff', fontSize: 14, fontWeight: 700,
+            <button type="button" onClick={() => {
+              if (sessionsLeft < sessionCost) {
+                // show inline notice — reuse the parent toast pattern
+                const el = document.getElementById('uno-session-toast')
+                if (el) { el.style.opacity = '1'; setTimeout(() => { el.style.opacity = '0' }, 3000) }
+                return
+              }
+              newGame()
+            }} style={{
+              flex: 1, padding: 12, borderRadius: 13, border: sessionsLeft >= sessionCost ? 'none' : '1px solid rgba(255,255,255,0.08)',
+              cursor: sessionsLeft >= sessionCost ? 'pointer' : 'not-allowed',
+              background: sessionsLeft >= sessionCost ? `linear-gradient(135deg, ${ACCENT}, #c4a8ff)` : 'rgba(255,255,255,0.05)',
+              color: sessionsLeft >= sessionCost ? '#fff' : 'var(--text-muted)', fontSize: 14, fontWeight: 700,
             }}>
               Play Again
             </button>
@@ -618,6 +630,15 @@ export default function Uno({ rank: initialRank, onEnd, onBack }: Props) {
             }}>
               Done
             </button>
+          </div>
+          <div id="uno-session-toast" style={{
+            position: 'fixed', bottom: 90, left: '50%', transform: 'translateX(-50%)',
+            zIndex: 9999, padding: '10px 18px', borderRadius: 14,
+            background: 'rgba(14,14,18,0.97)', border: '1px solid rgba(155,109,255,0.5)',
+            fontSize: 12.5, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap',
+            opacity: 0, transition: 'opacity 0.3s', pointerEvents: 'none',
+          }}>
+            ⚡ Insufficient sessions — resets in a few hours
           </div>
         </div>
       </div>

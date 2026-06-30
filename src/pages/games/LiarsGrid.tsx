@@ -100,9 +100,11 @@ interface Props {
   rank: GameRank
   onEnd: (payload: GameEndPayload) => void
   onBack: () => void
+  sessionsLeft?: number
+  sessionCost?: number
 }
 
-export default function LiarsGrid({ rank: initialRank, onEnd, onBack }: Props) {
+export default function LiarsGrid({ rank: initialRank, onEnd, onBack, sessionsLeft = 99, sessionCost = 1 }: Props) {
   const [phase, setPhase] = useState<'info' | 'play' | 'result' | 'quit'>('info')
   useGamePresence(GAME_ID)
   const { rankState, onCorrect, onWrong } = useRankStreak(GAME_ID, initialRank)
@@ -296,7 +298,7 @@ export default function LiarsGrid({ rank: initialRank, onEnd, onBack }: Props) {
 
   if (phase === 'result' && result) return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
-      <ResultScreen payload={result} accent={ACCENT} onReplay={() => { setResult(null); start() }} onBack={onBack} promoted={promoted} />
+      <ResultScreen payload={result} accent={ACCENT} onReplay={() => { setResult(null); start() }} onBack={onBack} promoted={promoted} sessionsLeft={sessionsLeft} sessionCost={sessionCost} />
     </div>
   )
 

@@ -242,14 +242,18 @@ interface ResultScreenProps {
   onReplay: () => void
   onBack: () => void
   promoted?: GameRank | null
+  sessionCost?: number
+  sessionsLeft?: number
 }
 
-export function ResultScreen({ payload, accent, onReplay, onBack, promoted }: ResultScreenProps) {
+export function ResultScreen({ payload, accent, onReplay, onBack, promoted, sessionCost = 1, sessionsLeft = 99 }: ResultScreenProps) {
   const [showPromo, setShowPromo] = useState(!!promoted)
   const [displayScore, setDisplayScore] = useState(0)
   const [displayXP, setDisplayXP] = useState(0)
   const [xpBannerVisible, setXpBannerVisible] = useState(false)
   const [buttonsVisible, setButtonsVisible] = useState(false)
+  const [sessionToast, setSessionToast] = useState(false)
+  const canPlayAgain = sessionsLeft >= sessionCost
   const mins = Math.floor(payload.durationSec / 60)
   const secs = payload.durationSec % 60
   const durationStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
@@ -386,10 +390,22 @@ export function ResultScreen({ payload, accent, onReplay, onBack, promoted }: Re
           transform: buttonsVisible ? 'translateY(0)' : 'translateY(8px)',
           transition: 'opacity 0.4s ease, transform 0.4s ease',
         }}>
-          <button type="button" onClick={onReplay} style={{
+          <button type="button" onClick={() => {
+            if (!canPlayAgain) {
+              setSessionToast(true)
+              setTimeout(() => setSessionToast(false), 3000)
+              return
+            }
+            onReplay()
+          }} style={{
             flex: 1, padding: '12px', borderRadius: 13,
-            background: `linear-gradient(135deg, ${accent}, ${accent}bb)`,
-            border: 'none', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+            background: canPlayAgain
+              ? `linear-gradient(135deg, ${accent}, ${accent}bb)`
+              : 'rgba(255,255,255,0.05)',
+            border: canPlayAgain ? 'none' : '1px solid rgba(255,255,255,0.08)',
+            color: canPlayAgain ? '#fff' : 'var(--text-muted)',
+            fontSize: 14, fontWeight: 700,
+            cursor: canPlayAgain ? 'pointer' : 'not-allowed',
           }}>
             Play Again
           </button>
@@ -402,6 +418,24 @@ export function ResultScreen({ payload, accent, onReplay, onBack, promoted }: Re
             Done
           </button>
         </div>
+
+        {/* Insufficient sessions toast */}
+        {sessionToast && (
+          <div style={{
+            position: 'fixed', bottom: 90, left: '50%', transform: 'translateX(-50%)',
+            zIndex: 9999, display: 'flex', alignItems: 'center', gap: 8,
+            padding: '10px 18px', borderRadius: 14,
+            background: 'rgba(14,14,18,0.97)',
+            border: '1px solid rgba(155,109,255,0.5)',
+            boxShadow: '0 8px 28px rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(14px)',
+            fontSize: 12.5, fontWeight: 700, color: 'var(--text)',
+            whiteSpace: 'nowrap',
+            animation: 'achSlideIn 0.35s cubic-bezier(0.34,1.56,0.64,1) both',
+          }}>
+            ⚡ Insufficient sessions — resets in a few hours
+          </div>
+        )}
       </div>
     </div>
   )
