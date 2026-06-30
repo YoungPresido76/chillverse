@@ -42,6 +42,17 @@ export interface PlayerRankRow {
 const GLOBAL_LIMIT         = 15
 const SESSION_COOLDOWN_HRS = 4.5 // lock duration once all 15 are burned
 
+interface SessionInfoRow {
+  count: number
+  reset_at: string | null
+}
+
+interface IncrementSessionRow {
+  count: number
+  reset_at: string | null
+  limit_reached: boolean
+}
+
 export async function getGlobalSessionInfo(userId: string): Promise<{
   count: number
   limit: number
@@ -50,18 +61,18 @@ export async function getGlobalSessionInfo(userId: string): Promise<{
 }> {
   const { data, error } = await supabase
     .rpc('get_session_info', { p_user_id: userId })
-    .maybeSingle()
+    .maybeSingle<SessionInfoRow>()
 
   if (error || !data) {
     console.error('getGlobalSessionInfo error:', error)
     return { count: 0, limit: GLOBAL_LIMIT, limitReached: false, resetAt: 0 }
   }
 
-  const resetAt = data.reset_at ? new Date(data.reset_at as string).getTime() : 0
+  const resetAt = data.reset_at ? new Date(data.reset_at).getTime() : 0
   return {
-    count: data.count as number,
+    count: data.count,
     limit: GLOBAL_LIMIT,
-    limitReached: (data.count as number) >= GLOBAL_LIMIT,
+    limitReached: data.count >= GLOBAL_LIMIT,
     resetAt,
   }
 }
@@ -74,7 +85,7 @@ export async function incrementGlobalSession(userId: string, by = 1) {
       p_limit: GLOBAL_LIMIT,
       p_cooldown_hours: SESSION_COOLDOWN_HRS,
     })
-    .maybeSingle()
+    .maybeSingle<IncrementSessionRow>()
 
   if (error) {
     console.error('incrementGlobalSession error:', error)
@@ -82,8 +93,8 @@ export async function incrementGlobalSession(userId: string, by = 1) {
   }
   if (!data) return null
 
-  const resetAt = data.reset_at ? new Date(data.reset_at as string).getTime() : 0
-  return { count: data.count as number, resetAt, limitReached: data.limit_reached as boolean }
+  const resetAt = data.reset_at ? new Date(data.reset_at).getTime() : 0
+  return { count: data.count, resetAt, limitReached: data.limit_reached }
 }
 
 export async function saveGameSession(userId: string, input: SessionInput) {
