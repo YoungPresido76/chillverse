@@ -126,6 +126,22 @@ function SkeletonBubbles() {
   )
 }
 
+function SkeletonRoomList() {
+  return (
+    <div style={{ display:'flex', flexDirection:'column' }}>
+      {[0, 1, 2, 3, 4].map(i => (
+        <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px' }}>
+          <div style={{ width:44, height:44, borderRadius:13, flexShrink:0, background:'var(--surface2)', animation:'skeletonPulse 1.4s ease-in-out infinite' }} />
+          <div style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column', gap:6 }}>
+            <div style={{ width: i % 2 ? '55%' : '40%', height:13, borderRadius:4, background:'var(--surface2)', animation:'skeletonPulse 1.4s ease-in-out infinite' }} />
+            <div style={{ width: i % 2 ? '75%' : '60%', height:11, borderRadius:4, background:'var(--surface2)', animation:'skeletonPulse 1.4s ease-in-out infinite' }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 interface MessageRowProps {
   msg: GroupedMessage
   isMine: boolean
@@ -151,7 +167,7 @@ const MessageRow = memo(function MessageRow({
   return (
     <div style={{
       display:'flex', flexDirection: isMine ? 'row-reverse' : 'row', alignItems:'flex-start', gap:8,
-      marginBottom: msg.isGroupLast ? 12 : 2,
+      marginBottom: msg.isGroupLast ? 14 : 8,
     }}>
       {/* Avatar — only on first bubble of a consecutive group; otherwise an equal-width spacer keeps alignment */}
       {msg.isGroupFirst ? (
@@ -168,7 +184,7 @@ const MessageRow = memo(function MessageRow({
 
       {/* Bubble column */}
       <div className="msg-bubble-col" style={{ display:'flex', flexDirection:'column', alignItems: isMine ? 'flex-end' : 'flex-start', maxWidth:'75%', position:'relative' }}>
-        <div style={{ position:'relative' }}>
+        <div style={{ position:'relative', maxWidth:'100%', paddingBottom: msg.reactions.length > 0 ? 10 : 0 }}>
           <div
             onContextMenu={e => { if (!msg.deleted) { e.preventDefault(); onContextMenu(msg, e.clientX, e.clientY) } }}
             onDoubleClick={() => onDoubleClick(msg)}
@@ -176,18 +192,19 @@ const MessageRow = memo(function MessageRow({
               padding:'8px 12px 6px', borderRadius:16,
               background:'var(--surface)', color:'var(--text)',
               border:'1px solid rgba(255,255,255,0.06)',
-              borderBottomRightRadius: isMine ? 4 : 16,
-              borderBottomLeftRadius: isMine ? 16 : 4,
+              borderBottomRightRadius: isMine ? 2 : 16,
+              borderBottomLeftRadius: isMine ? 16 : 2,
               fontSize:13.5, lineHeight:1.45,
               fontStyle: msg.deleted ? 'italic' : 'normal',
               opacity: msg.deleted ? 0.6 : 1,
               cursor:'context-menu', userSelect:'none', wordBreak:'break-word',
+              maxWidth:'100%',
             }}>
 
-            {/* Reply preview — inlaid inside the bubble's top section, no separate background/box */}
+            {/* Reply preview — inlaid inside the bubble's top section, truncated to a single line */}
             {msg.replyPreview && !msg.deleted && (
-              <div style={{ fontSize:11, color:'var(--text-dim)', borderLeft:'2px solid #4f8ef7', paddingLeft:8, marginBottom:4, maxWidth:'100%', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                {msg.replyPreview}
+              <div style={{ fontSize:11, color:'var(--text-dim)', borderLeft:'2px solid #4f8ef7', paddingLeft:8, marginBottom:4, maxWidth:220, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                {msg.replyPreview.length > 60 ? `${msg.replyPreview.slice(0, 60)}…` : msg.replyPreview}
               </div>
             )}
 
@@ -213,10 +230,10 @@ const MessageRow = memo(function MessageRow({
             </div>
           </div>
 
-          {/* Reaction badge — overlaps the bubble's bottom edge */}
+          {/* Reaction badge — overlaps the bubble's bottom edge, clear of the text */}
           {msg.reactions.length > 0 && (
             <div style={{
-              position:'absolute', bottom:-8, zIndex:2,
+              position:'absolute', bottom:-2, zIndex:2,
               display:'flex', gap:4, flexWrap:'nowrap',
               ...(isMine ? { right:8 } : { left:8 }),
             }}>
@@ -236,6 +253,7 @@ const MessageRow = memo(function MessageRow({
             </div>
           )}
         </div>
+
 
         {/* Hover-revealed reaction trigger (reduces inline clutter) */}
         {!msg.deleted && (
@@ -991,9 +1009,7 @@ export default function Chat() {
           {/* Room list */}
           <div style={{ flex:1, overflowY:'auto' }}>
             {roomsLoading ? (
-              <div style={{ display:'flex', justifyContent:'center', padding:40 }}>
-                <span style={{ width:28, height:28, border:'2px solid var(--surface3)', borderTopColor:'var(--accent)', borderRadius:'50%', display:'block', animation:'spin 0.8s linear infinite' }} />
-              </div>
+              <SkeletonRoomList />
             ) : filteredRooms.length === 0 ? (
               <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', padding:40, gap:12 }}>
                 <MessageCircle size={40} style={{ color:'var(--text-muted)' }} />
