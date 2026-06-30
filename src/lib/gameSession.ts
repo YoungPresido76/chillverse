@@ -34,75 +34,56 @@ export interface PlayerRankRow {
   updated_at: string
 }
 
-// ─── Global session limit ─────────────────────────────────────
-const SESSION_LIMIT_KEY   = 'cv_session_limit'
-const SESSION_COOLDOWN_MS = 6 * 60 * 60 * 1000 // 6hr lock when all 15 burned
-const GLOBAL_LIMIT        = 15
+// ─── Global session limit (server-side, via Supabase) ─────────
+// Previously stored in localStorage — trivially bypassed by clearing
+// site data or switching browsers. Now backed by the `session_limits`
+// table + RPCs (see migration 0006_session_limits.sql) so the limit
+// is enforced server-side and resettable via SQL.
+const GLOBAL_LIMIT         = 15
+const SESSION_COOLDOWN_HRS = 4.5 // lock duration once all 15 are burned
 
-interface SessionLimitStore {
-  count: number
-  resetAt: number      // epoch ms for 6hr lock (0 = no active lock)
-  lastDate: string     // YYYY-MM-DD — for midnight daily reset
-}
-
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
-function getSessionStore(userId: string): SessionLimitStore {
-  try {
-    const raw = localStorage.getItem(`${SESSION_LIMIT_KEY}_${userId}`)
-    if (!raw) return { count: 0, resetAt: 0, lastDate: todayStr() }
-
-    const parsed = JSON.parse(raw) as SessionLimitStore
-
-    // 1. Midnight daily reset — new day = fresh slate regardless of count
-    if (parsed.lastDate !== todayStr()) {
-      const fresh = { count: 0, resetAt: 0, lastDate: todayStr() }
-      localStorage.setItem(`${SESSION_LIMIT_KEY}_${userId}`, JSON.stringify(fresh))
-      return fresh
-    }
-
-    // 2. 6hr lock expired
-    if (parsed.resetAt > 0 && Date.now() >= parsed.resetAt) {
-      const fresh = { count: 0, resetAt: 0, lastDate: todayStr() }
-      localStorage.setItem(`${SESSION_LIMIT_KEY}_${userId}`, JSON.stringify(fresh))
-      return fresh
-    }
-
-    return parsed
-  } catch {
-    return { count: 0, resetAt: 0, lastDate: todayStr() }
-  }
-}
-
-function setSessionStore(userId: string, store: SessionLimitStore) {
-  localStorage.setItem(`${SESSION_LIMIT_KEY}_${userId}`, JSON.stringify(store))
-}
-
-export function getGlobalSessionInfo(userId: string): {
+export async function getGlobalSessionInfo(userId: string): Promise<{
   count: number
   limit: number
   limitReached: boolean
   resetAt: number
-} {
-  const store = getSessionStore(userId)
+}> {
+  const { data, error } = await supabase
+    .rpc('get_session_info', { p_user_id: userId })
+    .maybeSingle()
+
+  if (error || !data) {
+    console.error('getGlobalSessionInfo error:', error)
+    return { count: 0, limit: GLOBAL_LIMIT, limitReached: false, resetAt: 0 }
+  }
+
+  const resetAt = data.reset_at ? new Date(data.reset_at as string).getTime() : 0
   return {
-    count: store.count,
+    count: data.count as number,
     limit: GLOBAL_LIMIT,
-    limitReached: store.count >= GLOBAL_LIMIT,
-    resetAt: store.resetAt,
+    limitReached: (data.count as number) >= GLOBAL_LIMIT,
+    resetAt,
   }
 }
 
-export function incrementGlobalSession(userId: string, by = 1) {
-  const store   = getSessionStore(userId)
-  const newCount = store.count + by
-  // Start 6hr lock only when limit is fully reached
-  const resetAt = newCount >= GLOBAL_LIMIT && store.resetAt === 0
-    ? Date.now() + SESSION_COOLDOWN_MS
-    : store.resetAt
-  setSessionStore(userId, { count: newCount, resetAt, lastDate: todayStr() })
+export async function incrementGlobalSession(userId: string, by = 1) {
+  const { data, error } = await supabase
+    .rpc('increment_session_count', {
+      p_user_id: userId,
+      p_by: by,
+      p_limit: GLOBAL_LIMIT,
+      p_cooldown_hours: SESSION_COOLDOWN_HRS,
+    })
+    .maybeSingle()
+
+  if (error) {
+    console.error('incrementGlobalSession error:', error)
+    return null
+  }
+  if (!data) return null
+
+  const resetAt = data.reset_at ? new Date(data.reset_at as string).getTime() : 0
+  return { count: data.count as number, resetAt, limitReached: data.limit_reached as boolean }
 }
 
 export async function saveGameSession(userId: string, input: SessionInput) {
