@@ -8,7 +8,7 @@ import {
   Mail, Sprout, User, Home, BarChart2,
   ShoppingBag, Tag, Clapperboard, Gift, Zap as FlashZap,
   Tv2, UserCheck, Repeat2, Package, Swords, Film,
-  ShoppingCart, Wifi, Sparkle, Image,
+  ShoppingCart, Wifi, Sparkle, Image, Spade,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
@@ -37,7 +37,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   'gift': Gift, 'tv-2': Tv2, 'user-check': UserCheck, 'repeat-2': Repeat2,
   'package': Package, 'swords': Swords, 'film': Film, 'hand-coins': Gift,
   'shopping-cart': ShoppingCart, 'wifi': Wifi, 'sparkle': Sparkle,
-  'image': Image, 'flash-zap': FlashZap,
+  'image': Image, 'flash-zap': FlashZap, 'spade': Spade,
 }
 
 function AchIcon({ iconKey, size = 22, color }: { iconKey: string; size?: number; color?: string }) {
