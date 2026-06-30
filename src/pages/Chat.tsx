@@ -167,7 +167,7 @@ const MessageRow = memo(function MessageRow({
   return (
     <div style={{
       display:'flex', flexDirection: isMine ? 'row-reverse' : 'row', alignItems:'flex-start', gap:8,
-      marginBottom: msg.isGroupLast ? 14 : 0,
+      marginBottom: msg.isGroupLast ? 6 : 0,
     }}>
       {/* Avatar — only on first bubble of a consecutive group; otherwise an equal-width spacer keeps alignment */}
       {msg.isGroupFirst ? (
@@ -887,12 +887,27 @@ export default function Chat() {
 
   async function addReaction(msgId: string, emoji: string) {
     if (!myId) return
-    await supabase.from('message_reactions').upsert({ message_id: msgId, user_id: myId, emoji }, { onConflict: 'message_id,user_id,emoji' })
+
+    const target = messages.find(m => m.id === msgId)
+    const existing = target?.reactions.find(r => r.user_id === myId)
+
+    // Tapping the same emoji again removes it (toggle-off); tapping a different
+    // emoji replaces it — a user can only have ONE reaction per message at a time.
+    if (existing && existing.emoji === emoji) {
+      await supabase.from('message_reactions').delete().eq('message_id', msgId).eq('user_id', myId)
+      setMessages(ms => ms.map(m => m.id !== msgId ? m : { ...m, reactions: m.reactions.filter(r => r.user_id !== myId) }))
+      setEmojiForMsg(null)
+      return
+    }
+
+    // Replace: clear any prior reaction from this user on this message, then add the new one.
+    await supabase.from('message_reactions').delete().eq('message_id', msgId).eq('user_id', myId)
+    await supabase.from('message_reactions').insert({ message_id: msgId, user_id: myId, emoji })
+
     setMessages(ms => ms.map(m => {
       if (m.id !== msgId) return m
-      const exists = m.reactions.find(r => r.emoji === emoji && r.user_id === myId)
-      if (exists) return m
-      return { ...m, reactions: [...m.reactions, { emoji, user_id: myId ?? '' }] }
+      const withoutMine = m.reactions.filter(r => r.user_id !== myId)
+      return { ...m, reactions: [...withoutMine, { emoji, user_id: myId ?? '' }] }
     }))
     setEmojiForMsg(null)
   }
