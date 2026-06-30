@@ -11,6 +11,7 @@ import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { getUserRankTier } from '../lib/ranks'
 import { getGlobalSessionInfo } from '../lib/gameSession'
+import { checkSessionResetNotification, checkMoviesOpenNotification } from '../lib/liveNotifications'
 import { useChallengeListener } from '../hooks/useChallengeListener'
 import type { IncomingChallenge } from '../hooks/useChallengeListener'
 import { Swords, Home } from 'lucide-react'
@@ -229,8 +230,24 @@ export default function AppLayout() {
     return () => mq.removeEventListener('change', handler)
   }, [])
 
-  // Suppress unused var warnings — profile/user kept for future use
-  void profile
+  // ── Live notifications: session limit reset + Movies reopening ──
+  // Checked on mount and every 60s while the app is open, so the toast
+  // fires immediately if the person is already in the app when either
+  // transition happens, and the notification is waiting for them
+  // (via the bell / Notifications page) if they weren't.
+  useEffect(() => {
+    if (!myId) return
+    const username = profile?.display_name || profile?.username || 'Player'
+    const run = () => {
+      checkSessionResetNotification(myId, username).catch(console.error)
+      checkMoviesOpenNotification(myId).catch(console.error)
+    }
+    run()
+    const t = setInterval(run, 60_000)
+    return () => clearInterval(t)
+  }, [myId, profile?.display_name, profile?.username])
+
+  // Suppress unused var warnings — user kept for future use
   void user
   void getUserRankTier
   void getGlobalSessionInfo
