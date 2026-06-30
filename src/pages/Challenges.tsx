@@ -417,8 +417,8 @@ function GamesTab({ myId, onRoomCreated }: GamesTabProps) {
         status: 'waiting',
         max_player_count: selected.maxPlayers,
         min_player_count: selected.minPlayers,
-        current_player_count: 0,
         short_code: teamCode,
+        // current_player_count intentionally omitted — DB default=1, trigger keeps it in sync
       }
 
       const { data: room, error } = await supabase
@@ -532,13 +532,21 @@ function RoomsTab({ myId, onJoinRoom }: RoomsTabProps) {
     loadRooms()
     const ch = supabase.channel('public-rooms-list')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'game_rooms' }, loadRooms)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'room_players' }, loadRooms)
       .subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [])
 
   async function loadRooms() {
-    const { data } = await supabase.from('game_rooms').select('*').eq('is_private', false).eq('status', 'waiting').order('created_at', { ascending: false }).limit(20)
-    setRooms((data ?? []) as RoomRow[]); setLoading(false)
+    const { data } = await supabase
+      .from('game_rooms')
+      .select('*')
+      .eq('is_private', false)
+      .eq('status', 'waiting')
+      .order('created_at', { ascending: false })
+      .limit(20)
+    setRooms((data ?? []) as RoomRow[])
+    setLoading(false)
   }
 
   async function searchByCode() {
