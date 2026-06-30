@@ -171,10 +171,14 @@ export default function Dashboard() {
   // User's personal sessions today
   useEffect(() => {
     if (!userId) return
-    const refresh = () => setSessionsToday(getGlobalSessionInfo(userId).count)
+    let cancelled = false
+    const refresh = async () => {
+      const info = await getGlobalSessionInfo(userId)
+      if (!cancelled) setSessionsToday(info.count)
+    }
     refresh()
     const iv = setInterval(refresh, 5000)
-    return () => clearInterval(iv)
+    return () => { cancelled = true; clearInterval(iv) }
   }, [userId])
 
   // currentHour drives greeting — must be before any early returns

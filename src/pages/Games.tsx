@@ -129,9 +129,9 @@ export default function Games() {
     return () => clearInterval(t)
   }, [globalReset])
 
-  const refreshGlobalInfo = useCallback(() => {
+  const refreshGlobalInfo = useCallback(async () => {
     if (!userId) return
-    const info = getGlobalSessionInfo(userId)
+    const info = await getGlobalSessionInfo(userId)
     setGlobalCount(info.count)
     setGlobalReset(info.resetAt)
   }, [userId])
@@ -183,7 +183,13 @@ export default function Games() {
       streak: payload.streak,
       metadata: payload.detail as Record<string, unknown>,
     })
-    incrementGlobalSession(userId, cost)
+    const incResult = await incrementGlobalSession(userId, cost)
+    if (incResult) {
+      setGlobalCount(incResult.count)
+      setGlobalReset(incResult.resetAt)
+    } else {
+      refreshGlobalInfo()
+    }
 
     await savePlayerRank(userId, game.dbKey, payload.rank, payload.streak,
       Math.max(payload.streak, allTimeStreaks[payload.gameId as GameId] ?? 0))
