@@ -5,7 +5,7 @@
 // without importing the full game lobby page and its game components.
 import {
   Move, Brain, Drama, BookOpen, Grid3X3,
-  Eye, Calculator, LayoutGrid, Hash, Target, Sparkles,
+  Eye, Calculator, LayoutGrid, Hash, Target, Sparkles, Spade,
   type LucideIcon,
 } from 'lucide-react'
 import type { GameKey } from './gameSession'
@@ -17,6 +17,7 @@ export type GameId =
   | 'hangman'
   | 'close-call'
   | 'pattern-king'
+  | 'uno'
 
 export interface GameMeta {
   id: GameId
@@ -46,6 +47,7 @@ const PREMIUM_GAMES: GameMeta[] = [
   { id: 'hangman',        dbKey: 'hangman',        name: 'Hangman',               tagline: 'Guess the word. One letter at a time.',           accent: '#ff6b00', icon: Hash,     sessionCost: 3 },
   { id: 'close-call',     dbKey: 'close_call',     name: 'Close Call',            tagline: 'Type the closest answer you can. Fast.',          accent: '#ff4d8b', icon: Target,   sessionCost: 4 },
   { id: 'pattern-king',   dbKey: 'pattern_king',   name: 'Pattern King',          tagline: 'Memorize the grid. Clear every pattern before time runs out.', accent: '#00e5ff', icon: Sparkles, sessionCost: 6 },
+  { id: 'uno',            dbKey: 'uno',            name: 'Chillverse_Uno',        tagline: 'Classic UNO against Halo — a smart AI that remembers your weaknesses.', accent: '#9b6dff', icon: Spade, sessionCost: 10 },
 ]
 
 export const GAMES: GameMeta[] = [...STANDARD_GAMES, ...PREMIUM_GAMES]

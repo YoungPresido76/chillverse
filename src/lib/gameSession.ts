@@ -15,6 +15,7 @@ export type GameKey =
   | 'hangman'
   | 'close_call'
   | 'pattern_king'
+  | 'uno'
 
 export interface SessionInput {
   game: GameKey
