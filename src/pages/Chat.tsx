@@ -167,7 +167,7 @@ const MessageRow = memo(function MessageRow({
   return (
     <div style={{
       display:'flex', flexDirection: isMine ? 'row-reverse' : 'row', alignItems:'flex-start', gap:8,
-      marginBottom: msg.isGroupLast ? 14 : 2,
+      marginBottom: msg.isGroupLast ? 14 : 0,
     }}>
       {/* Avatar — only on first bubble of a consecutive group; otherwise an equal-width spacer keeps alignment */}
       {msg.isGroupFirst ? (
