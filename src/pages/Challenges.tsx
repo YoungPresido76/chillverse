@@ -99,6 +99,27 @@ function ToastStack({ toasts }: { toasts: ToastItem[] }) {
   )
 }
 
+// ── Avatar fallback — letter render when no profile picture is set ──
+const AVATAR_PALETTE = ['#ff6b00', '#3ecf8e', '#9b6dff', '#4f8ef7', '#ff4d8b', '#f5c542']
+function initials(name?: string | null): string {
+  const trimmed = (name ?? '').trim()
+  return trimmed ? trimmed.charAt(0).toUpperCase() : '?'
+}
+function colorForName(name?: string | null): string {
+  const str = (name ?? '?') || '?'
+  let hash = 0
+  for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash)
+  return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length]
+}
+// Fills the parent's existing sized/rounded wrapper — drop in wherever `avatar ? <img/> : <span>👤</span>` was used
+function AvatarFallback({ name, fontSize = 14 }: { name?: string | null; fontSize?: number }) {
+  return (
+    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: colorForName(name), color: '#fff', fontWeight: 800, fontSize }}>
+      {initials(name)}
+    </div>
+  )
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // TicTacToe Arena (live multiplayer — unchanged from original)
 // ═══════════════════════════════════════════════════════════════════
@@ -116,18 +137,22 @@ const GAME_LABELS: Record<string, string> = { tictactoe: 'Tic Tac Toe', colourbl
 interface TTTProps {
   challengeId: string; myId: string; myName: string
   opponentId: string; opponentName: string; amChallenger: boolean
-  onResult: (won: boolean, xp: number) => void
+  roomId?: string
+  onResult: (outcome: 'win' | 'lose' | 'draw', xp: number) => void
   onInactivity: (byName: string) => void
   onExit: () => void
 }
 
-function TicTacToeArena({ challengeId, myId, myName, opponentId, opponentName, amChallenger, onResult, onInactivity, onExit }: TTTProps) {
+function TicTacToeArena({ challengeId, myId, myName, opponentId, opponentName, amChallenger, roomId, onResult, onInactivity, onExit }: TTTProps) {
   const [board, setBoard]           = useState<TacCell[]>(Array(9).fill(null))
   const [xIsNext, setXIsNext]       = useState(true)
   const [localDone, setLocalDone]   = useState(false)
   const [inactTimer, setInactTimer] = useState(INACTIVITY_SEC)
   const [showQuit, setShowQuit]     = useState(false)
+  const [exitedBy, setExitedBy]     = useState<string | null>(null)
   const inactivityRef               = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const channelRef                  = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const { toasts, show: showToast } = useToast()
 
   const mySymbol: TacCell = amChallenger ? 'X' : 'O'
   const isMyTurn = (xIsNext && mySymbol === 'X') || (!xIsNext && mySymbol === 'O')
@@ -142,9 +167,23 @@ function TicTacToeArena({ challengeId, myId, myName, opponentId, opponentName, a
         if (mv.player_id === myId) return
         setBoard(prev => { const next = [...prev] as TacCell[]; next[mv.move_index] = amChallenger ? 'O' : 'X'; return next })
         setXIsNext(p => !p); resetInactivity()
-      }).subscribe()
-    return () => { supabase.removeChannel(ch) }
+      })
+      .on('broadcast', { event: 'player_exit' }, ({ payload }) => {
+        const name = (payload as { name?: string } | null)?.name ?? opponentName
+        setExitedBy(name)
+        showToast(`${name} has exited the game`, <LogOut size={13} />, 'rgba(255,77,77,0.5)')
+      })
+      .subscribe()
+    channelRef.current = ch
+    return () => { supabase.removeChannel(ch); channelRef.current = null }
   }, [challengeId, myId, amChallenger])
+
+  // Opponent exited mid-match — wrap up and back out automatically
+  useEffect(() => {
+    if (!exitedBy) return
+    const t = setTimeout(() => onExit(), 2200)
+    return () => clearTimeout(t)
+  }, [exitedBy])
 
   function resetInactivity() {
     if (inactivityRef.current) clearTimeout(inactivityRef.current)
@@ -152,7 +191,7 @@ function TicTacToeArena({ challengeId, myId, myName, opponentId, opponentName, a
   }
 
   useEffect(() => {
-    if (gameOver || localDone) return
+    if (gameOver || localDone || exitedBy) return
     let count = INACTIVITY_SEC
     const tick = setInterval(() => {
       count -= 1; setInactTimer(count)
@@ -163,12 +202,18 @@ function TicTacToeArena({ challengeId, myId, myName, opponentId, opponentName, a
       }
     }, 1000)
     return () => clearInterval(tick)
-  }, [xIsNext, gameOver, localDone])
+  }, [xIsNext, gameOver, localDone, exitedBy])
 
   useEffect(() => {
     if (!gameOver || localDone) return
     setLocalDone(true)
     const xp = pickXP(); const iWon = winner === mySymbol
+    if (roomId) supabase.from('game_rooms').update({ status: 'completed' }).eq('id', roomId).then(() => {})
+    if (isDraw) {
+      supabase.from('challenges').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', challengeId).eq('status', 'accepted').then(() => {})
+      setTimeout(() => onResult('draw', 0), 400)
+      return
+    }
     if (iWon) {
       supabase.rpc('resolve_challenge', { p_challenge_id: challengeId, p_winner_id: myId, p_loser_id: opponentId, p_xp: xp }).then(() => {
         supabase.from('notifications').insert([
@@ -177,19 +222,29 @@ function TicTacToeArena({ challengeId, myId, myName, opponentId, opponentName, a
         ])
       })
     }
-    setTimeout(() => onResult(iWon, iWon ? xp : 0), 400)
+    setTimeout(() => onResult(iWon ? 'win' : 'lose', iWon ? xp : 0), 400)
   }, [gameOver])
 
   async function handleCell(i: number) {
-    if (board[i] || gameOver || !isMyTurn) return
+    if (board[i] || gameOver || !isMyTurn || exitedBy) return
     const next = [...board] as TacCell[]; next[i] = mySymbol
     setBoard(next); setXIsNext(t => !t); resetInactivity()
     await supabase.from('challenge_moves').insert({ challenge_id: challengeId, player_id: myId, move_index: i, turn_number: board.filter(Boolean).length })
   }
 
+  async function confirmExit() {
+    setShowQuit(false)
+    stubDeductHonour(myId)
+    channelRef.current?.send({ type: 'broadcast', event: 'player_exit', payload: { name: myName } })
+    await supabase.from('challenges').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', challengeId).eq('status', 'accepted')
+    if (roomId) await supabase.from('game_rooms').update({ status: 'completed' }).eq('id', roomId)
+    onExit()
+  }
+
   const CELL = 92
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0, position: 'relative' }}>
+      <ToastStack toasts={toasts} />
       {/* Exit button */}
       <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
         <button onClick={() => setShowQuit(true)} style={{ padding: '6px 12px', borderRadius: 10, background: 'rgba(255,77,77,0.1)', border: '1px solid rgba(255,77,77,0.25)', color: '#ff6b6b', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -242,11 +297,11 @@ function TicTacToeArena({ challengeId, myId, myName, opponentId, opponentName, a
             <div style={{ padding: '20px 24px 0' }}>
               <div style={{ fontSize: 15, fontWeight: 900, color: 'var(--text)', marginBottom: 8 }}>Exit game?</div>
               <div style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 20 }}>
-                Quitting matches frequently can affect your <strong style={{ color: 'var(--accent)' }}>Verse Honour</strong> score and may lead to a ban.
+                Continually leaving mid-game will get you flagged, then banned.
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
-                <button onClick={() => setShowQuit(false)} style={{ flex: 1, padding: '12px 0', borderRadius: 13, border: 'none', background: 'linear-gradient(135deg,var(--accent),var(--accent2))', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>Got it, Stay</button>
-                <button onClick={() => { setShowQuit(false); stubDeductHonour(myId); onExit() }} style={{ flex: 1, padding: '12px 0', borderRadius: 13, border: '1px solid rgba(255,77,77,0.3)', background: 'rgba(255,77,77,0.1)', color: '#ff6b6b', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Exit</button>
+                <button onClick={() => setShowQuit(false)} style={{ flex: 1, padding: '12px 0', borderRadius: 13, border: 'none', background: 'linear-gradient(135deg,var(--accent),var(--accent2))', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>Cancel</button>
+                <button onClick={confirmExit} style={{ flex: 1, padding: '12px 0', borderRadius: 13, border: '1px solid rgba(255,77,77,0.3)', background: 'rgba(255,77,77,0.1)', color: '#ff6b6b', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Exit</button>
               </div>
             </div>
           </div>
@@ -298,6 +353,22 @@ function LoseModal({ opponentName, onRematch, onClose }: { opponentName: string;
   )
 }
 
+function DrawModal({ opponentName, onPlayAgain, onClose }: { opponentName: string; onPlayAgain: () => void; onClose: () => void }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(14px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ width: '100%', maxWidth: 320, background: 'var(--surface2)', borderRadius: 24, border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 28px 80px rgba(0,0,0,0.8)', padding: '32px 24px', textAlign: 'center' }}>
+        <div style={{ fontSize: 52, marginBottom: 12 }}>🤝</div>
+        <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--text)', marginBottom: 6 }}>It's a Tie!</div>
+        <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 24 }}>You and <strong style={{ color: 'var(--text)' }}>{opponentName}</strong> are both good. Wanna play again?</div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '12px 0', borderRadius: 13, border: '1px solid rgba(255,255,255,0.1)', background: 'var(--surface)', color: 'var(--text-dim)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Close</button>
+          <button onClick={onPlayAgain} style={{ flex: 2, padding: '12px 0', borderRadius: 13, border: 'none', background: 'linear-gradient(135deg,var(--accent),var(--accent2))', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>Play Again</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // Leaderboard
 // ═══════════════════════════════════════════════════════════════════
@@ -325,7 +396,7 @@ function Leaderboard() {
           <div key={r.id} onClick={() => navigate(`/profile/${r.id}`)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 16, background: idx < 3 ? `${rank.color}0a` : 'var(--surface)', border: `1px solid ${idx < 3 ? rank.color + '30' : 'rgba(255,255,255,0.06)'}`, cursor: 'pointer' }}>
             <div style={{ width: 28, textAlign: 'center', fontSize: medal ? 18 : 13, fontWeight: 800, color: 'var(--text-muted)', flexShrink: 0 }}>{medal ?? `#${idx + 1}`}</div>
             <div style={{ width: 38, height: 38, borderRadius: 11, overflow: 'hidden', flexShrink: 0, background: 'var(--surface2)', border: `1.5px solid ${rank.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {r.avatar ? <img src={r.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 18 }}>👤</span>}
+              {r.avatar ? <img src={r.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <AvatarFallback name={r.display_name ?? r.username} fontSize={16} />}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.display_name ?? r.username}</div>
@@ -369,7 +440,7 @@ function RecentActivity({ myId }: { myId: string }) {
         return (
           <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 14, background: 'var(--surface)', border: `1px solid ${won ? 'rgba(62,207,142,0.2)' : 'rgba(255,77,77,0.15)'}` }}>
             <div style={{ width: 36, height: 36, borderRadius: 10, overflow: 'hidden', flexShrink: 0, background: 'var(--surface2)', border: `1.5px solid ${won ? '#3ecf8e44' : '#ff6b6b44'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {opAvatar ? <img src={opAvatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 16 }}>👤</span>}
+              {opAvatar ? <img src={opAvatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <AvatarFallback name={opName} fontSize={14} />}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -391,9 +462,9 @@ function RecentActivity({ myId }: { myId: string }) {
 // ═══════════════════════════════════════════════════════════════════
 // Games Tab — pick a game → choose Public/Private → create room
 // ═══════════════════════════════════════════════════════════════════
-interface GamesTabProps { myId: string; onRoomCreated: (roomId: string) => void }
+interface GamesTabProps { myId: string; myName: string; onRoomCreated: (roomId: string) => void }
 
-function GamesTab({ myId, onRoomCreated }: GamesTabProps) {
+function GamesTab({ myId, myName, onRoomCreated }: GamesTabProps) {
   const [selected, setSelected] = useState<GameDef | null>(null)
   const [visibility, setVisibility] = useState<'public' | 'private' | null>(null)
   const [password, setPassword] = useState('')
@@ -425,7 +496,7 @@ function GamesTab({ myId, onRoomCreated }: GamesTabProps) {
       // Build insert payload
       const payload: Record<string, unknown> = {
         game_id: selected.id,
-        room_name: `${selected.label} Room`,
+        room_name: `${myName}'s Room`,
         host_id: myId,
         is_private: isPrivate,
         password_hash: isPrivate && password ? password : null,
@@ -812,7 +883,7 @@ function Lobby({ roomId, myId, myName, onGameStart, onLeave }: LobbyProps) {
   }
 
   async function leaveRoom() {
-    await supabase.from('room_players').delete().eq('room_id', roomId).eq('player_id', myId)
+    await supabase.rpc('leave_room', { p_room_id: roomId })
     onLeave()
   }
 
@@ -899,7 +970,7 @@ function Lobby({ roomId, myId, myName, onGameStart, onLeave }: LobbyProps) {
                 {player ? (
                   <>
                     <div style={{ width: 32, height: 32, borderRadius: 9, overflow: 'hidden', flexShrink: 0, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {player.avatar ? <img src={player.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 14 }}>👤</span>}
+                      {player.avatar ? <img src={player.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <AvatarFallback name={player.display_name ?? player.username} fontSize={13} />}
                     </div>
                     <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{player.display_name ?? player.username ?? 'Player'}{player.player_id === myId ? ' (You)' : ''}</div>
                     {player.is_host && <Crown size={13} color="var(--accent)" />}
@@ -927,7 +998,7 @@ function Lobby({ roomId, myId, myName, onGameStart, onLeave }: LobbyProps) {
           {messages.map(m => (
             <div key={m.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
               <div style={{ width: 22, height: 22, borderRadius: 6, overflow: 'hidden', background: 'var(--surface2)', flexShrink: 0 }}>
-                {m.avatar ? <img src={m.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>👤</div>}
+                {m.avatar ? <img src={m.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <AvatarFallback name={m.username} fontSize={10} />}
               </div>
               <div>
                 <span style={{ fontSize: 10.5, fontWeight: 700, color: m.player_id === myId ? 'var(--accent)' : '#9b6dff', marginRight: 5 }}>{m.username ?? 'User'}</span>
@@ -980,7 +1051,7 @@ function Lobby({ roomId, myId, myName, onGameStart, onLeave }: LobbyProps) {
                   return (
                     <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 14, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
                       <div style={{ width: 36, height: 36, borderRadius: 10, overflow: 'hidden', background: 'var(--surface2)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {f.avatar ? <img src={f.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 16 }}>👤</span>}
+                        {f.avatar ? <img src={f.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <AvatarFallback name={f.display_name ?? f.username} fontSize={16} />}
                       </div>
                       <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{f.display_name ?? f.username}</div>
                       {alreadyIn ? (
@@ -1006,7 +1077,7 @@ function Lobby({ roomId, myId, myName, onGameStart, onLeave }: LobbyProps) {
 // Old 1v1 ChallengeFullModal — preserved for PlayerProfile usage
 // ═══════════════════════════════════════════════════════════════════
 const PLACEHOLDER_IMG = 'https://gnobzfxtxrtcxfhhfjni.supabase.co/storage/v1/object/public/Adverts/Go%20pro/file_0000000071e471f4abb27ed6b9870126.png'
-type Phase = 'picker' | 'waiting' | 'timeout' | 'accepted' | 'result_win' | 'result_lose' | 'inactivity'
+type Phase = 'picker' | 'waiting' | 'timeout' | 'accepted' | 'result_win' | 'result_lose' | 'result_draw' | 'inactivity'
 
 interface WaitingModalProps { opponentId: string; opponentName: string; myId: string; myName: string; onClose: () => void; prefillChallengeId?: string; prefillGame?: string }
 
@@ -1023,6 +1094,12 @@ export function ChallengeFullModal({ opponentId, opponentName, myId, myName, onC
 
   async function handlePickGame(game: string) {
     setGame(game)
+    const { data: oppRooms } = await supabase.from('room_players').select('room_id').eq('player_id', opponentId)
+    if (oppRooms?.length) {
+      const roomIds = oppRooms.map(r => r.room_id)
+      const { data: activeRoom } = await supabase.from('game_rooms').select('id').in('id', roomIds).in('status', ['countdown', 'in_progress']).maybeSingle()
+      if (activeRoom) { showToast(`${opponentName} is currently in a game.`); return }
+    }
     const { data: activeChallenge } = await supabase.from('challenges').select('id').or(`challenger_id.eq.${opponentId},challenged_id.eq.${opponentId}`).eq('status', 'accepted').maybeSingle()
     if (activeChallenge) { showToast(`${opponentName} is already in a challenge.`); return }
     const { data, error } = await supabase.from('challenges').insert({ challenger_id: myId, challenged_id: opponentId, game }).select('id').single()
@@ -1042,7 +1119,7 @@ export function ChallengeFullModal({ opponentId, opponentName, myId, myName, onC
     return () => { supabase.removeChannel(ch); if (timeoutRef.current) clearTimeout(timeoutRef.current) }
   }, [challengeId])
 
-  async function handleResult(won: boolean, xp: number) { setResultXP(xp); setPhase(won ? 'result_win' : 'result_lose') }
+  async function handleResult(outcome: 'win' | 'lose' | 'draw', xp: number) { setResultXP(xp); setPhase(outcome === 'win' ? 'result_win' : outcome === 'lose' ? 'result_lose' : 'result_draw') }
   async function handlePlayAgain() { await handlePickGame(selectedGame) }
 
   return (
@@ -1111,6 +1188,7 @@ export function ChallengeFullModal({ opponentId, opponentName, myId, myName, onC
 
       {phase === 'result_win' && <WinModal xp={resultXP} opponentName={opponentName} onClose={onClose} onPlayAgain={handlePlayAgain} />}
       {phase === 'result_lose' && <LoseModal opponentName={opponentName} onClose={onClose} onRematch={handlePlayAgain} />}
+      {phase === 'result_draw' && <DrawModal opponentName={opponentName} onClose={onClose} onPlayAgain={handlePlayAgain} />}
     </div>
   )
 }
@@ -1127,7 +1205,7 @@ function RoomGameModal({ roomId, gameId, myId, myName, onClose }: RoomGameModalP
   const [amChallenger, setAmChallenger] = useState(false)
   const [opponentId, setOpponentId] = useState('')
   const [opponentName, setOpponentName] = useState('Opponent')
-  const [phase, setPhase] = useState<'live' | 'result_win' | 'result_lose' | 'inactivity'>('live')
+  const [phase, setPhase] = useState<'live' | 'result_win' | 'result_lose' | 'result_draw' | 'inactivity'>('live')
   const [resultXP, setResultXP] = useState(0)
   const [inactName, setInactName] = useState('')
 
@@ -1153,7 +1231,7 @@ function RoomGameModal({ roomId, gameId, myId, myName, onClose }: RoomGameModalP
     return () => { cancelled = true }
   }, [roomId, myId])
 
-  function handleResult(won: boolean, xp: number) { setResultXP(xp); setPhase(won ? 'result_win' : 'result_lose') }
+  function handleResult(outcome: 'win' | 'lose' | 'draw', xp: number) { setResultXP(xp); setPhase(outcome === 'win' ? 'result_win' : outcome === 'lose' ? 'result_lose' : 'result_draw') }
 
   if (loading) {
     return (
@@ -1185,6 +1263,7 @@ function RoomGameModal({ roomId, gameId, myId, myName, onClose }: RoomGameModalP
             opponentId={opponentId}
             opponentName={opponentName}
             amChallenger={amChallenger}
+            roomId={roomId}
             onResult={handleResult}
             onInactivity={(name) => { setInactName(name); setPhase('inactivity') }}
             onExit={onClose}
@@ -1201,6 +1280,7 @@ function RoomGameModal({ roomId, gameId, myId, myName, onClose }: RoomGameModalP
       </div>
       {phase === 'result_win' && <WinModal xp={resultXP} opponentName={opponentName} onClose={onClose} onPlayAgain={onClose} />}
       {phase === 'result_lose' && <LoseModal opponentName={opponentName} onClose={onClose} onRematch={onClose} />}
+      {phase === 'result_draw' && <DrawModal opponentName={opponentName} onClose={onClose} onPlayAgain={onClose} />}
     </div>
   )
 }
@@ -1251,9 +1331,15 @@ export default function Challenges() {
     setRoomGameOpen(!!urlRoomId)
   }, [urlRoomId])
 
-  function closeRoomGame() {
+  async function closeRoomGame() {
     setRoomGameOpen(false)
-    navigate(`/challenges?lobby=${urlRoomId}`, { replace: true })
+    if (urlRoomId) await supabase.rpc('leave_room', { p_room_id: urlRoomId })
+    setActiveRoomId(null); setInLobby(false)
+    // @ts-ignore
+    window.__cvSetActiveLobby?.(null)
+    // @ts-ignore
+    window.__cvSetInLobbyPage?.(false)
+    navigate('/challenges', { replace: true })
   }
 
   useEffect(() => {
@@ -1354,7 +1440,7 @@ export default function Challenges() {
 
           {tab === 'leaderboard' && <Leaderboard />}
           {tab === 'history'     && <RecentActivity myId={myId} />}
-          {tab === 'games'       && <GamesTab myId={myId} onRoomCreated={handleRoomCreated} />}
+          {tab === 'games'       && <GamesTab myId={myId} myName={myName} onRoomCreated={handleRoomCreated} />}
           {tab === 'rooms'       && <RoomsTab myId={myId} onJoinRoom={handleJoinRoom} />}
         </>
       )}

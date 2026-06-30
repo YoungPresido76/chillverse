@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
   Gamepad2, ShoppingBag, Film, Swords, Sparkles,
-  Flame, Zap, User, ChevronRight, Fan,
+  Flame, Zap, ChevronRight, Fan,
 } from 'lucide-react'
 import { useProfile } from '../hooks/useProfile'
 import { getUserRankTier, getNextRankTier, getRankProgress } from '../lib/ranks'
@@ -115,32 +115,15 @@ export default function Dashboard() {
   const [onlineCount, setOnlineCount]      = useState<number | null>(null)
   const [activeSessions, setActiveSessions] = useState<number>(0)
   const [sessionsToday, setSessionsToday]   = useState(0)
-  const [onlinePlayers, setOnlinePlayers]   = useState<{ id: string; avatar: string | null; display_name: string | null; username: string | null }[]>([])
 
-  // Live: global online count (presence) + who's online
+  // Live: global online count (presence)
   useEffect(() => {
     const channel = supabase.channel('online-users', {
       config: { presence: { key: userId || 'anon' } },
     })
     channel
-      .on('presence', { event: 'sync' }, async () => {
-        const state = channel.presenceState() as Record<string, { user_id?: string }[]>
-        const ids = Array.from(new Set(
-          Object.values(state).flatMap(entries => entries.map(e => e.user_id).filter(Boolean) as string[])
-        ))
-        setOnlineCount(ids.length)
-
-        const otherIds = ids.filter(id => id !== userId).slice(0, 5)
-        if (otherIds.length === 0) { setOnlinePlayers([]); return }
-        const { data } = await supabase
-          .from('profiles')
-          .select('id, avatar, display_name, username')
-          .in('id', otherIds)
-        if (data) {
-          // preserve presence order
-          const byId = new Map(data.map(p => [p.id, p]))
-          setOnlinePlayers(otherIds.map(id => byId.get(id)).filter(Boolean) as typeof onlinePlayers)
-        }
+      .on('presence', { event: 'sync' }, () => {
+        setOnlineCount(Object.keys(channel.presenceState()).length)
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
@@ -171,14 +154,10 @@ export default function Dashboard() {
   // User's personal sessions today
   useEffect(() => {
     if (!userId) return
-    let cancelled = false
-    const refresh = async () => {
-      const info = await getGlobalSessionInfo(userId)
-      if (!cancelled) setSessionsToday(info.count)
-    }
+    const refresh = () => setSessionsToday(getGlobalSessionInfo(userId).count)
     refresh()
     const iv = setInterval(refresh, 5000)
-    return () => { cancelled = true; clearInterval(iv) }
+    return () => clearInterval(iv)
   }, [userId])
 
   // currentHour drives greeting — must be before any early returns
@@ -220,9 +199,9 @@ export default function Dashboard() {
   const streakInfo = getStreakMessage(profile?.streak ?? 0)
 
   const QUICK_ACTIONS: QuickAction[] = [
-    { label: 'Play Games', sub: onlineCount != null ? `${onlineCount} online` : '…', to: '/games', bg: 'linear-gradient(135deg,#9b6dff,#4f8ef7)', icon: Gamepad2   },
-    { label: 'Mall',       sub: 'New drops',    to: '/mall',  bg: 'linear-gradient(135deg,#ff6b00,#ff9a3c)', icon: ShoppingBag },
-    { label: 'Watch',      sub: 'Trending now', to: '/watch', bg: 'linear-gradient(135deg,#ff4d8b,#ff6b6b)', icon: Film        },
+    { label: 'Play Games',  sub: onlineCount != null ? `${onlineCount} online` : '…', to: '/games',      bg: 'linear-gradient(135deg,#9b6dff,#4f8ef7)', icon: Gamepad2 },
+    { label: 'Mall',        sub: 'New drops',    to: '/mall',       bg: 'linear-gradient(135deg,#ff6b00,#ff9a3c)', icon: ShoppingBag },
+    { label: 'Challenges',  sub: 'Head to head', to: '/challenges', bg: 'linear-gradient(135deg,#ff4d8b,#ff6b6b)', icon: Swords },
   ]
 
   return (
@@ -327,18 +306,12 @@ export default function Dashboard() {
                 ? `${activeSessions} sessions played today · ${onlineCount ?? '…'} players online`
                 : `${onlineCount ?? '…'} players online`}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', minHeight: onlinePlayers.length ? undefined : 0 }}>
-              {MINI_AVATAR_COLORS.slice(0, onlinePlayers.length).map((bg, i) => {
-                const p = onlinePlayers[i]
-                const label = (p?.display_name || p?.username || '?').charAt(0).toUpperCase()
-                return (
-                  <div key={p?.id ?? i} style={{ width: 26, height: 26, borderRadius: 8, background: bg, color: '#fff', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--surface)', marginLeft: i === 0 ? 0 : -6, overflow: 'hidden' }}>
-                    {p?.avatar && p.avatar.startsWith('http')
-                      ? <img src={p.avatar} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                      : label}
-                  </div>
-                )
-              })}
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              {MINI_AVATAR_COLORS.slice(0, 5).map((bg, i) => (
+                <div key={i} style={{ width: 26, height: 26, borderRadius: 8, background: bg, color: '#fff', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--surface)', marginLeft: i === 0 ? 0 : -6 }}>
+                  {String.fromCharCode(65 + i)}
+                </div>
+              ))}
               {onlineCount != null && onlineCount > 5 && (
                 <span style={{ marginLeft: 4, fontSize: 10, color: 'var(--text-dim)', background: 'var(--surface2)', padding: '2px 6px', borderRadius: 6 }}>+{onlineCount - 5}</span>
               )}
@@ -353,7 +326,7 @@ export default function Dashboard() {
         <p className="section-label">Explore Chillverse</p>
         <div className="grid grid-cols-2 gap-4">
           {[
-            { label: 'Profile',          desc: 'Your stats, rank & showcase',  icon: User,     iconBg: 'rgba(62,207,142,0.12)',  iconColor: '#3ecf8e', to: '/profile'         },
+            { label: 'Watch',            desc: 'Trending videos & streams',    icon: Film,     iconBg: 'rgba(62,207,142,0.12)',  iconColor: '#3ecf8e', to: '/watch'           },
             { label: 'Games',            desc: 'Quick-fire mini games',         icon: Gamepad2, iconBg: 'rgba(79,142,247,0.12)',  iconColor: '#4f8ef7', to: '/games'           },
             { label: 'Weekly Missions',  desc: 'Complete missions, earn XP',    icon: Sparkles, iconBg: 'rgba(155,109,255,0.12)', iconColor: '#9b6dff', to: '/weekly-missions' },
             { label: 'Artifacts',        desc: 'Collect & explore relics',      icon: Fan,      iconBg: 'rgba(239,68,68,0.12)',   iconColor: '#ef4444', to: '/artifacts'       },
