@@ -19,7 +19,7 @@ import { ripple } from '../lib/ripple'
 import { useOnboarding } from '../hooks/useOnboarding'
 import { ONBOARDING_CONTENT } from '../lib/onboardingContent'
 
-const LOCK_SECONDS = 15
+const LOCK_SECONDS = 3
 
 interface PageOnboardingProps {
   pageKey: string
