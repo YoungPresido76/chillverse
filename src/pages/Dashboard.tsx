@@ -154,7 +154,7 @@ export default function Dashboard() {
   // User's personal sessions today
   useEffect(() => {
     if (!userId) return
-    const refresh = () => setSessionsToday(getGlobalSessionInfo(userId).count)
+    const refresh = () => { const info = getGlobalSessionInfo(userId); setSessionsToday(info?.count ?? 0) }
     refresh()
     const iv = setInterval(refresh, 5000)
     return () => clearInterval(iv)
