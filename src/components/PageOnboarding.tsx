@@ -42,18 +42,18 @@ export default function PageOnboarding({ pageKey }: PageOnboardingProps) {
   const isCarousel = slides.length > 1
   const onLastCard = cardIndex === slides.length - 1
 
-  // 15s lock: starts immediately for single-image popups, or only once
-  // the player has reached the last card for carousels.
-  const timerShouldRun = isCarousel ? onLastCard : true
-
+  // Lock timer now runs for the whole page as soon as it opens, independent
+  // of swiping/scrolling between slides (some laptop trackpads couldn't
+  // trigger the swipe gesture, which previously blocked the timer from
+  // ever starting on carousels).
   useEffect(() => {
-    if (!timerShouldRun || seen || loading) return
+    if (seen || loading) return
     setSecondsLeft(LOCK_SECONDS)
     const interval = setInterval(() => {
       setSecondsLeft(s => (s <= 1 ? 0 : s - 1))
     }, 1000)
     return () => clearInterval(interval)
-  }, [timerShouldRun, seen, loading])
+  }, [seen, loading])
 
   if (loading || seen || !content || slides.length === 0) return null
 
@@ -186,7 +186,7 @@ export default function PageOnboarding({ pageKey }: PageOnboardingProps) {
             <div
               style={{
                 position: 'absolute',
-                right: 12,
+                right: 48,
                 top: '50%',
                 transform: 'translateY(-50%)',
                 display: 'flex', alignItems: 'center', gap: 4,
@@ -202,7 +202,7 @@ export default function PageOnboarding({ pageKey }: PageOnboardingProps) {
                 whiteSpace: 'nowrap',
               }}
             >
-              Swipe <ChevronLeft size={14} style={{ transform: 'rotate(180deg)' }} />
+              Swipe or tap <ChevronLeft size={14} style={{ transform: 'rotate(180deg)' }} />
             </div>
           )}
 
@@ -220,6 +220,26 @@ export default function PageOnboarding({ pageKey }: PageOnboardingProps) {
               }}
             >
               <ChevronLeft size={16} />
+            </button>
+          )}
+
+          {/* Next arrow — always visible on carousels (click target for
+              laptop/desktop users whose trackpads don't register the
+              swipe gesture) */}
+          {isCarousel && cardIndex < slides.length - 1 && (
+            <button
+              type="button"
+              onClick={(e) => { ripple(e); goToNext() }}
+              aria-label="Next"
+              style={{
+                position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                width: 32, height: 32, borderRadius: '50%',
+                background: 'rgba(17,17,19,0.7)', border: '1px solid rgba(255,255,255,0.15)',
+                color: 'var(--text)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer',
+              }}
+            >
+              <ChevronLeft size={16} style={{ transform: 'rotate(180deg)' }} />
             </button>
           )}
         </div>
