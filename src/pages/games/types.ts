@@ -12,6 +12,7 @@ export type GameId =
   | 'speed-math'
   | 'liars-grid'
   | 'hangman'
+  | 'pattern-king'
 
 export type GameKey =
   | 'arrow_dash'
@@ -23,6 +24,7 @@ export type GameKey =
   | 'speed_math'
   | 'liars_grid'
   | 'hangman'
+  | 'pattern_king'
 
 export interface RankConfig {
   rank: GameRank
