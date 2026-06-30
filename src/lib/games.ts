@@ -5,7 +5,7 @@
 // without importing the full game lobby page and its game components.
 import {
   Move, Brain, Drama, BookOpen, Grid3X3,
-  Eye, Calculator, LayoutGrid, Hash, Target,
+  Eye, Calculator, LayoutGrid, Hash, Target, Sparkles,
   type LucideIcon,
 } from 'lucide-react'
 import type { GameKey } from './gameSession'
@@ -16,6 +16,7 @@ export type GameId =
   | 'two-truths' | 'speed-math' | 'liars-grid'
   | 'hangman'
   | 'close-call'
+  | 'pattern-king'
 
 export interface GameMeta {
   id: GameId
@@ -44,6 +45,7 @@ const PREMIUM_GAMES: GameMeta[] = [
   { id: 'trivia-clash',   dbKey: 'trivia_clash',   name: 'Trivia Clash',          tagline: 'Drop knowledge. Wreck the scoreboard.',           accent: '#ff9a3c', icon: BookOpen, sessionCost: 6 },
   { id: 'hangman',        dbKey: 'hangman',        name: 'Hangman',               tagline: 'Guess the word. One letter at a time.',           accent: '#ff6b00', icon: Hash,     sessionCost: 3 },
   { id: 'close-call',     dbKey: 'close_call',     name: 'Close Call',            tagline: 'Type the closest answer you can. Fast.',          accent: '#ff4d8b', icon: Target,   sessionCost: 4 },
+  { id: 'pattern-king',   dbKey: 'pattern_king',   name: 'Pattern King',          tagline: 'Memorize the grid. Clear every pattern before time runs out.', accent: '#00e5ff', icon: Sparkles, sessionCost: 6 },
 ]
 
 export const GAMES: GameMeta[] = [...STANDARD_GAMES, ...PREMIUM_GAMES]
