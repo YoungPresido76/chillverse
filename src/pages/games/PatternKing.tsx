@@ -169,7 +169,6 @@ export default function PatternKing({ rank: initialRank, onEnd, onBack }: Props)
 
     setTimeout(() => {
       setCards(prev => {
-        const matched = prev.filter(c => c.matched)
         const unmatched = shuffleArr(prev.filter(c => !c.matched))
         let ui = 0
         return prev.map(c => c.matched ? c : unmatched[ui++])
