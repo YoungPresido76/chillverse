@@ -404,6 +404,21 @@ function GamesTab({ myId, onRoomCreated }: GamesTabProps) {
     if (!selected) return
     setCreating(true)
     try {
+      // Guard: a user can only host one active room at a time.
+      const { data: existing } = await supabase
+        .from('game_rooms')
+        .select('id')
+        .eq('host_id', myId)
+        .in('status', ['waiting', 'countdown', 'in_progress'])
+        .maybeSingle()
+
+      if (existing) {
+        showToast('You already have an active room — taking you there.', <Users size={13} />, 'rgba(255,107,0,0.5)')
+        onRoomCreated(existing.id)
+        setCreating(false)
+        return
+      }
+
       const teamCode = Math.floor(10000 + Math.random() * 90000).toString()
       const isPrivate = visibility === 'private'
 
