@@ -513,7 +513,7 @@ function GamesTab({ myId, onRoomCreated }: GamesTabProps) {
 // ═══════════════════════════════════════════════════════════════════
 // Rooms Tab — browse public rooms + join by team code
 // ═══════════════════════════════════════════════════════════════════
-interface RoomRow { id: string; game_id: string; room_name: string; host_id: string; is_private: boolean; status: string; current_player_count: number; max_player_count: number; min_player_count: number; short_code: string; created_at: string }
+interface RoomRow { id: string; game_id: string; room_name: string; host_id: string; is_private: boolean; status: string; current_player_count: number; max_player_count: number; min_player_count: number; short_code: string; created_at: string; challenge_id?: string | null }
 
 interface RoomsTabProps { myId: string; onJoinRoom: (roomId: string) => void }
 
@@ -767,6 +767,28 @@ function Lobby({ roomId, myId, myName, onGameStart, onLeave }: LobbyProps) {
     if (players.length < minPlayers) {
       showToast(`Need ${minPlayers} players to start`, <Trophy size={13} />, 'rgba(155,109,255,0.5)')
       return
+    }
+    // For 2-player games (e.g. tictactoe), spin up a backing `challenges` row
+    // so the existing match engine (challenge_moves / resolve_challenge) has
+    // something to attach to once the countdown ends.
+    let challengeId: string | null = room?.challenge_id ?? null
+    if (!challengeId && room?.game_id === 'tictactoe') {
+      const opponent = players.find(p => p.player_id !== myId)
+      if (!opponent) {
+        showToast('Waiting for an opponent to join.', <Trophy size={13} />, 'rgba(155,109,255,0.5)')
+        return
+      }
+      const { data: challenge, error: chErr } = await supabase
+        .from('challenges')
+        .insert({ challenger_id: myId, challenged_id: opponent.player_id, game: room.game_id, status: 'accepted', accepted_at: new Date().toISOString() })
+        .select('id')
+        .single()
+      if (chErr || !challenge) {
+        showToast('Could not start the match. Try again.', <XIcon size={13} />, 'rgba(255,77,77,0.5)')
+        return
+      }
+      challengeId = challenge.id
+      await supabase.from('game_rooms').update({ challenge_id: challengeId }).eq('id', roomId)
     }
     await supabase.from('game_rooms').update({ status: 'countdown', countdown_start_at: new Date().toISOString() }).eq('id', roomId)
     // Countdown fires via realtime for all players
@@ -1079,6 +1101,96 @@ export function ChallengeFullModal({ opponentId, opponentName, myId, myName, onC
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// Room Game Modal — bridges a finished room countdown into a live match
+// ═══════════════════════════════════════════════════════════════════
+interface RoomGameModalProps { roomId: string; gameId: string; myId: string; myName: string; onClose: () => void }
+
+function RoomGameModal({ roomId, gameId, myId, myName, onClose }: RoomGameModalProps) {
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [challengeId, setChallengeId] = useState<string | null>(null)
+  const [amChallenger, setAmChallenger] = useState(false)
+  const [opponentId, setOpponentId] = useState('')
+  const [opponentName, setOpponentName] = useState('Opponent')
+  const [phase, setPhase] = useState<'live' | 'result_win' | 'result_lose' | 'inactivity'>('live')
+  const [resultXP, setResultXP] = useState(0)
+  const [inactName, setInactName] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      const { data: room } = await supabase.from('game_rooms').select('challenge_id').eq('id', roomId).single()
+      const cid = (room as { challenge_id?: string } | null)?.challenge_id
+      if (!cid) { if (!cancelled) { setError('Match could not be found.'); setLoading(false) }; return }
+      const { data: challenge } = await supabase.from('challenges').select('id,challenger_id,challenged_id').eq('id', cid).single()
+      if (!challenge) { if (!cancelled) { setError('Match could not be found.'); setLoading(false) }; return }
+      const iAmChallenger = challenge.challenger_id === myId
+      const oppId = iAmChallenger ? challenge.challenged_id : challenge.challenger_id
+      const { data: oppProfile } = await supabase.from('profiles').select('display_name,username').eq('id', oppId).single()
+      if (cancelled) return
+      setChallengeId(challenge.id)
+      setAmChallenger(iAmChallenger)
+      setOpponentId(oppId)
+      setOpponentName((oppProfile?.display_name ?? oppProfile?.username) || 'Opponent')
+      setLoading(false)
+    }
+    load()
+    return () => { cancelled = true }
+  }, [roomId, myId])
+
+  function handleResult(won: boolean, xp: number) { setResultXP(xp); setPhase(won ? 'result_win' : 'result_lose') }
+
+  if (loading) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 850, background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(16px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)' }}>Loading match…</div>
+      </div>
+    )
+  }
+
+  if (error || !challengeId) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 850, background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(16px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div style={{ width: '100%', maxWidth: 320, background: 'var(--surface2)', borderRadius: 24, border: '1px solid rgba(255,77,77,0.25)', padding: 24, textAlign: 'center' }}>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>{error ?? 'Match could not be found.'}</div>
+          <button onClick={onClose} style={{ width: '100%', padding: 12, borderRadius: 13, border: 'none', background: 'linear-gradient(135deg,var(--accent),var(--accent2))', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>Back to Lobby</button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 850, background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(16px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, overflowY: 'auto' }}>
+      <div style={{ width: '100%', maxWidth: 360 }}>
+        {gameId === 'tictactoe' && phase === 'live' && (
+          <TicTacToeArena
+            challengeId={challengeId}
+            myId={myId}
+            myName={myName}
+            opponentId={opponentId}
+            opponentName={opponentName}
+            amChallenger={amChallenger}
+            onResult={handleResult}
+            onInactivity={(name) => { setInactName(name); setPhase('inactivity') }}
+            onExit={onClose}
+          />
+        )}
+        {phase === 'inactivity' && (
+          <div style={{ width: '100%', background: 'var(--surface2)', borderRadius: 24, border: '1px solid rgba(255,255,255,0.08)', padding: 24, textAlign: 'center' }}>
+            <div style={{ fontSize: 40, marginBottom: 14 }}>😴</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', marginBottom: 8 }}>Session Ended</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 20 }}>Inactivity from <strong style={{ color: 'var(--text)' }}>{inactName}</strong> ended the session.</div>
+            <button onClick={onClose} style={{ width: '100%', padding: 12, borderRadius: 13, border: 'none', background: 'linear-gradient(135deg,var(--accent),var(--accent2))', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>Back to Lobby</button>
+          </div>
+        )}
+      </div>
+      {phase === 'result_win' && <WinModal xp={resultXP} opponentName={opponentName} onClose={onClose} onPlayAgain={onClose} />}
+      {phase === 'result_lose' && <LoseModal opponentName={opponentName} onClose={onClose} onRematch={onClose} />}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // Return-to-Lobby floating bar (exported for AppLayout)
 // ═══════════════════════════════════════════════════════════════════
 export function ReturnToLobbyBar({ onReturn }: { roomId: string; onReturn: () => void }) {
@@ -1114,6 +1226,20 @@ export default function Challenges() {
   // Lobby state
   const [activeRoomId, setActiveRoomId]         = useState<string | null>(null)
   const [inLobby, setInLobby]                   = useState(false)
+
+  // Room game (after countdown finishes, AppLayout navigates here with these params)
+  const urlRoomId   = searchParams.get('room') ?? ''
+  const urlRoomGame = searchParams.get('game') ?? 'tictactoe'
+  const [roomGameOpen, setRoomGameOpen] = useState(!!urlRoomId)
+
+  useEffect(() => {
+    setRoomGameOpen(!!urlRoomId)
+  }, [urlRoomId])
+
+  function closeRoomGame() {
+    setRoomGameOpen(false)
+    navigate(`/challenges?lobby=${urlRoomId}`, { replace: true })
+  }
 
   useEffect(() => {
     if (!myId) return
@@ -1228,6 +1354,17 @@ export default function Challenges() {
           onClose={() => { setLegacyModalOpen(false); navigate('/challenges', { replace: true }) }}
           prefillChallengeId={urlChallengeId || undefined}
           prefillGame={urlGame || undefined}
+        />
+      )}
+
+      {/* Room match modal — opens after a lobby countdown finishes */}
+      {roomGameOpen && urlRoomId && myId && (
+        <RoomGameModal
+          roomId={urlRoomId}
+          gameId={urlRoomGame}
+          myId={myId}
+          myName={myName}
+          onClose={closeRoomGame}
         />
       )}
 
