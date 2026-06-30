@@ -126,6 +126,23 @@ export default function AppLayout() {
   const [inLobbyPage, setInLobbyPage]             = useState(false)
   const [gameCountdown, setGameCountdown]         = useState<{ gameName: string; count: number } | null>(null)
 
+  // ── Restore active room membership on load/refresh ──
+  // Without this, a player who joined a room then navigated away (or refreshed)
+  // would stop "listening" for the host's countdown and miss the auto-launch.
+  useEffect(() => {
+    if (!myId) return
+    let cancelled = false
+    async function restore() {
+      const { data: memberships } = await supabase.from('room_players').select('room_id').eq('player_id', myId)
+      if (!memberships?.length) return
+      const roomIds = memberships.map((r: { room_id: string }) => r.room_id)
+      const { data: room } = await supabase.from('game_rooms').select('id').in('id', roomIds).in('status', ['waiting', 'countdown', 'in_progress']).limit(1).maybeSingle()
+      if (!cancelled && room) setActiveLobbyRoomId(room.id)
+    }
+    restore()
+    return () => { cancelled = true }
+  }, [myId])
+
   // ── Listen for room invites ──
   useEffect(() => {
     if (!myId) return
