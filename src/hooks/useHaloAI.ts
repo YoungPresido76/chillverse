@@ -117,12 +117,23 @@ export function useHaloAI(): UseHaloAIReturn {
 
         if (!res.ok) {
           let bodyText = ''
+          let debugMsg = ''
           try {
             bodyText = await res.text()
+            try {
+              const parsed = JSON.parse(bodyText)
+              debugMsg = parsed?.debug || ''
+            } catch {
+              // body wasn't JSON, fall through to raw text
+            }
           } catch {
             bodyText = '(could not read response body)'
           }
-          throw new Error(`DEBUG: Function responded with status ${res.status} ${res.statusText}. Body: ${bodyText}`)
+          throw new Error(
+            debugMsg
+              ? `DEBUG: status ${res.status}. ${debugMsg}`
+              : `DEBUG: Function responded with status ${res.status} ${res.statusText}. Body: ${bodyText}`
+          )
         }
 
         let data: { reply: string }
@@ -177,5 +188,4 @@ export function useHaloAI(): UseHaloAIReturn {
     clearError,
     addLocalMessage,
   }
-  }
-          
+}
