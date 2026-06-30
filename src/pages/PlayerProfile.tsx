@@ -706,7 +706,7 @@ export default function PlayerProfile() {
       <div style={{ padding: '0 20px', marginBottom: 24, display: 'flex', gap: 12 }}>
         <div style={{ flex: 1 }}>
           <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 10 }}>Avatar</p>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '16px 10px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
+          <button type="button" onClick={() => navigate('/mall')} style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '16px 10px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)', cursor: 'pointer' }}>
             <div style={{ width: 38, height: 38, borderRadius: 10, background: equippedAvatar ? `${rank.color}20` : 'var(--surface2)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {equippedAvatar && equippedAvatar.startsWith('http')
                 ? <img src={equippedAvatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
@@ -716,19 +716,20 @@ export default function PlayerProfile() {
             <span style={{ fontSize: 11.5, fontWeight: 700, color: equippedAvatar ? 'var(--text)' : 'var(--text-muted)', textAlign: 'center' }}>
               {equippedAvatar ? (equippedAvatar.startsWith('http') ? 'Equipped' : equippedAvatar) : 'No avatar equipped'}
             </span>
-          </div>
+          </button>
         </div>
         <div style={{ flex: 1 }}>
           <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 10 }}>Artifact</p>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '16px 10px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
+          <button type="button" onClick={() => navigate('/artifacts')} style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '16px 10px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)', cursor: 'pointer' }}>
             <div style={{ width: 38, height: 38, borderRadius: 10, background: equippedArtifact ? `${rank.color}20` : 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Package size={17} style={{ color: equippedArtifact ? rank.color : 'var(--text-muted)' }} />
             </div>
             <span style={{ fontSize: 11.5, fontWeight: 700, color: equippedArtifact ? 'var(--text)' : 'var(--text-muted)', textAlign: 'center' }}>
               {equippedArtifact || 'No artifact equipped'}
             </span>
-          </div>
+          </button>
         </div>
+      </div>
       </div>
 
       {challengeOpen && myId && (
