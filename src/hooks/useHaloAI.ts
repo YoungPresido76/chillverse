@@ -72,6 +72,20 @@ export function useHaloAI(): UseHaloAIReturn {
       try {
         const { data: { session } } = await supabase.auth.getSession()
 
+        if (!session?.access_token) {
+          throw new Error('DEBUG: No active session/access_token. User may not be logged in or session expired.')
+        }
+
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+        if (!supabaseUrl) {
+          throw new Error('DEBUG: VITE_SUPABASE_URL is undefined/empty. Check Vercel env vars.')
+        }
+        if (!anonKey) {
+          throw new Error('DEBUG: VITE_SUPABASE_ANON_KEY is undefined/empty. Check Vercel env vars.')
+        }
+
         const rankTier = getUserRankTier(profile.xp)
         const playerContext = {
           username: profile.username,
@@ -83,24 +97,44 @@ export function useHaloAI(): UseHaloAIReturn {
           rank: rankTier.name,
         }
 
-        const res = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/halo-ai`,
-          {
+        const targetUrl = `${supabaseUrl}/functions/v1/halo-ai`
+
+        let res: Response
+        try {
+          res = await fetch(targetUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${session?.access_token}`,
-              apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${session.access_token}`,
+              apikey: anonKey,
             },
             body: JSON.stringify({ message: text, playerContext }),
-          }
-        )
-
-        if (!res.ok) {
-          throw new Error('Halo had trouble responding.')
+          })
+        } catch (networkErr) {
+          const msg = networkErr instanceof Error ? networkErr.message : String(networkErr)
+          throw new Error(`DEBUG: Network/fetch failed before reaching Supabase. URL tried: ${targetUrl}. Raw error: ${msg}`)
         }
 
-        const data: { reply: string } = await res.json()
+        if (!res.ok) {
+          let bodyText = ''
+          try {
+            bodyText = await res.text()
+          } catch {
+            bodyText = '(could not read response body)'
+          }
+          throw new Error(`DEBUG: Function responded with status ${res.status} ${res.statusText}. Body: ${bodyText}`)
+        }
+
+        let data: { reply: string }
+        try {
+          data = await res.json()
+        } catch (parseErr) {
+          throw new Error('DEBUG: Response was 200 OK but body was not valid JSON.')
+        }
+
+        if (!data?.reply) {
+          throw new Error(`DEBUG: Response 200 OK but no "reply" field present. Raw: ${JSON.stringify(data)}`)
+        }
 
         const haloMessage: HaloMessage = {
           id: `${Date.now()}-halo`,
@@ -124,7 +158,8 @@ export function useHaloAI(): UseHaloAIReturn {
 
         refetch()
       } catch (err) {
-        setError('Halo had trouble responding. Try again.')
+        const msg = err instanceof Error ? err.message : String(err)
+        setError(msg)
       } finally {
         setLoading(false)
       }
@@ -142,4 +177,5 @@ export function useHaloAI(): UseHaloAIReturn {
     clearError,
     addLocalMessage,
   }
-}
+  }
+          
