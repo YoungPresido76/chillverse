@@ -730,7 +730,6 @@ export default function PlayerProfile() {
           </button>
         </div>
       </div>
-      </div>
 
       {challengeOpen && myId && (
         <ChallengePicker
