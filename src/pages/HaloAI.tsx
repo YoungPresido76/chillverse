@@ -332,7 +332,7 @@ export default function HaloAI() {
         )}
       </div>
 
-      {/* Error banner */}
+      {/* Error banner (debug mode: shows raw error for troubleshooting) */}
       {error && (
         <div
           style={{
@@ -344,11 +344,16 @@ export default function HaloAI() {
             fontSize: 12,
             color: '#ff6b6b',
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-start',
             justifyContent: 'space-between',
+            gap: 10,
+            maxHeight: 160,
+            overflowY: 'auto',
           }}
         >
-          <span>Halo had trouble responding. Try again.</span>
+          <span style={{ userSelect: 'text', wordBreak: 'break-word', lineHeight: 1.5, fontFamily: 'monospace' }}>
+            {error}
+          </span>
           <button
             onClick={clearError}
             style={{
@@ -356,9 +361,10 @@ export default function HaloAI() {
               border: 'none',
               color: '#ff6b6b',
               cursor: 'pointer',
-              fontSize: 14,
+              fontSize: 16,
               fontWeight: 700,
               lineHeight: 1,
+              flexShrink: 0,
             }}
           >
             ×
@@ -446,5 +452,5 @@ export default function HaloAI() {
       </div>
     </div>
   )
-      }
-                  
+}
+  
