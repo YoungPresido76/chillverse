@@ -185,10 +185,6 @@ export const ONBOARDING_CONTENT: Record<string, OnboardingPageContent> = {
         image: `${BASE}/9e8c0193ca0122b46886391790b9bf2c.jpg`,
         text: 'What information do you want other players to get from you? Leave it here.',
       },
-      {
-        image: `${BASE}/8598e7d7c958157328af0f4c8877bde0.jpg`,
-        text: 'Use the challenge button to play fun games with people — just tap challenge on their own profile.',
-      },
     ],
   },
 
