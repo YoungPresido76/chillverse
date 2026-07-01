@@ -32,6 +32,7 @@ import Hangman from './games/Hangman'
 import CloseCall from './games/CloseCall'
 import PatternKing from './games/PatternKing'
 import Uno from './games/Uno'
+import ColourBlock from './games/ColourBlock'
 
 // ─── Constants ───────────────────────────────────────────────
 const MAX_PLAYS    = 7
@@ -270,6 +271,7 @@ export default function Games() {
   if (activeGame === 'close-call')     return <CloseCall         {...gameProps} />
   if (activeGame === 'pattern-king')   return <PatternKing       {...gameProps} />
   if (activeGame === 'uno')            return <Uno                {...gameProps} />
+  if (activeGame === 'colour-block')   return <ColourBlock         {...gameProps} />
 
   return (
     <div>
