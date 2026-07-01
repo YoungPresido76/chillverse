@@ -201,7 +201,6 @@ export default function Dashboard() {
   const QUICK_ACTIONS: QuickAction[] = [
     { label: 'Play Games',  sub: onlineCount != null ? `${onlineCount} online` : '…', to: '/games',      bg: 'linear-gradient(135deg,#9b6dff,#4f8ef7)', icon: Gamepad2 },
     { label: 'Mall',        sub: 'New drops',    to: '/mall',       bg: 'linear-gradient(135deg,#ff6b00,#ff9a3c)', icon: ShoppingBag },
-    { label: 'Challenges',  sub: 'Head to head', to: '/challenges', bg: 'linear-gradient(135deg,#ff4d8b,#ff6b6b)', icon: Swords },
   ]
 
   return (
