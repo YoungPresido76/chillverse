@@ -445,6 +445,8 @@ export default function Chat() {
   const [pinnedMsgPreview, setPinnedMsgPreview] = useState<{ id: string; content: string; senderName: string } | null>(null)
   // Per-room row menu in the room list (pin/delete), keyed by room id, null = closed
   const [roomMenuOpenFor, setRoomMenuOpenFor] = useState<string | null>(null)
+  const [roomMenuPos, setRoomMenuPos] = useState({ x: 0, y: 0 })
+  const [convMenuPos, setConvMenuPos] = useState({ x: 0, y: 0 })
 
   const msgEnd = useRef<HTMLDivElement>(null)
   const subRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
@@ -792,6 +794,18 @@ export default function Chat() {
           return [...ms, { ...raw, reactions: [], senderName, senderUsername }]
         })
       })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'messages',
+        filter: `room_id=eq.${room.id}`
+      }, (payload) => {
+        // Live-syncs edits made by anyone in the room — most importantly, message
+        // deletion. Without this, the other player only sees "Message deleted" after
+        // they reload or reopen the chat, even though the DB was already updated.
+        const raw = payload.new as { id: string; content: string; deleted: boolean }
+        setMessages(ms => ms.map(m => m.id === raw.id ? { ...m, deleted: raw.deleted, content: raw.deleted ? 'Message deleted' : raw.content } : m))
+      })
       .subscribe()
   }, [])
 
@@ -1059,7 +1073,11 @@ export default function Chat() {
     const room = rooms.find(r => r.id === roomId)
     if (!room) return
     const nextPinned = !room.pinned
-    await supabase.from('room_members').update({ pinned: nextPinned }).eq('room_id', roomId).eq('user_id', myId)
+    const { error } = await supabase.from('room_members').update({ pinned: nextPinned }).eq('room_id', roomId).eq('user_id', myId)
+    if (error) {
+      console.error('Failed to update pin state — has the pin/clear/delete migration been run on this Supabase project?', error.message)
+      return
+    }
     setRooms(prev => {
       const updated = prev.map(r => r.id === roomId ? { ...r, pinned: nextPinned } : r)
       const globalRoom = updated.find(r => r.type === 'global')
@@ -1076,7 +1094,11 @@ export default function Chat() {
   async function clearChatForMe(roomId: string) {
     if (!myId) return
     const cutoff = new Date().toISOString()
-    await supabase.from('room_members').update({ cleared_at: cutoff }).eq('room_id', roomId).eq('user_id', myId)
+    const { error } = await supabase.from('room_members').update({ cleared_at: cutoff }).eq('room_id', roomId).eq('user_id', myId)
+    if (error) {
+      console.error('Failed to clear chat — has the pin/clear/delete migration been run on this Supabase project?', error.message)
+      return
+    }
     setRooms(prev => prev.map(r => r.id === roomId ? { ...r, clearedAt: cutoff, lastMsg: '', lastMsgTime: '' } : r))
     if (activeRoom?.id === roomId) {
       setActiveRoom(r => r ? { ...r, clearedAt: cutoff } : r)
@@ -1089,7 +1111,11 @@ export default function Chat() {
     if (!myId) return
     const room = rooms.find(r => r.id === roomId)
     if (!room || room.type === 'global') return
-    await supabase.from('room_members').update({ hidden_at: new Date().toISOString() }).eq('room_id', roomId).eq('user_id', myId)
+    const { error } = await supabase.from('room_members').update({ hidden_at: new Date().toISOString() }).eq('room_id', roomId).eq('user_id', myId)
+    if (error) {
+      console.error('Failed to delete chat — has the pin/clear/delete migration been run on this Supabase project?', error.message)
+      return
+    }
     setRooms(prev => prev.filter(r => r.id !== roomId))
     if (activeRoom?.id === roomId) { setActiveRoom(null); setShowConv(false); setMessages([]) }
   }
@@ -1097,7 +1123,11 @@ export default function Chat() {
   /** Pin a message to the top of the active conversation, visible to all members. */
   async function pinMessage(msg: Message) {
     if (!activeRoom) return
-    await supabase.from('chat_rooms').update({ pinned_message_id: msg.id }).eq('id', activeRoom.id)
+    const { error } = await supabase.from('chat_rooms').update({ pinned_message_id: msg.id }).eq('id', activeRoom.id)
+    if (error) {
+      console.error('Failed to pin message — has the pin/clear/delete migration been run on this Supabase project?', error.message)
+      return
+    }
     setActiveRoom(r => r ? { ...r, pinnedMessageId: msg.id } : r)
     setRooms(prev => prev.map(r => r.id === activeRoom.id ? { ...r, pinnedMessageId: msg.id } : r))
     setPinnedMsgPreview({
@@ -1110,7 +1140,11 @@ export default function Chat() {
 
   async function unpinMessage() {
     if (!activeRoom) return
-    await supabase.from('chat_rooms').update({ pinned_message_id: null }).eq('id', activeRoom.id)
+    const { error } = await supabase.from('chat_rooms').update({ pinned_message_id: null }).eq('id', activeRoom.id)
+    if (error) {
+      console.error('Failed to unpin message:', error.message)
+      return
+    }
     setActiveRoom(r => r ? { ...r, pinnedMessageId: null } : r)
     setRooms(prev => prev.map(r => r.id === activeRoom.id ? { ...r, pinnedMessageId: null } : r))
     setPinnedMsgPreview(null)
@@ -1278,37 +1312,15 @@ export default function Chat() {
                     {!isGlobal && (
                       <div style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)' }}>
                         <button type="button"
-                          onClick={(e) => { e.stopPropagation(); setRoomMenuOpenFor(o => o === room.id ? null : room.id) }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const rect = e.currentTarget.getBoundingClientRect()
+                            setRoomMenuPos({ x: rect.right, y: rect.bottom + 4 })
+                            setRoomMenuOpenFor(o => o === room.id ? null : room.id)
+                          }}
                           style={{ width:28, height:28, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)' }}>
                           <MoreVertical size={15} />
                         </button>
-                        {roomMenuOpenFor === room.id && (
-                          <>
-                            <div style={{ position:'fixed', inset:0, zIndex:90 }} onClick={(e) => { e.stopPropagation(); setRoomMenuOpenFor(null) }} />
-                            <div style={{ position:'absolute', right:0, top:32, zIndex:100, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:14, overflow:'hidden', boxShadow:'0 12px 40px rgba(0,0,0,0.5)', minWidth:170 }}>
-                              {[
-                                {
-                                  icon: room.pinned ? <PinOff size={14} /> : <Pin size={14} />,
-                                  label: room.pinned ? 'Unpin chat' : 'Pin chat',
-                                  action: () => { togglePinChat(room.id); setRoomMenuOpenFor(null) },
-                                },
-                                {
-                                  icon: <Trash2 size={14} />,
-                                  label: 'Delete chat',
-                                  action: () => { deleteChatForMe(room.id); setRoomMenuOpenFor(null) },
-                                  danger: true,
-                                },
-                              ].map(({ icon, label, action, danger }) => (
-                                <button key={label} type="button" onClick={(e) => { e.stopPropagation(); action() }}
-                                  style={{ display:'flex', alignItems:'center', gap:10, padding:'11px 16px', width:'100%', background:'none', border:'none', cursor:'pointer', fontSize:13, color: danger ? '#ff6b6b' : 'var(--text-dim)' }}
-                                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
-                                  onMouseLeave={e => { e.currentTarget.style.background = 'none' }}>
-                                  {icon} {label}
-                                </button>
-                              ))}
-                            </div>
-                          </>
-                        )}
                       </div>
                     )}
                   </div>
@@ -1350,46 +1362,11 @@ export default function Chat() {
                   </div>
                 </div>
                 {activeRoom.type === 'dm' && (
-                  <div style={{ position:'relative' }}>
-                    <IBtn onClick={() => setConvMenuOpen(o => !o)}><MoreVertical size={15} /></IBtn>
-                    {convMenuOpen && (
-                      <>
-                        <div style={{ position:'fixed', inset:0, zIndex:90 }} onClick={() => setConvMenuOpen(false)} />
-                        <div style={{ position:'absolute', right:0, top:42, zIndex:100, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:14, overflow:'hidden', boxShadow:'0 12px 40px rgba(0,0,0,0.5)', minWidth:180 }}>
-                          {[
-                            {
-                              icon: activeRoom.pinned ? <PinOff size={14} /> : <Pin size={14} />,
-                              label: activeRoom.pinned ? 'Unpin chat' : 'Pin chat',
-                              action: () => { togglePinChat(activeRoom.id); setConvMenuOpen(false) },
-                            },
-                            {
-                              icon: <Trash2 size={14} />,
-                              label: 'Clear chat',
-                              action: () => { clearChatForMe(activeRoom.id); setConvMenuOpen(false) },
-                              danger: true,
-                            },
-                            {
-                              icon: <ShieldOff size={14} />,
-                              label: 'Block user',
-                              action: async () => {
-                                const other = activeRoom.members.find(m => m.user_id !== myId)
-                                if (myId && other) await supabase.from('blocks').upsert({ blocker_id: myId, blocked_id: other.user_id })
-                                setConvMenuOpen(false)
-                              },
-                              danger: true,
-                            },
-                          ].map(({ icon, label, action, danger }) => (
-                            <button key={label} type="button" onClick={action}
-                              style={{ display:'flex', alignItems:'center', gap:10, padding:'11px 16px', width:'100%', background:'none', border:'none', cursor:'pointer', fontSize:13, color: danger ? '#ff6b6b' : 'var(--text-dim)' }}
-                              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
-                              onMouseLeave={e => { e.currentTarget.style.background = 'none' }}>
-                              {icon} {label}
-                            </button>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </div>
+                  <IBtn onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect()
+                    setConvMenuPos({ x: rect.right, y: rect.bottom + 4 })
+                    setConvMenuOpen(o => !o)
+                  }}><MoreVertical size={15} /></IBtn>
                 )}
               </div>
 
@@ -1550,6 +1527,85 @@ export default function Chat() {
           )}
         </div>
       )}
+
+      {/* Conversation-header 3-dot menu — Pin/Unpin chat, Clear chat, Block user. Same
+          fixed/top-level pattern as the room-row menu above — the old version was nested
+          inside the topbar's backdrop-filter container, which was the actual cause of it
+          rendering behind other elements instead of floating cleanly on top. */}
+      {convMenuOpen && activeRoom && (
+        <>
+          <div style={{ position:'fixed', inset:0, zIndex:190 }} onClick={() => setConvMenuOpen(false)} />
+          <div style={{ position:'fixed', left: Math.min(convMenuPos.x - 180, window.innerWidth - 188), top: Math.min(convMenuPos.y, window.innerHeight - 140), zIndex:200, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:14, overflow:'hidden', boxShadow:'0 12px 40px rgba(0,0,0,0.5)', minWidth:180 }}>
+            {[
+              {
+                icon: activeRoom.pinned ? <PinOff size={14} /> : <Pin size={14} />,
+                label: activeRoom.pinned ? 'Unpin chat' : 'Pin chat',
+                action: () => { togglePinChat(activeRoom.id); setConvMenuOpen(false) },
+              },
+              {
+                icon: <Trash2 size={14} />,
+                label: 'Clear chat',
+                action: () => { clearChatForMe(activeRoom.id); setConvMenuOpen(false) },
+                danger: true,
+              },
+              {
+                icon: <ShieldOff size={14} />,
+                label: 'Block user',
+                action: async () => {
+                  const other = activeRoom.members.find(m => m.user_id !== myId)
+                  if (myId && other) await supabase.from('blocks').upsert({ blocker_id: myId, blocked_id: other.user_id })
+                  setConvMenuOpen(false)
+                },
+                danger: true,
+              },
+            ].map(({ icon, label, action, danger }) => (
+              <button key={label} type="button" onClick={action}
+                style={{ display:'flex', alignItems:'center', gap:10, padding:'11px 16px', width:'100%', background:'none', border:'none', cursor:'pointer', fontSize:13, color: danger ? '#ff6b6b' : 'var(--text-dim)' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'none' }}>
+                {icon} {label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Room-row 3-dot menu — Pin / Delete chat. Rendered at the true top level (fixed,
+          viewport-anchored) rather than nested inside the scrolling room list, so it can
+          never get visually clipped or layered behind sibling rows the way an
+          absolute-positioned nested menu can. Also lives outside showChat's block so it
+          still works on mobile while only the room list (not a conversation) is showing. */}
+      {roomMenuOpenFor && (() => {
+        const menuRoom = rooms.find(r => r.id === roomMenuOpenFor)
+        if (!menuRoom) return null
+        return (
+          <>
+            <div style={{ position:'fixed', inset:0, zIndex:190 }} onClick={() => setRoomMenuOpenFor(null)} />
+            <div style={{ position:'fixed', left: Math.min(roomMenuPos.x - 170, window.innerWidth - 178), top: Math.min(roomMenuPos.y, window.innerHeight - 100), zIndex:200, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:14, overflow:'hidden', boxShadow:'0 12px 40px rgba(0,0,0,0.5)', minWidth:170 }}>
+              {[
+                {
+                  icon: menuRoom.pinned ? <PinOff size={14} /> : <Pin size={14} />,
+                  label: menuRoom.pinned ? 'Unpin chat' : 'Pin chat',
+                  action: () => { togglePinChat(menuRoom.id); setRoomMenuOpenFor(null) },
+                },
+                {
+                  icon: <Trash2 size={14} />,
+                  label: 'Delete chat',
+                  action: () => { deleteChatForMe(menuRoom.id); setRoomMenuOpenFor(null) },
+                  danger: true,
+                },
+              ].map(({ icon, label, action, danger }) => (
+                <button key={label} type="button" onClick={() => action()}
+                  style={{ display:'flex', alignItems:'center', gap:10, padding:'11px 16px', width:'100%', background:'none', border:'none', cursor:'pointer', fontSize:13, color: danger ? '#ff6b6b' : 'var(--text-dim)' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'none' }}>
+                  {icon} {label}
+                </button>
+              ))}
+            </div>
+          </>
+        )
+      })()}
 
       {/* Player profile modal */}
       {viewProfile && (
