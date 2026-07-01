@@ -6,6 +6,7 @@ import { useGamePresence } from '../../hooks/useGamePresence'
 import { getRankConfig } from './types'
 import { PreGameModal, GameHUD, StatChip, ResultScreen, QuitModal, TimerBar, useRankStreak } from './GameShell'
 import { ripple } from '../../lib/ripple'
+import { playCorrectCard, playPatternComplete, playWrongCard } from '../../lib/sfx'
 
 const ACCENT = '#00e5ff'
 const GAME_ID = 'pattern-king' as const
@@ -312,6 +313,7 @@ export default function PatternKing({ rank: initialRank, onEnd, onBack, sessions
 
     if (!isRequired || alreadyDone) {
       // Wrong tap — instant round end
+      playWrongCard()
       lockedRef.current = true
       setWrongId(id)
       setBanner('Wrong card!')
@@ -323,6 +325,7 @@ export default function PatternKing({ rank: initialRank, onEnd, onBack, sessions
     }
 
     // Correct card — lock it in immediately so it can never be re-tapped or re-counted
+    playCorrectCard()
     setCards(prev => prev.map(c => c.id === id ? { ...c, counted: true } : c))
     doneCountRef.current[sym] = (doneCountRef.current[sym] ?? 0) + 1
     scoreRef.current += 50
@@ -330,6 +333,7 @@ export default function PatternKing({ rank: initialRank, onEnd, onBack, sessions
 
     if (doneCountRef.current[sym] >= (needRef.current[sym] ?? 0)) {
       // Pattern type complete
+      playPatternComplete()
       setCards(prev => prev.map(c => c.pattern.sym === sym ? { ...c, matched: true, flipped: true, counted: true } : c))
       setDone(prev => new Set(prev).add(sym))
       scoreRef.current += 300
