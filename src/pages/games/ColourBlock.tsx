@@ -97,11 +97,11 @@ function gridCols(count: number) {
   return Math.min(4, Math.ceil(Math.sqrt(count)))
 }
 function xpForRounds(roundsCleared: number, won: boolean): number {
-  if (won) return 950
-  if (roundsCleared >= 9) return 700
-  if (roundsCleared >= 6) return 500
-  if (roundsCleared >= 3) return 300
-  return 150
+  if (won) return 590
+  if (roundsCleared >= 9) return 450
+  if (roundsCleared >= 6) return 150
+  if (roundsCleared >= 3) return 90
+  return 40
 }
 
 interface Props {
@@ -164,8 +164,7 @@ export default function ColourBlock({ rank: initialRank, onEnd, onBack, sessions
       .then(({ data }) => {
         if (data?.equipped_avatar) setMyAvatar(data.equipped_avatar)
         if (data?.display_name || data?.username) setMyName(data.display_name || data.username)
-      })
-      .catch(() => {})
+      }, () => {})
   }, [session?.user?.id])
 
   function beginRound(r: number) {
