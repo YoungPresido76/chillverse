@@ -33,7 +33,6 @@ const Wallet             = lazy(() => import('./pages/Wallet'))
 const WeeklyMissions     = lazy(() => import('./pages/WeeklyMissions'))
 const Exploration        = lazy(() => import('./pages/Exploration'))
 const Version            = lazy(() => import('./pages/Version'))
-const Challenges         = lazy(() => import('./pages/Challenges'))
 const HaloAI             = lazy(() => import('./pages/HaloAI'))
 
 const Fallback = () => (
@@ -97,7 +96,6 @@ export default function App() {
         <Route path="/wallet"           element={<Suspense fallback={<Fallback />}><Wallet /></Suspense>} />
         <Route path="/weekly-missions"  element={<Suspense fallback={<Fallback />}><WeeklyMissions /></Suspense>} />
         <Route path="/version"          element={<Suspense fallback={<Fallback />}><Version /></Suspense>} />
-        <Route path="/challenges"       element={<Suspense fallback={<Fallback />}><Challenges /></Suspense>} />
         <Route path="/halo"             element={<Suspense fallback={<Fallback />}><HaloAI /></Suspense>} />
       </Route>
     </Routes>
