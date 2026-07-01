@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import type React from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, UserPlus, UserCheck, ShieldOff, Swords, X,
+  ArrowLeft, UserPlus, UserCheck, ShieldOff, X,
   MessageCircle, Zap, Heart, Star, Package,
   Gamepad2, Trophy, Users, ImageIcon, Film,
   Sparkles, Sunrise, Moon as MoonIcon, Globe2,
@@ -89,83 +89,6 @@ function MiniToast({ msg, onDone }: { msg: string; onDone: () => void }) {
   )
 }
 
-// ── Challenge quick-picker modal (stays on profile page) ──────────
-// Full game modal lives at /challenges page
-import { ChallengeFullModal } from './Challenges'
-
-function ChallengePicker({
-  name,
-  targetId,
-  myId,
-  myName,
-  onClose,
-}: {
-  name: string
-  targetId: string
-  myId: string
-  myName: string
-  onClose: () => void
-}) {
-  const navigate = useNavigate()
-  const [fullModal, setFullModal] = useState(false)
-
-  if (fullModal) {
-    return (
-      <ChallengeFullModal
-        opponentId={targetId}
-        opponentName={name}
-        myId={myId}
-        myName={myName}
-        onClose={() => { setFullModal(false); onClose() }}
-      />
-    )
-  }
-
-  return (
-    <div
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      style={{ position: 'fixed', inset: 0, zIndex: 500, background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
-    >
-      <div style={{ width: '100%', maxWidth: 320, background: 'var(--surface2)', borderRadius: 22, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 80px rgba(0,0,0,0.7)', padding: '22px 20px', position: 'relative' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-          <div style={{ flex: 1, fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>Challenge {name}</div>
-          <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <X size={13} />
-          </button>
-        </div>
-
-        {/* Quick game buttons */}
-        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 10 }}>Quick Start</div>
-        <button onClick={() => setFullModal(true)} style={{
-          width: '100%', display: 'flex', alignItems: 'center', gap: 14,
-          padding: '14px 16px', borderRadius: 16, marginBottom: 8,
-          background: 'var(--surface)', border: '1px solid rgba(62,207,142,0.3)',
-          cursor: 'pointer', textAlign: 'left',
-        }}>
-          <div style={{ width: 46, height: 46, borderRadius: 13, background: 'rgba(62,207,142,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Swords size={20} color="#3ecf8e" />
-          </div>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', marginBottom: 3 }}>Tic Tac Toe</div>
-            <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Classic 3-in-a-row · Challenge now</div>
-          </div>
-          <div style={{ marginLeft: 'auto', fontSize: 18, color: 'var(--text-muted)' }}>›</div>
-        </button>
-
-        {/* View full page */}
-        <button onClick={() => navigate(`/challenges`)} style={{
-          width: '100%', padding: '11px 0', borderRadius: 13, marginTop: 4,
-          border: '1px solid rgba(255,255,255,0.08)',
-          background: 'transparent', color: 'var(--text-muted)',
-          fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
-        }}>
-          Open full challenge page →
-        </button>
-      </div>
-    </div>
-  )
-}
-
 interface PlayerData {
   id: string
   username: string
@@ -216,15 +139,6 @@ export default function PlayerProfile() {
   const [likeCount, setLikeCount] = useState(0)
   const [liking, setLiking] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
-  const [challengeOpen, setChallengeOpen] = useState(false)
-  const [myName, setMyName] = useState('You')
-
-  // Load my own display name for challenge modal
-  useEffect(() => {
-    if (!myId) return
-    supabase.from('profiles').select('display_name,username').eq('id', myId).single()
-      .then(({ data }) => { if (data) setMyName(data.display_name ?? data.username) })
-  }, [myId])
 
   // Redirect to own profile if viewing self
   useEffect(() => {
@@ -655,10 +569,6 @@ export default function PlayerProfile() {
           style={{ flex: 1, padding: '10px 8px', borderRadius: 13, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--text-dim)', cursor: 'pointer', transition: 'all 0.15s' }}>
           <MessageCircle size={13} /> Message
         </button>
-        <button type="button" onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); setChallengeOpen(true) }}
-          style={{ flex: 1, padding: '10px 8px', borderRadius: 13, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, border: '1px solid rgba(255,107,0,0.25)', background: 'rgba(255,107,0,0.08)', color: 'var(--accent)', cursor: 'pointer', transition: 'all 0.15s' }}>
-          <Swords size={13} /> Challenge
-        </button>
         <button type="button" onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); handleBlock() }} disabled={actionLoading}
           style={{ padding: '10px 12px', borderRadius: 13, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, border: 'none', cursor: actionLoading ? 'not-allowed' : 'pointer', background: followStatus === 'blocked' ? 'rgba(255,107,107,0.2)' : 'rgba(255,107,107,0.08)', color: followStatus === 'blocked' ? '#ff6b6b' : 'var(--text-muted)', transition: 'all 0.15s' }}>
           <ShieldOff size={13} />
@@ -731,15 +641,6 @@ export default function PlayerProfile() {
         </div>
       </div>
 
-      {challengeOpen && myId && (
-        <ChallengePicker
-          name={displayName}
-          targetId={player.id}
-          myId={myId}
-          myName={myName}
-          onClose={() => setChallengeOpen(false)}
-        />
-      )}
       {showAchievements && (
         <SimpleListModal title="Achievements" subtitle={`${achievementCount} unlocked total`} onClose={() => setShowAchievements(false)}>
           {recentAchievements.length === 0 ? (
