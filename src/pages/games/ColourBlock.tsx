@@ -78,9 +78,9 @@ function generateRound(tileCount: number): Tile[] {
 // ─── Rank-based starting difficulty ───────────────────────────────
 interface CBConfig { baseTiles: number; basePickSec: number; streakRequired: number }
 const RANK_CONFIG: Record<GameRank, CBConfig> = {
-  beginner:     { baseTiles: 4,  basePickSec: 6,   streakRequired: 5 },
-  intermediate: { baseTiles: 6,  basePickSec: 5.5, streakRequired: 5 },
-  advanced:     { baseTiles: 9,  basePickSec: 5,   streakRequired: 5 },
+  beginner:     { baseTiles: 6,  basePickSec: 6,   streakRequired: 5 },
+  intermediate: { baseTiles: 8,  basePickSec: 5.5, streakRequired: 5 },
+  advanced:     { baseTiles: 10, basePickSec: 5,   streakRequired: 5 },
   master:       { baseTiles: 12, basePickSec: 4.5, streakRequired: 0 },
 }
 
@@ -94,14 +94,15 @@ function pickSecForRound(base: number, round: number) {
   return Math.max(1.8, base - (round - 1) * 0.25)
 }
 function gridCols(count: number) {
-  return Math.min(4, Math.ceil(Math.sqrt(count)))
+  return Math.min(4, Math.max(3, Math.ceil(Math.sqrt(count))))
 }
 function xpForRounds(roundsCleared: number, won: boolean): number {
   if (won) return 590
   if (roundsCleared >= 9) return 450
   if (roundsCleared >= 6) return 150
   if (roundsCleared >= 3) return 90
-  return 40
+  if (roundsCleared >= 1) return 40
+  return 0
 }
 
 interface Props {
@@ -194,11 +195,22 @@ export default function ColourBlock({ rank: initialRank, onEnd, onBack, sessions
   function doShuffle(cfg: CBConfig, r: number) {
     setPhase('shuffle')
     setBanner('Shuffling…')
-    shuffleTimeoutRef.current = setTimeout(() => {
+
+    const passes = 3
+    let done = 0
+    function pass() {
       if (gameOverRef.current) return
       setTiles(prev => shuffleArr(prev))
-      startPick(cfg, r)
-    }, 750)
+      done++
+      if (done < passes) {
+        shuffleTimeoutRef.current = setTimeout(pass, 420)
+      } else {
+        shuffleTimeoutRef.current = setTimeout(() => startPick(cfg, r), 420)
+      }
+    }
+    // Small delay before the first pass so the "flip to hidden" is visible
+    // before anything actually moves.
+    shuffleTimeoutRef.current = setTimeout(pass, 350)
   }
 
   function startPick(cfg: CBConfig, r: number) {
@@ -384,14 +396,28 @@ export default function ColourBlock({ rank: initialRank, onEnd, onBack, sessions
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '8px 16px 0' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <VersusAvatar label={myName} imgUrl={myAvatar} />
-          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-dim)' }}>You</span>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-dim)' }}>You</div>
+            <div style={{ fontSize: 9, fontWeight: 700, color: ACCENT }}>Round {round}</div>
+          </div>
         </div>
         <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 800 }}>VS</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-dim)' }}>{opponent}</span>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-dim)' }}>{opponent}</div>
+            <div style={{ fontSize: 9, fontWeight: 700, color: ACCENT }}>Round {round}</div>
+          </div>
           <VersusAvatar label={opponent} generic />
         </div>
       </div>
+
+      {phase === 'pick' && (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 16px 0' }}>
+          <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+            {opponent} is choosing<span className="cb-dots" />
+          </span>
+        </div>
+      )}
 
       {/* Phase banner */}
       <div style={{ padding: '10px 16px 0', textAlign: 'center' }}>
@@ -428,12 +454,13 @@ export default function ColourBlock({ rank: initialRank, onEnd, onBack, sessions
       {/* Tile grid */}
       <div style={{
         flex: 1, display: 'grid', gap: 10, padding: '10px 18px 24px',
-        gridTemplateColumns: `repeat(${cols}, 1fr)`,
-        alignContent: 'center',
+        gridTemplateColumns: `repeat(${cols}, minmax(64px, 96px))`,
+        justifyContent: 'center', alignContent: 'center', perspective: 700,
       }}>
         {tiles.map(tile => {
           const isWrong = wrongId === tile.id
           const showSafeBadge = phase === 'memorize' && tile.safe
+          const hidden = phase === 'shuffle'
           return (
             <button
               key={tile.id}
@@ -441,29 +468,49 @@ export default function ColourBlock({ rank: initialRank, onEnd, onBack, sessions
               disabled={phase !== 'pick'}
               onClick={(e) => { if (phase === 'pick') { ripple(e); onTileClick(tile.id) } }}
               style={{
-                aspectRatio: '1 / 1', border: 'none', padding: 0, position: 'relative',
+                aspectRatio: '1 / 1', border: 'none', background: 'transparent', padding: 0,
                 cursor: phase === 'pick' ? 'pointer' : 'default',
-                borderRadius: 14,
-                background: phase === 'shuffle' ? 'var(--surface2)' : tile.color,
-                boxShadow: isWrong
-                  ? '0 0 0 3px var(--red), 0 0 20px rgba(255,79,79,0.55)'
-                  : showSafeBadge
-                    ? `0 0 0 3px #fff, 0 0 18px ${tile.color}aa`
-                    : '3px 3px 8px var(--neu-dark), -2px -2px 6px var(--neu-light)',
-                transition: 'background 0.3s, box-shadow 0.25s',
-                animation: isWrong ? 'cb-shake 0.4s ease' : phase === 'shuffle' ? 'cb-tumble 0.5s ease' : undefined,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transformStyle: 'preserve-3d', position: 'relative',
+                animation: isWrong ? 'cb-shake 0.4s ease' : undefined,
               }}
             >
-              {showSafeBadge && (
-                <span style={{
-                  fontSize: 10, fontWeight: 900, color: '#fff', background: 'rgba(0,0,0,0.35)',
-                  borderRadius: 8, padding: '3px 7px', letterSpacing: '0.4px',
+              <div style={{
+                position: 'absolute', inset: 0, borderRadius: 14,
+                transformStyle: 'preserve-3d',
+                transition: 'transform 0.4s cubic-bezier(0.4,0,0.2,1)',
+                transform: hidden ? 'rotateY(180deg)' : 'rotateY(0deg)',
+              }}>
+                {/* Front face — the colour */}
+                <div style={{
+                  position: 'absolute', inset: 0, borderRadius: 14, backfaceVisibility: 'hidden',
+                  background: tile.color,
+                  boxShadow: isWrong
+                    ? '0 0 0 3px var(--red), 0 0 20px rgba(255,79,79,0.55)'
+                    : showSafeBadge
+                      ? `0 0 0 3px #fff, 0 0 18px ${tile.color}aa`
+                      : '3px 3px 8px var(--neu-dark), -2px -2px 6px var(--neu-light)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  SAFE
-                </span>
-              )}
-              {phase === 'shuffle' && <span style={{ fontSize: 16, color: 'var(--text-muted)' }}>✦</span>}
+                  {showSafeBadge && (
+                    <span style={{
+                      fontSize: 10, fontWeight: 900, color: '#fff', background: 'rgba(0,0,0,0.35)',
+                      borderRadius: 8, padding: '3px 7px', letterSpacing: '0.4px',
+                    }}>
+                      SAFE
+                    </span>
+                  )}
+                </div>
+                {/* Back face — hidden during shuffle */}
+                <div style={{
+                  position: 'absolute', inset: 0, borderRadius: 14, backfaceVisibility: 'hidden',
+                  transform: 'rotateY(180deg)',
+                  background: 'var(--surface2)',
+                  boxShadow: 'inset 1px 1px 4px var(--neu-dark)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <span style={{ fontSize: 16, color: 'var(--text-muted)' }}>✦</span>
+                </div>
+              </div>
             </button>
           )
         })}
@@ -489,10 +536,13 @@ export default function ColourBlock({ rank: initialRank, onEnd, onBack, sessions
           25% { transform: translateX(-5px); }
           75% { transform: translateX(5px); }
         }
-        @keyframes cb-tumble {
-          0% { transform: scale(1) rotate(0deg); opacity: 1; }
-          50% { transform: scale(0.85) rotate(8deg); opacity: 0.5; }
-          100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        .cb-dots::after {
+          content: '...';
+          animation: cb-dots 1.2s ease-in-out infinite;
+        }
+        @keyframes cb-dots {
+          0%, 100% { opacity: 0.2; }
+          50% { opacity: 1; }
         }
       `}</style>
     </div>
