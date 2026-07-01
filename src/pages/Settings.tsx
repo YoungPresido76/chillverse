@@ -5,9 +5,10 @@ import {
   ArrowLeft, ChevronRight, Trash2,
   Calendar, Tag, Lock, Eye,
   Circle, Moon, EyeOff, Check, Mail, Key,
-  AlertTriangle, Edit2, X, LogOut, Layers,
+  AlertTriangle, Edit2, X, LogOut, Layers, Volume2,
 } from 'lucide-react'
 import { ripple } from '../lib/ripple'
+import { isGameSoundEnabled, setGameSoundEnabled } from '../lib/soundSettings'
 import { useProfile } from '../hooks/useProfile'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
@@ -160,6 +161,7 @@ export default function Settings() {
   const [presence, setPresence] = useState('online')
   const [showFollowCounts, setShowFollowCounts] = useState(true)
   const [savingFollowToggle, setSavingFollowToggle] = useState(false)
+  const [gameSound, setGameSound] = useState(true)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
 
@@ -173,6 +175,16 @@ export default function Settings() {
     }
     if (profile?.username) setNewUsername(profile.username)
   }, [profile])
+
+  useEffect(() => {
+    setGameSound(isGameSoundEnabled())
+  }, [])
+
+  function toggleGameSound() {
+    const next = !gameSound
+    setGameSound(next)
+    setGameSoundEnabled(next)
+  }
 
   async function handleSetPresence(id: string) {
     setPresence(id)
@@ -379,6 +391,18 @@ export default function Settings() {
             <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 1 }}>Let other players see these on your profile</div>
           </div>
           <Toggle on={showFollowCounts} onToggle={toggleShowFollowCounts} />
+        </div>
+
+        <SectionTitle>Game</SectionTitle>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 16, marginBottom: 9, boxShadow: '3px 3px 9px var(--neu-dark),-2px -2px 7px var(--neu-light)' }}>
+          <div style={{ width: 30, height: 30, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(62,207,142,0.12)', color: '#3ecf8e' }}>
+            <Volume2 size={15} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>Game sound</div>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 1 }}>Play sound effects during games like Pattern King</div>
+          </div>
+          <Toggle on={gameSound} onToggle={toggleGameSound} />
         </div>
 
         <SectionTitle>Account info</SectionTitle>
