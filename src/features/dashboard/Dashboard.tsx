@@ -13,6 +13,7 @@ import { supabase } from '../../shared/lib/supabase'
 import { useAuth } from '../auth/useAuth'
 import { getGlobalSessionInfo } from '../games/gameSession'
 import PageOnboarding from '../onboarding/PageOnboarding'
+import Feed from '../posts/Feed'
 
 interface QuickAction {
   label: string
@@ -411,6 +412,8 @@ export default function Dashboard() {
           </div>
         </Link>
       </section>
+
+      <Feed />
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
