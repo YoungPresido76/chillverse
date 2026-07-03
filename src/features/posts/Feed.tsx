@@ -18,8 +18,7 @@ export default function Feed({ initialTag }: { initialTag?: PostTag }) {
 
   return (
     <section className="su d3" style={{ marginTop: 12 }}>
-      <div className="flex items-center justify-between" style={{ marginBottom: 10 }}>
-        <p style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)' }}>Feed</p>
+      <div className="flex items-center justify-end" style={{ marginBottom: 10 }}>
         <button
           type="button"
           className="btn-secondary ripple-wrap"
