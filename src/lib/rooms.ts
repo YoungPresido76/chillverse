@@ -14,6 +14,8 @@ export interface RoomRow {
   max_players: number
   game_id: string | null
   created_at: string
+  game_state: any | null
+  turn_user_id: string | null
 }
 
 export interface RoomPlayerRow {
