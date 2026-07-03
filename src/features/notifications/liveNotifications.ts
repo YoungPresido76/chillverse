@@ -26,9 +26,9 @@ function moviesStateKey(userId: string) {
 // ── Session limit reset ─────────────────────────────────────────
 // Fires once when the server-side session limit transitions from
 // "capped" back to "open" for this user.
-export async function checkSessionResetNotification(userId: string, username: string): Promise<void> {
+export async function checkSessionResetNotification(userId: string, username: string, sessionLimit: number = 15): Promise<void> {
   try {
-    const info = await getGlobalSessionInfo(userId)
+    const info = await getGlobalSessionInfo(userId, sessionLimit)
     const key = sessionStateKey(userId)
     const stored = localStorage.getItem(key) // 'capped' | 'ok' | null
 
