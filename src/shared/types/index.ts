@@ -24,6 +24,11 @@ export interface Profile {
   halo_messages_today: number            // default 0
   halo_last_message_date: string | null  // ISO date string YYYY-MM-DD or null
   version_level: number                  // 0 = v1.0 (free), 1 = v2.0, 2 = v3.0, etc.
+  // ── Premium (Orbit / Void) ──
+  is_pro: boolean                        // default false
+  pro_tier: 'orbit' | 'void' | null
+  pro_billing_interval: 'monthly' | 'yearly' | null
+  pro_expires_at: string | null          // ISO timestamp; renewed by webhook on each successful charge
 }
 
 export interface SignupProfileInput {
