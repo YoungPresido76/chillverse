@@ -28,6 +28,7 @@ export interface GameMeta {
   accent: string
   unlimitedPlays?: boolean
   sessionCost?: number
+  requiresPro?: boolean
   icon: LucideIcon
 }
 
@@ -48,8 +49,8 @@ const PREMIUM_GAMES: GameMeta[] = [
   { id: 'hangman',        dbKey: 'hangman',        name: 'Hangman',               tagline: 'Guess the word. One letter at a time.',           accent: '#ff6b00', icon: Hash,     sessionCost: 3 },
   { id: 'close-call',     dbKey: 'close_call',     name: 'Close Call',            tagline: 'Type the closest answer you can. Fast.',          accent: '#ff4d8b', icon: Target,   sessionCost: 4 },
   { id: 'pattern-king',   dbKey: 'pattern_king',   name: 'Pattern King',          tagline: 'Memorize the grid. Clear every pattern before time runs out.', accent: '#00e5ff', icon: Sparkles, sessionCost: 3 },
-  { id: 'uno',            dbKey: 'uno',            name: 'Chillverse_Uno',        tagline: 'Classic UNO against Halo — a smart AI that remembers your weaknesses.', accent: '#9b6dff', icon: Spade, sessionCost: 4 },
-  { id: 'colour-block',   dbKey: 'colour_block',   name: 'Colour Block',          tagline: "Memorize the safe tile, survive the shuffle, don't get caught out.", accent: '#ff5fa2', icon: Blocks, sessionCost: 3 },
+  { id: 'uno',            dbKey: 'uno',            name: 'Chillverse_Uno',        tagline: 'Classic UNO against Halo — a smart AI that remembers your weaknesses.', accent: '#9b6dff', icon: Spade, sessionCost: 4, requiresPro: true },
+  { id: 'colour-block',   dbKey: 'colour_block',   name: 'Colour Block',          tagline: "Memorize the safe tile, survive the shuffle, don't get caught out.", accent: '#ff5fa2', icon: Blocks, sessionCost: 3, requiresPro: true },
 ]
 
 export const GAMES: GameMeta[] = [...STANDARD_GAMES, ...PREMIUM_GAMES]

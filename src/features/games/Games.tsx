@@ -11,6 +11,8 @@ import {
 } from './gameSession'
 import { GAMES, type GameMeta, type GameId } from './games'
 import { useAuth } from '../auth/useAuth'
+import { useProfile } from '../profile/useProfile'
+import { isProActive, getSessionLimits } from '../../shared/lib/proPlans'
 import { ProModal } from '../../context/ProModal'
 import { triggerAchievementCheck } from '../achievements/triggerAchievements'
 import { updateMissionProgress } from '../missions/weeklyMissions'
@@ -36,12 +38,12 @@ import ColourBlock from './play/ColourBlock'
 
 // ─── Constants ───────────────────────────────────────────────
 const MAX_PLAYS    = 7
-const GLOBAL_LIMIT = 15
 // Game catalog (id, dbKey, name, tagline, accent, icon, etc.) now lives in
 // ../lib/games.ts so other pages can reference it without pulling in every
 // game component below. Premium games carry an explicit sessionCost.
-const STANDARD_GAMES = GAMES.filter(g => !g.sessionCost)
-const PREMIUM_GAMES  = GAMES.filter(g => !!g.sessionCost)
+const STANDARD_GAMES = GAMES.filter(g => !g.sessionCost && !g.requiresPro)
+const PREMIUM_GAMES  = GAMES.filter(g => !!g.sessionCost && !g.requiresPro)
+const PRO_GAMES       = GAMES.filter(g => !!g.requiresPro)
 
 // ─── Lobby Card ───────────────────────────────────────────────
 function LobbyCard({
@@ -105,6 +107,9 @@ export default function Games() {
   const navigate  = useNavigate()
   const { session } = useAuth()
   const userId = session?.user?.id ?? null
+  const { profile } = useProfile()
+  const isPro = isProActive(profile)
+  const { limit: GLOBAL_LIMIT, cooldownHours: SESSION_COOLDOWN_HRS } = getSessionLimits(profile)
 
   const [activeGame, setActiveGame]   = useState<GameId | null>(null)
   const [showProModal, setShowProModal] = useState(false)
@@ -134,10 +139,10 @@ export default function Games() {
 
   const refreshGlobalInfo = useCallback(async () => {
     if (!userId) return
-    const info = await getGlobalSessionInfo(userId)
+    const info = await getGlobalSessionInfo(userId, GLOBAL_LIMIT)
     setGlobalCount(info.count)
     setGlobalReset(info.resetAt)
-  }, [userId])
+  }, [userId, GLOBAL_LIMIT])
 
   useEffect(() => {
     if (!userId) return
@@ -186,7 +191,7 @@ export default function Games() {
       streak: payload.streak,
       metadata: payload.detail as Record<string, unknown>,
     })
-    const incResult = await incrementGlobalSession(userId, cost)
+    const incResult = await incrementGlobalSession(userId, cost, GLOBAL_LIMIT, SESSION_COOLDOWN_HRS)
     if (incResult) {
       setGlobalCount(incResult.count)
       setGlobalReset(incResult.resetAt)
@@ -308,17 +313,43 @@ export default function Games() {
                 </p>
               </div>
             </div>
-            <button type="button" onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); setShowProModal(true) }} className="ripple-wrap"
-              style={{ display:'inline-flex', alignItems:'center', gap:6, background:'linear-gradient(135deg,#9b6dff,#4f8ef7)', color:'#fff', border:'none', borderRadius:10, padding:'8px 16px', fontSize:12, fontWeight:700, cursor:'pointer' }}>
-              <Zap size={12} /> Upgrade to Pro
-            </button>
+            {!isPro && (
+              <button type="button" onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); setShowProModal(true) }} className="ripple-wrap"
+                style={{ display:'inline-flex', alignItems:'center', gap:6, background:'linear-gradient(135deg,#9b6dff,#4f8ef7)', color:'#fff', border:'none', borderRadius:10, padding:'8px 16px', fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                <Zap size={12} /> Upgrade to Pro
+              </button>
+            )}
           </div>
         )}
 
         {/* Hero */}
         <section className="su d1">
-          <div className="neu-card" style={{ padding:'22px 20px', marginBottom:0 }}>
-            <h1 style={{ fontSize:22, fontWeight:800, color:'var(--text)', marginBottom:4 }}>Game Zone</h1>
+          {isPro && (
+            <style>{`
+              @keyframes cvAurora {
+                0%   { box-shadow: 0 0 0 1px rgba(155,109,255,0.5), 0 0 24px rgba(155,109,255,0.35), 0 0 46px rgba(79,142,247,0.2); }
+                33%  { box-shadow: 0 0 0 1px rgba(79,142,247,0.5),  0 0 24px rgba(79,142,247,0.35),  0 0 46px rgba(62,207,142,0.2); }
+                66%  { box-shadow: 0 0 0 1px rgba(62,207,142,0.5),  0 0 24px rgba(62,207,142,0.35),  0 0 46px rgba(155,109,255,0.2); }
+                100% { box-shadow: 0 0 0 1px rgba(155,109,255,0.5), 0 0 24px rgba(155,109,255,0.35), 0 0 46px rgba(79,142,247,0.2); }
+              }
+            `}</style>
+          )}
+          <div className="neu-card" style={{
+            padding:'22px 20px', marginBottom:0,
+            animation: isPro ? 'cvAurora 6s ease-in-out infinite' : undefined,
+          }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+              <h1 style={{ fontSize:22, fontWeight:800, color:'var(--text)' }}>Game Zone</h1>
+              {isPro && (
+                <span style={{
+                  fontSize:10, fontWeight:800, letterSpacing:0.5, textTransform:'uppercase',
+                  padding:'3px 9px', borderRadius:8, color:'#fff',
+                  background: profile?.pro_tier === 'void' ? 'linear-gradient(135deg,#9b6dff,#4f8ef7)' : 'linear-gradient(135deg,#4f8ef7,#3ecf8e)',
+                }}>
+                  {profile?.pro_tier === 'void' ? 'Void' : 'Orbit'}
+                </span>
+              )}
+            </div>
             <p style={{ fontSize:13, color:'var(--text-dim)', marginBottom:12 }}>
               {GLOBAL_LIMIT} sessions per day
             </p>
@@ -371,6 +402,35 @@ export default function Games() {
             ))}
           </div>
         </section>
+
+        {/* Pro-only games — swipe row, only exists for active Pro users */}
+        {isPro && PRO_GAMES.length > 0 && (
+          <section className="su d3b">
+            <p className="section-label">Pro Games ✦</p>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: -8, marginBottom: 14 }}>
+              Unlocked with your {profile?.pro_tier === 'void' ? 'Void' : 'Orbit'} plan. Swipe for more.
+            </p>
+            <div style={{
+              display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 4,
+              scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch',
+            }}>
+              {PRO_GAMES.map(game => (
+                <div key={game.id} style={{ minWidth: 160, maxWidth: 160, scrollSnapAlign: 'start', flexShrink: 0 }}>
+                  <LobbyCard
+                    game={game}
+                    rank={(ranks[game.id] ?? 'beginner') as GameRank}
+                    streak={streaks[game.id] ?? 0}
+                    playsToday={playsToday[game.id] ?? 0}
+                    globalCount={globalCount}
+                    globalLimit={GLOBAL_LIMIT}
+                    dataLoaded={dataLoaded}
+                    onPlay={() => setActiveGame(game.id)}
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Recent results */}
         <section className="su d4">

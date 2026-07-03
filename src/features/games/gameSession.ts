@@ -56,7 +56,7 @@ interface IncrementSessionRow {
   limit_reached: boolean
 }
 
-export async function getGlobalSessionInfo(userId: string): Promise<{
+export async function getGlobalSessionInfo(userId: string, limit: number = GLOBAL_LIMIT): Promise<{
   count: number
   limit: number
   limitReached: boolean
@@ -68,25 +68,30 @@ export async function getGlobalSessionInfo(userId: string): Promise<{
 
   if (error || !data) {
     console.error('getGlobalSessionInfo error:', error)
-    return { count: 0, limit: GLOBAL_LIMIT, limitReached: false, resetAt: 0 }
+    return { count: 0, limit, limitReached: false, resetAt: 0 }
   }
 
   const resetAt = data.reset_at ? new Date(data.reset_at).getTime() : 0
   return {
     count: data.count,
-    limit: GLOBAL_LIMIT,
-    limitReached: data.count >= GLOBAL_LIMIT,
+    limit,
+    limitReached: data.count >= limit,
     resetAt,
   }
 }
 
-export async function incrementGlobalSession(userId: string, by = 1) {
+export async function incrementGlobalSession(
+  userId: string,
+  by = 1,
+  limit: number = GLOBAL_LIMIT,
+  cooldownHours: number = SESSION_COOLDOWN_HRS,
+) {
   const { data, error } = await supabase
     .rpc('increment_session_count', {
       p_user_id: userId,
       p_by: by,
-      p_limit: GLOBAL_LIMIT,
-      p_cooldown_hours: SESSION_COOLDOWN_HRS,
+      p_limit: limit,
+      p_cooldown_hours: cooldownHours,
     })
     .maybeSingle<IncrementSessionRow>()
 
