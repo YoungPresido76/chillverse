@@ -10,9 +10,12 @@ import { ripple } from '../lib/ripple'
 import { GAMES, type GameMeta } from '../lib/games'
 import { createRoom, joinRoomByCode } from '../lib/rooms'
 
+const LIVE_GAMES = new Set(['tac_zone', 'pattern_king'])
+
 // ─── Game picker card ───────────────────────────────────────────
 function GameCard({ game, onSelect }: { game: GameMeta; onSelect: () => void }) {
   const Icon = game.icon
+  const isLive = LIVE_GAMES.has(game.dbKey)
   return (
     <div
       className="neu-card ripple-wrap"
@@ -27,7 +30,12 @@ function GameCard({ game, onSelect }: { game: GameMeta; onSelect: () => void }) 
         <ChevronRight size={14} style={{ color: 'var(--text-muted)', marginTop: 4 }} />
       </div>
       <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{game.name}</p>
-      <p style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>{game.tagline}</p>
+      <p style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4, marginBottom: isLive ? 8 : 0 }}>{game.tagline}</p>
+      {isLive && (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 9.5, fontWeight: 800, color: '#3ecf8e', background: 'rgba(62,207,142,0.12)', border: '1px solid rgba(62,207,142,0.3)', borderRadius: 8, padding: '2px 7px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#3ecf8e' }} /> Live now
+        </span>
+      )}
     </div>
   )
 }
@@ -36,8 +44,9 @@ function GameCard({ game, onSelect }: { game: GameMeta; onSelect: () => void }) 
 function GameRoomModal({ game, onClose }: { game: GameMeta; onClose: () => void }) {
   const navigate = useNavigate()
   const Icon = game.icon
+  const isLive = LIVE_GAMES.has(game.dbKey)
   const [isPrivate, setIsPrivate] = useState(false)
-  const [maxPlayers, setMaxPlayers] = useState(4)
+  const [maxPlayers, setMaxPlayers] = useState(isLive ? 2 : 4)
   const [codeInput, setCodeInput] = useState('')
   const [creating, setCreating] = useState(false)
   const [joining, setJoining] = useState(false)
@@ -97,13 +106,24 @@ function GameRoomModal({ game, onClose }: { game: GameMeta; onClose: () => void 
             <button onClick={() => setIsPrivate(true)} style={{ flex: 1, padding: '9px 0', borderRadius: 10, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: `1px solid ${isPrivate ? 'var(--accent)' : 'rgba(255,255,255,0.1)'}`, background: isPrivate ? 'rgba(255,107,0,0.1)' : 'var(--bg)', color: isPrivate ? 'var(--accent)' : 'var(--text-dim)' }}>Private (code only)</button>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Max players</span>
-            <div style={{ display: 'flex', gap: 6 }}>
-              {[2, 4, 6, 8].map(n => (
-                <button key={n} onClick={() => setMaxPlayers(n)} style={{ width: 30, height: 30, borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: `1px solid ${maxPlayers === n ? 'var(--accent)' : 'rgba(255,255,255,0.1)'}`, background: maxPlayers === n ? 'rgba(255,107,0,0.1)' : 'var(--bg)', color: maxPlayers === n ? 'var(--accent)' : 'var(--text-dim)' }}>{n}</button>
-              ))}
-            </div>
+            {isLive ? (
+              <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>2 players — head to head</span>
+            ) : (
+              <>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Max players</span>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {[2, 4, 6, 8].map(n => (
+                    <button key={n} onClick={() => setMaxPlayers(n)} style={{ width: 30, height: 30, borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: `1px solid ${maxPlayers === n ? 'var(--accent)' : 'rgba(255,255,255,0.1)'}`, background: maxPlayers === n ? 'rgba(255,107,0,0.1)' : 'var(--bg)', color: maxPlayers === n ? 'var(--accent)' : 'var(--text-dim)' }}>{n}</button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
+          {!isLive && (
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 }}>
+              {game.name} isn't playable live yet — this room will just be a waiting room for now.
+            </div>
+          )}
           <button onClick={(e) => { ripple(e as any); handleCreate() }} disabled={creating} className="ripple-wrap" style={{ width: '100%', padding: '11px 0', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: creating ? 0.7 : 1 }}>
             <Plus size={14} /> {creating ? 'Creating…' : 'Create Room'}
           </button>

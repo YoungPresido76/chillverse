@@ -7,6 +7,9 @@ import { useAuth } from '../hooks/useAuth'
 import { useRoom } from '../hooks/useRoom'
 import { leaveRoom, kickPlayer, startRoom } from '../lib/rooms'
 import { getGameMeta } from '../lib/games'
+import { tacStart, pkStart } from '../lib/multiplayerGames'
+import TacZoneMultiplayer from './games/TacZoneMultiplayer'
+import PatternKingRelay from './games/PatternKingRelay'
 
 export default function Room() {
   const { roomId } = useParams<{ roomId: string }>()
@@ -63,7 +66,9 @@ export default function Room() {
     setBusy(true)
     setActionError('')
     try {
-      await startRoom(roomId)
+      if (gameMeta?.dbKey === 'tac_zone') await tacStart(roomId)
+      else if (gameMeta?.dbKey === 'pattern_king') await pkStart(roomId)
+      else await startRoom(roomId)
     } catch (e: any) {
       setActionError(e.message)
     } finally {
@@ -142,7 +147,7 @@ export default function Room() {
         ))}
       </div>
 
-      {!meInRoom ? null : isHost ? (
+      {!meInRoom || room.status !== 'waiting' ? null : isHost ? (
         <button
           onClick={(e) => { ripple(e as any); handleStart() }}
           disabled={busy || players.length < 2}
@@ -152,10 +157,20 @@ export default function Room() {
         </button>
       ) : null}
 
-      {room.status === 'in_progress' && (
-        <div style={{ textAlign: 'center', fontSize: 12.5, color: 'var(--text-muted)', padding: '14px 0', background: 'var(--surface)', borderRadius: 12, marginTop: 4 }}>
-          {gameMeta ? `${gameMeta.name} multiplayer is coming soon — this room is ready and waiting.` : 'This game mode is coming soon.'}
-        </div>
+      {room.status === 'in_progress' && user && (
+        <>
+          {gameMeta?.dbKey === 'tac_zone' && (
+            <TacZoneMultiplayer room={room} players={players} userId={user.id} isHost={isHost} />
+          )}
+          {gameMeta?.dbKey === 'pattern_king' && (
+            <PatternKingRelay room={room} players={players} userId={user.id} isHost={isHost} />
+          )}
+          {gameMeta?.dbKey !== 'tac_zone' && gameMeta?.dbKey !== 'pattern_king' && (
+            <div style={{ textAlign: 'center', fontSize: 12.5, color: 'var(--text-muted)', padding: '14px 0', background: 'var(--surface)', borderRadius: 12, marginTop: 4 }}>
+              {gameMeta ? `${gameMeta.name} multiplayer is coming soon — this room is ready and waiting.` : 'This game mode is coming soon.'}
+            </div>
+          )}
+        </>
       )}
 
       {meInRoom && !isHost && room.status === 'waiting' && (
