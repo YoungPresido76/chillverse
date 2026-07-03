@@ -1,5 +1,6 @@
 // src/features/posts/Composer.tsx
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { X, Sparkles } from 'lucide-react'
 import { useAuth } from '../auth/useAuth'
 import { usePostEligibility, lockedReasonText } from './usePostEligibility'
@@ -69,14 +70,17 @@ export default function Composer({ open, onClose, onPosted, initialTag }: Compos
     }
   }
 
-  return (
+  return createPortal(
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'flex-end', zIndex: 100 }}
       onClick={onClose}
     >
       <div
         className="neu-card"
-        style={{ width: '100%', maxWidth: 800, margin: '0 auto', padding: 18, borderRadius: '20px 20px 0 0' }}
+        style={{
+          width: '100%', maxWidth: 800, margin: '0 auto', padding: 18, borderRadius: '20px 20px 0 0',
+          maxHeight: '85vh', overflowY: 'auto',
+        }}
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
@@ -154,6 +158,7 @@ export default function Composer({ open, onClose, onPosted, initialTag }: Compos
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
