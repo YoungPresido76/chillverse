@@ -10,6 +10,7 @@ import {
 import { ripple } from '../../shared/lib/ripple'
 import { isGameSoundEnabled, setGameSoundEnabled } from '../games/soundSettings'
 import { useProfile } from '../profile/useProfile'
+import { isProActive } from '../../shared/lib/proPlans'
 import { useAuth } from '../auth/useAuth'
 import { supabase } from '../../shared/lib/supabase'
 import { signOut } from '../auth/auth'
@@ -146,6 +147,7 @@ function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
 export default function Settings() {
   const navigate = useNavigate()
   const { profile } = useProfile()
+  const isPro = isProActive(profile)
   const { session } = useAuth()
 
   const [modal, setModal] = useState<'logout' | 'delete' | 'email' | 'username' | 'password' | null>(null)
@@ -317,6 +319,16 @@ export default function Settings() {
                 <span style={{ fontSize: 24, fontWeight: 800, color: '#fff' }}>{displayName.charAt(0).toUpperCase()}</span>
               )}
             </div>
+            {isPro && (
+              <span style={{
+                position: 'absolute', bottom: -6, left: '50%', transform: 'translateX(-50%)',
+                fontSize: 9.5, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase',
+                color: '#ff6b00', background: 'rgba(10,10,12,0.9)', border: '1px solid rgba(255,107,0,0.4)',
+                borderRadius: 6, padding: '1.5px 6px', whiteSpace: 'nowrap',
+              }}>
+                {profile?.pro_tier === 'void' ? 'Void' : 'Orbit'}
+              </span>
+            )}
             <div style={{ position: 'absolute', bottom: -2, right: -2, width: 14, height: 14, borderRadius: '50%', background: presenceDot?.color ?? '#3ecf8e', border: '2.5px solid var(--surface)', boxShadow: `0 0 6px ${presenceDot?.color ?? '#3ecf8e'}` }} />
           </div>
 
