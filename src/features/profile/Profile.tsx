@@ -9,6 +9,7 @@ import {
   Sparkles, Sunrise, Moon as MoonIcon, Globe2,
 } from 'lucide-react'
 import { useProfile } from './useProfile'
+import { isProActive } from '../../shared/lib/proPlans'
 import { supabase } from '../../shared/lib/supabase'
 import { ripple } from '../../shared/lib/ripple'
 import { getUserRankTier, type RankTier } from './ranks'
@@ -724,6 +725,7 @@ export default function Profile() {
   }
 
   const rank = getRank(profile.xp)
+  const isPro = isProActive(profile)
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: 60 }}>
@@ -801,7 +803,29 @@ export default function Profile() {
       </div>
 
       {/* ── Rank badge ── */}
-      <div style={{ padding: '0 20px', marginBottom: 16 }}>
+      <div style={{ padding: '0 20px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        {isPro && (
+          <>
+            <style>{`
+              @keyframes cvAuroraBadge {
+                0%   { box-shadow: 0 0 0 1px rgba(155,109,255,0.55), 0 0 14px rgba(155,109,255,0.4); }
+                33%  { box-shadow: 0 0 0 1px rgba(79,142,247,0.55),  0 0 14px rgba(79,142,247,0.4); }
+                66%  { box-shadow: 0 0 0 1px rgba(62,207,142,0.55),  0 0 14px rgba(62,207,142,0.4); }
+                100% { box-shadow: 0 0 0 1px rgba(155,109,255,0.55), 0 0 14px rgba(155,109,255,0.4); }
+              }
+            `}</style>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20,
+              background: profile.pro_tier === 'void' ? 'rgba(155,109,255,0.14)' : 'rgba(79,142,247,0.14)',
+              animation: 'cvAuroraBadge 5s ease-in-out infinite',
+            }}>
+              <span style={{ fontSize: 13 }}>✦</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: profile.pro_tier === 'void' ? '#9b6dff' : '#4f8ef7' }}>
+                {profile.pro_tier === 'void' ? 'Void' : 'Orbit'}
+              </span>
+            </div>
+          </>
+        )}
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 20, background: rank.color + '18', border: `1px solid ${rank.color}44` }}>
           <span style={{ fontSize: 13 }}>{rank.emoji}</span>
           <span style={{ fontSize: 12, fontWeight: 700, color: rank.color }}>{rank.name}</span>
