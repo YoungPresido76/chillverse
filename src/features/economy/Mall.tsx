@@ -290,10 +290,21 @@ function ItemModal({
           <X size={13} />
         </button>
 
-        <div style={{ width: '100%', height: 200, borderRadius: 16, marginBottom: 16, overflow: 'hidden', background: 'var(--surface2)' }}>
-          {item.image_url && (
+        <div style={{ width: '100%', height: 320, borderRadius: 16, marginBottom: 16, overflow: 'hidden', background: 'var(--surface2)' }}>
+          {item.animated_url ? (
+            /\.(mp4|webm)$/i.test(item.animated_url) ? (
+              <video
+                src={item.animated_url}
+                autoPlay loop muted playsInline
+                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }}
+              />
+            ) : (
+              // gif (or any still-image fallback) — browsers animate gifs natively
+              <img src={item.animated_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }} />
+            )
+          ) : item.image_url ? (
             <img src={item.image_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }} />
-          )}
+          ) : null}
         </div>
 
         {item.sub_category && (
