@@ -405,7 +405,7 @@ export default function Ranks() {
                 <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 18, padding: '28px 20px', textAlign: 'center', marginBottom: 20 }}>
                   <div style={{ fontSize: 28, marginBottom: 10 }}>🏆</div>
                   <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>No rewards yet</p>
-                  <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Rewards start at Gold I ({fmtXP(42_000)} XP). You're on your way.</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Rewards start at Gold I ({fmtXP(RANK_TIERS.find(t => t.id === 'gold_1')!.xpRequired)} XP). You're on your way.</p>
                 </div>
               )
             }
