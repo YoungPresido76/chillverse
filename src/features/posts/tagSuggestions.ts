@@ -20,6 +20,7 @@ const gameById = new Map<string, (typeof GAMES)[number]>(GAMES.map(g => [g.id, g
  */
 export async function getTagSuggestions(userId: string, query: string): Promise<TagSuggestion[]> {
   const q = query.trim()
+  if (q.length === 0) return [] // nothing shows until you actually type something
   const results: TagSuggestion[] = []
 
   const [profileRes, unlockedAch, allAch, artifacts, playerArtifacts, inventory, missions] =

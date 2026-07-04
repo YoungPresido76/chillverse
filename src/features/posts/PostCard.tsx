@@ -9,6 +9,8 @@ import CommentThread from './CommentThread'
 import FollowButton from './FollowButton'
 import InfluenceModal from './InfluenceModal'
 import { AchievementTagInline, AchievementTagModal } from './AchievementTagPreview'
+import PostBody from './PostBody'
+import { getTagColor } from './tagColor'
 import type { Post, PostTag } from './types'
 
 const TAG_ICON: Record<string, string> = {
@@ -116,9 +118,7 @@ export default function PostCard({ post }: { post: Post }) {
         </div>
       </div>
 
-      <p style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.5, marginTop: 10, whiteSpace: 'pre-wrap' }}>
-        {post.body}
-      </p>
+      <PostBody body={post.body} />
 
       {/* Single achievement tag gets the rich inline card; anything else gets compact chips. */}
       {singleAchievementTag ? (
@@ -129,6 +129,7 @@ export default function PostCard({ post }: { post: Post }) {
         <div className="flex flex-wrap gap-2" style={{ marginTop: 10 }}>
           {post.tags.map((tag, i) => {
             const clickable = isClickableTag(tag)
+            const color = getTagColor(tag)
             return (
               <button
                 key={i}
@@ -139,6 +140,7 @@ export default function PostCard({ post }: { post: Post }) {
                   fontFamily: 'inherit', appearance: 'none', WebkitAppearance: 'none',
                   cursor: clickable ? 'pointer' : 'default',
                   textDecoration: clickable ? 'underline' : 'none', textUnderlineOffset: 2,
+                  ...(color ? { color, borderColor: `${color}44` } : {}),
                 }}
               >
                 {TAG_ICON[tag.type] ?? '🏷️'} {tag.label}

@@ -1,11 +1,14 @@
 // src/features/posts/Composer.tsx
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Sparkles } from 'lucide-react'
 import { useAuth } from '../auth/useAuth'
+import { supabase } from '../../shared/lib/supabase'
 import { usePostEligibility, lockedReasonText } from './usePostEligibility'
 import { getTagSuggestions } from './tagSuggestions'
 import { createPost } from './posts'
+import { tokenizeBody } from './mentionParsing'
+import { getTagColor } from './tagColor'
 import { ripple } from '../../shared/lib/ripple'
 import TagAutosuggest from './TagAutosuggest'
 import type { PostTag, TagSuggestion } from './types'
@@ -19,6 +22,15 @@ interface ComposerProps {
   initialTag?: PostTag
 }
 
+// Textarea and its highlight backdrop must share these exact values pixel-for-pixel,
+// or the colored text will visibly drift from what you're actually typing.
+const TEXTAREA_BOX_STYLE = {
+  padding: 12,
+  fontSize: 14,
+  lineHeight: '1.45',
+  fontFamily: 'inherit',
+} as const
+
 export default function Composer({ open, onClose, onPosted, initialTag }: ComposerProps) {
   const { user } = useAuth()
   const { eligibility, loading: checkingEligibility } = usePostEligibility(open)
@@ -29,6 +41,23 @@ export default function Composer({ open, onClose, onPosted, initialTag }: Compos
   const [tagQuery, setTagQuery] = useState('')
   const [suggestions, setSuggestions] = useState<TagSuggestion[]>([])
   const [submitting, setSubmitting] = useState(false)
+  const [followerUsernames, setFollowerUsernames] = useState<Set<string>>(new Set())
+
+  const backdropRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Fetch once per open — who's allowed to light up as a valid @mention while typing.
+  useEffect(() => {
+    if (!open || !user) return
+    let active = true
+    supabase.from('follows').select('follower_id').eq('following_id', user.id).then(async ({ data }) => {
+      const ids = (data ?? []).map(f => f.follower_id)
+      if (ids.length === 0) { if (active) setFollowerUsernames(new Set()); return }
+      const { data: profiles } = await supabase.from('profiles').select('username').in('id', ids)
+      if (active) setFollowerUsernames(new Set((profiles ?? []).map(p => p.username.toLowerCase())))
+    })
+    return () => { active = false }
+  }, [open, user])
 
   // typed tag search (debounced-lite via effect)
   useEffect(() => {
@@ -56,6 +85,12 @@ export default function Composer({ open, onClose, onPosted, initialTag }: Compos
     setTags(t => t.filter((_, idx) => idx !== i))
   }
 
+  function syncScroll() {
+    if (textareaRef.current && backdropRef.current) {
+      backdropRef.current.scrollTop = textareaRef.current.scrollTop
+    }
+  }
+
   async function handleSubmit() {
     if (!user || !body.trim() || submitting) return
     setSubmitting(true)
@@ -69,6 +104,8 @@ export default function Composer({ open, onClose, onPosted, initialTag }: Compos
       onClose()
     }
   }
+
+  const bodyTokens = tokenizeBody(body, followerUsernames)
 
   return createPortal(
     <div
@@ -105,24 +142,49 @@ export default function Composer({ open, onClose, onPosted, initialTag }: Compos
           </div>
         ) : (
           <>
-            <textarea
-              value={body}
-              onChange={e => setBody(e.target.value)}
-              maxLength={500}
-              placeholder="What's happening?"
-              rows={4}
-              style={{
-                width: '100%', background: 'var(--surface2)', border: 'none', borderRadius: 12,
-                padding: 12, fontSize: 14, color: 'var(--text)', outline: 'none', resize: 'none',
-              }}
-            />
+            {/* Highlighted textarea: a transparent-text textarea sits exactly on top of a
+                styled backdrop that renders the same text with @mentions/#games colored.
+                The two must stay pixel-identical (padding/font/line-height) and scroll in sync. */}
+            <div style={{ position: 'relative', background: 'var(--surface2)', borderRadius: 12 }}>
+              <div
+                ref={backdropRef}
+                aria-hidden
+                style={{
+                  ...TEXTAREA_BOX_STYLE,
+                  position: 'absolute', inset: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                  overflow: 'hidden', pointerEvents: 'none', color: 'var(--text)',
+                }}
+              >
+                {bodyTokens.map((t, i) => {
+                  if (t.type === 'mention') return <span key={i} style={{ color: 'var(--accent)', fontWeight: 700 }}>{t.text}</span>
+                  if (t.type === 'game') return <span key={i} style={{ color: 'var(--blue)', fontWeight: 700 }}>{t.text}</span>
+                  return <span key={i}>{t.text}</span>
+                })}
+              </div>
+              <textarea
+                ref={textareaRef}
+                value={body}
+                onChange={e => setBody(e.target.value)}
+                onScroll={syncScroll}
+                maxLength={500}
+                placeholder="What's happening?"
+                rows={4}
+                className="mention-textarea"
+                style={{
+                  ...TEXTAREA_BOX_STYLE,
+                  position: 'relative', width: '100%', background: 'transparent', border: 'none',
+                  color: 'transparent', caretColor: 'var(--text)', outline: 'none', resize: 'none',
+                }}
+              />
+            </div>
+            <style>{`.mention-textarea::placeholder { color: var(--text-muted); opacity: 1; }`}</style>
 
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-2" style={{ marginTop: 8 }}>
                 {tags.map((t, i) => (
-                  <span key={i} className="chip" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span key={i} className="chip" style={{ display: 'flex', alignItems: 'center', gap: 5, ...(getTagColor(t) ? { color: getTagColor(t), borderColor: `${getTagColor(t)}44` } : {}) }}>
                     {t.label}
-                    <button type="button" onClick={() => removeTag(i)} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: 0, display: 'flex' }}>
+                    <button type="button" onClick={() => removeTag(i)} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, display: 'flex' }}>
                       <X size={11} />
                     </button>
                   </span>
