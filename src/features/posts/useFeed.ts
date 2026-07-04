@@ -9,6 +9,7 @@ interface UseFeedState {
   posts: Post[]
   loading: boolean
   refetch: () => void
+  removePostLocally: (postId: string) => void
 }
 
 export function useFeed(): UseFeedState {
@@ -18,6 +19,9 @@ export function useFeed(): UseFeedState {
   const [tick, setTick] = useState(0)
 
   const refetch = useCallback(() => setTick(t => t + 1), [])
+  const removePostLocally = useCallback((postId: string) => {
+    setPosts(prev => prev.filter(p => p.id !== postId))
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -40,5 +44,5 @@ export function useFeed(): UseFeedState {
     return () => { supabase.removeChannel(channel) }
   }, [refetch])
 
-  return { posts, loading, refetch }
+  return { posts, loading, refetch, removePostLocally }
 }

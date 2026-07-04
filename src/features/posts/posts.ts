@@ -45,6 +45,38 @@ export async function fetchFeed(userId: string | null, limit = 30): Promise<Post
   })) as Post[]
 }
 
+// ── Single post (for share links) ───────────────────────────────
+export async function fetchPostById(postId: string, userId: string | null): Promise<Post | null> {
+  const { data: post, error } = await supabase.from('posts').select('*').eq('id', postId).maybeSingle()
+  if (error || !post) {
+    console.error('fetchPostById error:', error)
+    return null
+  }
+
+  let author: { id: string; username: string; display_name: string | null; avatar: string } | undefined
+  if (post.author_id) {
+    const { data } = await supabase.from('profiles').select('id, username, display_name, avatar').eq('id', post.author_id).maybeSingle()
+    author = data ?? undefined
+  }
+
+  let likedByMe = false
+  if (userId) {
+    const { data } = await supabase.from('post_likes').select('post_id').eq('post_id', postId).eq('user_id', userId).maybeSingle()
+    likedByMe = !!data
+  }
+
+  return { ...post, author, liked_by_me: likedByMe } as Post
+}
+
+// ── Delete ────────────────────────────────────────────────────
+// RLS (see migration 0008) only allows an author to delete their own posts —
+// this is a hard delete; comments/likes cascade automatically via FK.
+export async function deletePost(postId: string): Promise<boolean> {
+  const { error } = await supabase.from('posts').delete().eq('id', postId)
+  if (error) console.error('deletePost error:', error)
+  return !error
+}
+
 // ── Create ────────────────────────────────────────────────────
 export async function createPost(input: {
   authorId: string

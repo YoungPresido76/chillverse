@@ -13,7 +13,7 @@ import type { PostTag } from './types'
  * opens with that tag pre-suggested — see Composer.tsx's `initialTag` prop.
  */
 export default function Feed({ initialTag }: { initialTag?: PostTag }) {
-  const { posts, loading, refetch } = useFeed()
+  const { posts, loading, refetch, removePostLocally } = useFeed()
   const [composerOpen, setComposerOpen] = useState(false)
 
   return (
@@ -38,7 +38,7 @@ export default function Feed({ initialTag }: { initialTag?: PostTag }) {
           No posts yet — be the first to share something.
         </div>
       ) : (
-        posts.map(post => <PostCard key={post.id} post={post} />)
+        posts.map(post => <PostCard key={post.id} post={post} onDeleted={removePostLocally} />)
       )}
 
       <Composer

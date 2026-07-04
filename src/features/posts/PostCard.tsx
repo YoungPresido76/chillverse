@@ -1,9 +1,10 @@
 // src/features/posts/PostCard.tsx
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { Heart, MessageCircle, Sparkles } from 'lucide-react'
+import { Heart, MessageCircle, Sparkles, MoreVertical, Share2, Trash2, Check } from 'lucide-react'
 import { useAuth } from '../auth/useAuth'
-import { toggleLike } from './posts'
+import { toggleLike, deletePost } from './posts'
 import { ripple } from '../../shared/lib/ripple'
 import CommentThread from './CommentThread'
 import FollowButton from './FollowButton'
@@ -18,7 +19,7 @@ const TAG_ICON: Record<string, string> = {
   streak: '🔥', mission: '📋', user: '👤', avatar: '🖼️', artifact: '💎', mall_item: '🛍️',
 }
 
-export default function PostCard({ post }: { post: Post }) {
+export default function PostCard({ post, onDeleted }: { post: Post; onDeleted?: (postId: string) => void }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [liked, setLiked] = useState(post.liked_by_me ?? false)
@@ -26,6 +27,22 @@ export default function PostCard({ post }: { post: Post }) {
   const [showComments, setShowComments] = useState(false)
   const [showInfluenceModal, setShowInfluenceModal] = useState(false)
   const [modalAchievementId, setModalAchievementId] = useState<string | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  const isAuthor = !!user && post.author_type === 'user' && post.author_id === user.id
+
+  useEffect(() => {
+    if (!menuOpen) return
+    function handleOutsideClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
+    }
+    window.addEventListener('mousedown', handleOutsideClick)
+    return () => window.removeEventListener('mousedown', handleOutsideClick)
+  }, [menuOpen])
 
   const author = post.author
   const authorName = post.author_type === 'system'
@@ -69,6 +86,38 @@ export default function PostCard({ post }: { post: Post }) {
   function isClickableTag(tag: PostTag) {
     return tag.type === 'achievement' || tag.type === 'user' ||
       ((tag.type === 'game_result' || tag.type === 'multiplayer_result') && !!tag.meta?.gameId)
+  }
+
+  async function handleShare() {
+    const url = `${window.location.origin}/feed/${post.id}`
+    const shareText = post.body.length > 100 ? `${post.body.slice(0, 100)}…` : post.body
+
+    if (navigator.share) {
+      setMenuOpen(false)
+      try {
+        await navigator.share({ title: `${authorName} on Chillverse`, text: shareText, url })
+      } catch {
+        // user cancelled the share sheet — no action needed
+      }
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(url)
+      setLinkCopied(true)
+      setTimeout(() => { setLinkCopied(false); setMenuOpen(false) }, 1200)
+    } catch (e) {
+      console.error('copy link error:', e)
+      setMenuOpen(false)
+    }
+  }
+
+  async function handleConfirmDelete() {
+    setDeleting(true)
+    const ok = await deletePost(post.id)
+    setDeleting(false)
+    setConfirmingDelete(false)
+    if (ok) onDeleted?.(post.id)
   }
 
   return (
@@ -115,6 +164,37 @@ export default function PostCard({ post }: { post: Post }) {
           <p style={{ fontSize: 11, color: 'var(--text-dim)' }}>
             {new Date(post.created_at).toLocaleString()}
           </p>
+        </div>
+
+        <div ref={menuRef} style={{ position: 'relative', flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={() => setMenuOpen(o => !o)}
+            style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: 4 }}
+          >
+            <MoreVertical size={16} />
+          </button>
+          {menuOpen && (
+            <div className="neu-card" style={{ position: 'absolute', right: 0, top: '110%', zIndex: 20, padding: 6, minWidth: 150 }}>
+              <button
+                type="button"
+                onClick={handleShare}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', padding: '8px 10px', borderRadius: 8, cursor: 'pointer', color: 'var(--text)', fontSize: 12.5, textAlign: 'left' }}
+              >
+                {linkCopied ? <Check size={14} color="var(--gold)" /> : <Share2 size={14} />}
+                {linkCopied ? 'Link copied!' : 'Share'}
+              </button>
+              {isAuthor && (
+                <button
+                  type="button"
+                  onClick={() => { setMenuOpen(false); setConfirmingDelete(true) }}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', padding: '8px 10px', borderRadius: 8, cursor: 'pointer', color: 'var(--red)', fontSize: 12.5, textAlign: 'left' }}
+                >
+                  <Trash2 size={14} /> Delete
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -201,6 +281,39 @@ export default function PostCard({ post }: { post: Post }) {
 
       {modalAchievementId && (
         <AchievementTagModal achievementId={modalAchievementId} onClose={() => setModalAchievementId(null)} />
+      )}
+
+      {confirmingDelete && createPortal(
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 120, padding: 20 }}
+          onClick={() => !deleting && setConfirmingDelete(false)}
+        >
+          <div className="neu-card" style={{ width: '100%', maxWidth: 320, padding: 20, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+            <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>Delete this post?</p>
+            <p style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 6 }}>
+              This can't be undone — comments and likes on it will be removed too.
+            </p>
+            <div className="flex items-center gap-3" style={{ marginTop: 16 }}>
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(false)}
+                disabled={deleting}
+                style={{ flex: 1, padding: '10px 0', borderRadius: 10, background: 'var(--surface2)', border: 'none', color: 'var(--text)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', opacity: deleting ? 0.6 : 1 }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={deleting}
+                style={{ flex: 1, padding: '10px 0', borderRadius: 10, background: 'var(--red)', border: 'none', color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', opacity: deleting ? 0.6 : 1 }}
+              >
+                {deleting ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
