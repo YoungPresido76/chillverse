@@ -24,6 +24,16 @@ export async function getAllAchievements(): Promise<Achievement[]> {
   return (data ?? []) as Achievement[]
 }
 
+// ── Fetch a single achievement (used for post tag previews) ──
+const achievementCache = new Map<string, Achievement | null>()
+export async function getAchievementById(id: string): Promise<Achievement | null> {
+  if (achievementCache.has(id)) return achievementCache.get(id) ?? null
+  const { data } = await supabase.from('achievements').select('*').eq('id', id).single()
+  const ach = (data as Achievement) ?? null
+  achievementCache.set(id, ach)
+  return ach
+}
+
 // ── Fetch which ones a player has unlocked ───────────────────
 export async function getPlayerAchievements(userId: string): Promise<PlayerAchievement[]> {
   const { data } = await supabase

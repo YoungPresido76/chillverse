@@ -21,7 +21,7 @@ import PageOnboarding from '../onboarding/PageOnboarding'
 type LucideIcon = React.ComponentType<any>
 
 // Map icon key strings (stored in DB) → Lucide components
-const ICON_MAP: Record<string, LucideIcon> = {
+export const ICON_MAP: Record<string, LucideIcon> = {
   'zap': Zap, 'flame': Flame, 'star': Star, 'settings': Settings,
   'award': Award, 'diamond': Gem, 'crown': Crown, 'trending-up': TrendingUp,
   'target': Target, 'layers': Layers, 'moon': Moon, 'trophy': Trophy,
@@ -40,7 +40,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   'image': Image, 'flash-zap': FlashZap, 'spade': Spade,
 }
 
-function AchIcon({ iconKey, size = 22, color }: { iconKey: string; size?: number; color?: string }) {
+export function AchIcon({ iconKey, size = 22, color }: { iconKey: string; size?: number; color?: string }) {
   const Icon = ICON_MAP[iconKey] ?? Sparkles
   return <Icon size={size} style={color ? { color } : undefined} />
 }
@@ -57,10 +57,10 @@ const CATEGORY_META: Record<string, { label: string; icon: LucideIcon; color: st
   cinema:  { label: 'Cinema',      icon: Film,         color: '#a855f7' },
 }
 
-const RARITY_COLOR: Record<string, string> = {
+export const RARITY_COLOR: Record<string, string> = {
   common: '#888899', rare: '#4f8ef7', epic: '#9b6dff', legendary: '#f5c542',
 }
-const RARITY_GLOW: Record<string, string> = {
+export const RARITY_GLOW: Record<string, string> = {
   common: 'transparent', rare: 'rgba(79,142,247,0.18)',
   epic: 'rgba(155,109,255,0.18)', legendary: 'rgba(245,197,66,0.22)',
 }
