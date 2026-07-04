@@ -38,6 +38,7 @@ const Pro                = lazy(() => import('../features/economy/Pro'))
 const Multiplayer        = lazy(() => import('../features/multiplayer/Multiplayer'))
 const Rooms              = lazy(() => import('../features/multiplayer/Rooms'))
 const Room                = lazy(() => import('../features/multiplayer/Room'))
+const FeedPage            = lazy(() => import('../features/posts/FeedPage'))
 
 const Fallback = () => (
   <div style={{ color: 'var(--text-dim)', padding: 40, textAlign: 'center' }}>Loading…</div>
@@ -105,6 +106,7 @@ export default function App() {
         <Route path="/multiplayer"      element={<Suspense fallback={<Fallback />}><Multiplayer /></Suspense>} />
         <Route path="/rooms"            element={<Suspense fallback={<Fallback />}><Rooms /></Suspense>} />
         <Route path="/rooms/:roomId"    element={<Suspense fallback={<Fallback />}><Room /></Suspense>} />
+        <Route path="/feed"             element={<Suspense fallback={<Fallback />}><FeedPage /></Suspense>} />
       </Route>
     </Routes>
   )
