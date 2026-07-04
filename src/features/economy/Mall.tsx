@@ -20,6 +20,10 @@ import PageOnboarding from '../onboarding/PageOnboarding'
 // once at the top of Mall() and read by SquareCard/RectCard/ItemModal so
 // is_pro_locked items don't need isPro threaded through every page wrapper.
 const MallProContext = createContext(false)
+// User's current total XP, read by SquareCard/RectCard/ItemModal so
+// unlock_xp gated items can be checked without prop-drilling profile.xp
+// through every page wrapper.
+const MallXpContext = createContext(0)
 
 
 /* ══════════════════════════════════════════════════════
@@ -74,11 +78,17 @@ interface LockInfo {
   reason: string | null
 }
 
-function getLockInfo(item: MallItem, hasOwnedRequirement: boolean, isPro: boolean): LockInfo {
+function getLockInfo(item: MallItem, hasOwnedRequirement: boolean, isPro: boolean, userXp: number): LockInfo {
   if (item.is_pro_locked) {
     return isPro ? { locked: false, reason: null } : { locked: true, reason: 'Requires Pro' }
   }
-  if (item.category === 'profile_pic' && !item.price_gems && !item.unlock_xp && !hasOwnedRequirement) {
+  if (item.unlock_xp != null) {
+    // XP-gated item: locked until the user's XP meets the threshold.
+    return userXp >= item.unlock_xp
+      ? { locked: false, reason: null }
+      : { locked: true, reason: `Requires ${item.unlock_xp.toLocaleString()} XP` }
+  }
+  if (item.category === 'profile_pic' && !item.price_gems && !hasOwnedRequirement) {
     // A profile_pic with no direct price/XP path and no confirmed
     // requirement ownership is gated behind an avatar/group link we
     // haven't verified yet.
@@ -92,7 +102,8 @@ function getLockInfo(item: MallItem, hasOwnedRequirement: boolean, isPro: boolea
 ══════════════════════════════════════════════════════ */
 function SquareCard({ item, onSelect, onWishlist, wishlisted, likeCount = 0 }: { item: MallItem; onSelect: (item: MallItem) => void; onWishlist?: (item: MallItem) => void; wishlisted?: boolean; likeCount?: number }) {
   const isPro = useContext(MallProContext)
-  const lock = getLockInfo(item, false, isPro)
+  const userXp = useContext(MallXpContext)
+  const lock = getLockInfo(item, false, isPro, userXp)
   const isMythic = item.rarity === 'Mythic'
 
   return (
@@ -140,7 +151,8 @@ function SquareCard({ item, onSelect, onWishlist, wishlisted, likeCount = 0 }: {
 
 function RectCard({ item, onSelect, onWishlist, wishlisted, likeCount = 0 }: { item: MallItem; onSelect: (item: MallItem) => void; onWishlist?: (item: MallItem) => void; wishlisted?: boolean; likeCount?: number }) {
   const isPro = useContext(MallProContext)
-  const lock = getLockInfo(item, false, isPro)
+  const userXp = useContext(MallXpContext)
+  const lock = getLockInfo(item, false, isPro, userXp)
   const isMythic = item.rarity === 'Mythic'
 
   return (
@@ -224,7 +236,8 @@ function ItemModal({
   onPurchased: (item: MallItem) => void
 }) {
   const isPro = useContext(MallProContext)
-  const lock = getLockInfo(item, false, isPro)
+  const userXp = useContext(MallXpContext)
+  const lock = getLockInfo(item, false, isPro, userXp)
   const canAfford = item.price_gems != null && walletBalance >= item.price_gems
   const [buying, setBuying] = useState(false)
   const [alreadyOwned, setAlreadyOwned] = useState(false)
@@ -237,17 +250,24 @@ function ItemModal({
       .then(({ data }) => { setAlreadyOwned(!!data); setCheckingOwn(false) })
   }, [userId, item.id])
 
+  const isXpUnlock = item.price_gems == null && item.unlock_xp != null
+
   async function handleBuy() {
-    if (!userId || buying || !canAfford || alreadyOwned) return
+    if (!userId || buying || alreadyOwned) return
+    if (!isXpUnlock && !canAfford) return
     setBuying(true)
     try {
-      // 1. Deduct diamonds
-      const { error: walletErr, count: walletCount } = await supabase
-        .from('user_wallets')
-        .update({ gem_balance: walletBalance - item.price_gems! }, { count: 'exact' })
-        .eq('user_id', userId)
-      if (walletErr) throw walletErr
-      if (walletCount === 0) throw new Error('Wallet update blocked — check user_wallets RLS update policy.')
+      // 1. Deduct diamonds — only applies to gem-priced items. XP-unlock
+      // items have no cost to pay, the XP threshold check already
+      // happened in getLockInfo (the modal wouldn't be buyable otherwise).
+      if (!isXpUnlock) {
+        const { error: walletErr, count: walletCount } = await supabase
+          .from('user_wallets')
+          .update({ gem_balance: walletBalance - item.price_gems! }, { count: 'exact' })
+          .eq('user_id', userId)
+        if (walletErr) throw walletErr
+        if (walletCount === 0) throw new Error('Wallet update blocked — check user_wallets RLS update policy.')
+      }
 
       // 2. Add to inventory (upsert: consumables stack quantity, others are unique)
       if (item.is_consumable) {
@@ -262,13 +282,15 @@ function ItemModal({
         await supabase.from('user_inventory').insert({ user_id: userId, item_id: item.id, is_equipped: false, quantity: 1 })
       }
 
-      // 3. Log diamond spend
-      await supabase.from('diamond_transactions').insert({
-        user_id: userId,
-        amount: -(item.price_gems!),
-        description: `Purchased: ${item.name}`,
-        pack_id: item.id,
-      })
+      // 3. Log diamond spend (skip for free XP-unlocks — nothing was spent)
+      if (!isXpUnlock) {
+        await supabase.from('diamond_transactions').insert({
+          user_id: userId,
+          amount: -(item.price_gems!),
+          description: `Purchased: ${item.name}`,
+          pack_id: item.id,
+        })
+      }
 
       onPurchased(item)
       onClose()
@@ -335,22 +357,27 @@ function ItemModal({
                 💎 {item.price_gems.toLocaleString()} Diamonds
               </div>
             )}
+            {isXpUnlock && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--surface2)', borderRadius: 12, padding: 12, marginBottom: 14, fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>
+                <Zap size={15} color="#f5c542" /> {item.unlock_xp!.toLocaleString()} XP reached — free unlock
+              </div>
+            )}
             {item.price_gems != null && !canAfford && (
               <div style={{ fontSize: 11, color: '#ff6b6b', textAlign: 'center', marginBottom: 10 }}>
                 Not enough Diamonds to buy this item.
               </div>
             )}
             <button
-              disabled={checkingOwn || buying || (item.price_gems != null && !canAfford)}
+              disabled={checkingOwn || buying || (!isXpUnlock && !canAfford)}
               onClick={(e) => { ripple(e as any); handleBuy() }}
               className="ripple-wrap"
               style={{
                 width: '100%', padding: 13, borderRadius: 14, border: 'none',
-                cursor: buying || (item.price_gems != null && !canAfford) ? 'not-allowed' : 'pointer',
-                background: buying || (item.price_gems != null && !canAfford) ? 'var(--surface3)' : 'linear-gradient(135deg,var(--accent),#ff9a3c)',
-                color: buying || (item.price_gems != null && !canAfford) ? 'var(--text-muted)' : '#fff',
+                cursor: buying || (!isXpUnlock && !canAfford) ? 'not-allowed' : 'pointer',
+                background: buying || (!isXpUnlock && !canAfford) ? 'var(--surface3)' : 'linear-gradient(135deg,var(--accent),#ff9a3c)',
+                color: buying || (!isXpUnlock && !canAfford) ? 'var(--text-muted)' : '#fff',
                 fontSize: 14, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                boxShadow: buying || (item.price_gems != null && !canAfford) ? 'none' : '0 4px 16px rgba(255,107,0,0.35)',
+                boxShadow: buying || (!isXpUnlock && !canAfford) ? 'none' : '0 4px 16px rgba(255,107,0,0.35)',
                 transition: 'all 0.2s',
               }}
             >
@@ -503,6 +530,7 @@ export default function Mall() {
   const userId = session?.user?.id ?? null
   const { profile } = useProfile()
   const isPro = isProActive(profile)
+  const userXp = profile?.xp ?? 0
   const [openSection, setOpenSection] = useState<string | null>(null)
   const [selectedItem, setSelectedItem] = useState<MallItem | null>(null)
   const [wishlisted, setWishlisted] = useState<Set<string>>(new Set())
@@ -572,6 +600,7 @@ export default function Mall() {
 
   return (
     <MallProContext.Provider value={isPro}>
+    <MallXpContext.Provider value={userXp}>
     <PageOnboarding pageKey="mall" />
       <style>{`
         @keyframes slideInRight { from { transform: translateX(100%) } to { transform: translateX(0) } }
@@ -709,6 +738,7 @@ export default function Mall() {
 
       {/* Wishlist toast */}
       {toast && <WishlistToast message={toast} onDone={() => setToast(null)} />}
+    </MallXpContext.Provider>
     </MallProContext.Provider>
   )
 }
