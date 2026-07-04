@@ -64,8 +64,62 @@ export async function createPost(input: {
     .select()
     .single()
 
-  if (error) console.error('createPost error:', error)
+  if (error) {
+    console.error('createPost error:', error)
+    return { data, error }
+  }
+
+  // Fire-and-forget: don't block the composer closing on notification delivery.
+  notifyFollowersOfNewPost(input.authorId, data.id, input.body).catch(e => console.error('notifyFollowersOfNewPost error:', e))
+  notifyTaggedUsers(input.tags, input.authorId, data.id).catch(e => console.error('notifyTaggedUsers error:', e))
+
   return { data, error }
+}
+
+// ── Notifications ─────────────────────────────────────────────
+// Same insert_notification RPC contract used by notifyFollow / notifyFollowersRankUp
+// in achievements.ts — kept here since these are post-specific triggers.
+async function notifyFollowersOfNewPost(authorId: string, postId: string, body: string) {
+  const { data: author } = await supabase
+    .from('profiles').select('display_name, username').eq('id', authorId).single()
+  if (!author) return
+  const name = author.display_name || author.username
+
+  const { data: followers } = await supabase.from('follows').select('follower_id').eq('following_id', authorId)
+  if (!followers?.length) return
+
+  const preview = body.length > 80 ? `${body.slice(0, 80)}…` : body
+
+  for (const { follower_id } of followers) {
+    await supabase.rpc('insert_notification', {
+      p_user_id: follower_id,
+      p_type:    'new_post',
+      p_title:   `${name} just posted`,
+      p_body:    preview,
+      p_icon:    'sparkles',
+      p_meta:    { post_id: postId, author_id: authorId },
+    })
+  }
+}
+
+async function notifyTaggedUsers(tags: PostTag[], authorId: string, postId: string) {
+  const userTags = tags.filter(t => t.type === 'user' && t.ref_id !== authorId)
+  if (!userTags.length) return
+
+  const { data: author } = await supabase
+    .from('profiles').select('display_name, username').eq('id', authorId).single()
+  const name = author?.display_name || author?.username || 'Someone'
+
+  for (const tag of userTags) {
+    await supabase.rpc('insert_notification', {
+      p_user_id: tag.ref_id,
+      p_type:    'post_tag',
+      p_title:   `${name} tagged you in a post`,
+      p_body:    'Tap to view it in the Feed.',
+      p_icon:    'message-circle',
+      p_meta:    { post_id: postId, author_id: authorId },
+    })
+  }
 }
 
 // ── Likes (toggle) ───────────────────────────────────────────
