@@ -188,12 +188,12 @@ export async function checkAndUnlockAchievements(payload: AchievementCheckPayloa
   if (Object.keys(GAME_MAP).length > 0 && Object.keys(GAME_MAP).every(g => payload.gameRanks[g] === 'master')) await tryUnlock('rank_master_all')
 
   // ── Global rank tiers (based on XP) ──
-  if (payload.xp >= 1000)    await tryUnlock('tier_bronze')
-  if (payload.xp >= 10000)   await tryUnlock('tier_silver')
-  if (payload.xp >= 42000)   await tryUnlock('tier_gold')
-  if (payload.xp >= 110000)  await tryUnlock('tier_platinum')
-  if (payload.xp >= 230000)  await tryUnlock('tier_diamond')
-  if (payload.xp >= 450000)  await tryUnlock('tier_legend')
+  if (payload.xp >= 1500)    await tryUnlock('tier_bronze')
+  if (payload.xp >= 15000)   await tryUnlock('tier_silver')
+  if (payload.xp >= 63000)   await tryUnlock('tier_gold')
+  if (payload.xp >= 165000)  await tryUnlock('tier_platinum')
+  if (payload.xp >= 345000)  await tryUnlock('tier_diamond')
+  if (payload.xp >= 675000)  await tryUnlock('tier_legend')
 
   // ── Social ──
   if (payload.messagesSent >= 1)  await tryUnlock('social_first_msg')
