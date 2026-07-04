@@ -1,6 +1,6 @@
 // src/pages/Games.tsx
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   ArrowLeft, Lock, ChevronRight, Zap, Clock,
 } from 'lucide-react'
@@ -105,6 +105,7 @@ function LobbyCard({
 // ─── Main component ───────────────────────────────────────────
 export default function Games() {
   const navigate  = useNavigate()
+  const location  = useLocation()
   const { session } = useAuth()
   const userId = session?.user?.id ?? null
   const { profile } = useProfile()
@@ -112,6 +113,18 @@ export default function Games() {
   const { limit: GLOBAL_LIMIT, cooldownHours: SESSION_COOLDOWN_HRS } = getSessionLimits(profile)
 
   const [activeGame, setActiveGame]   = useState<GameId | null>(null)
+
+  // Deep-link support: navigate('/games', { state: { openGame: 'tac-zone' } })
+  // lets a post's game tag jump straight into that game.
+  useEffect(() => {
+    const openGame = (location.state as { openGame?: GameId } | null)?.openGame
+    if (openGame) {
+      setActiveGame(openGame)
+      navigate(location.pathname, { replace: true, state: null })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const [showProModal, setShowProModal] = useState(false)
   const [playsToday,  setPlaysToday]  = useState<Partial<Record<GameId, number>>>({})
   const [ranks,       setRanks]       = useState<Partial<Record<GameId, GameRank>>>({})
