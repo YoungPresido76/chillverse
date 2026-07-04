@@ -18,6 +18,8 @@ export interface PostTag {
   type: TagType
   ref_id: string
   label: string
+  /** Extra data needed to make the tag clickable — currently just game navigation. */
+  meta?: { gameId?: string }
 }
 
 export interface PostAuthor {

@@ -3,9 +3,15 @@ import { supabase } from '../../shared/lib/supabase'
 import { getAllAchievements, getPlayerAchievements } from '../achievements/achievements'
 import { getUserRankTier } from '../profile/ranks'
 import { getAllArtifacts, getPlayerArtifacts } from '../economy/artifacts'
+import { GAMES } from '../games/games'
 import type { TagSuggestion } from './types'
 
 const matches = (label: string, query: string) => label.toLowerCase().includes(query.toLowerCase())
+
+// GAMES entries use a hyphenated `id` (routing key) and an underscored `dbKey`
+// (what's actually stored in game_sessions.game). Build a quick lookup both ways.
+const gameByDbKey = new Map<string, (typeof GAMES)[number]>(GAMES.map(g => [g.dbKey, g]))
+const gameById = new Map<string, (typeof GAMES)[number]>(GAMES.map(g => [g.id, g]))
 
 /**
  * Builds the typed-match suggestion list for the composer's tag box.
@@ -73,7 +79,8 @@ export async function getTagSuggestions(userId: string, query: string): Promise<
     }
   }
 
-  // Recent game results (last 5 completed sessions)
+  // Recent game results (last 5 completed sessions) — carries the real game
+  // name + its routable id so the tag is clickable straight into that game.
   if (q.length >= 2) {
     const { data: sessions } = await supabase
       .from('game_sessions')
@@ -83,8 +90,12 @@ export async function getTagSuggestions(userId: string, query: string): Promise<
       .order('created_at', { ascending: false })
       .limit(5)
     for (const s of sessions ?? []) {
-      const label = `${s.game.replace(/_/g, ' ')} · Score ${s.score}`
-      if (matches(label, q)) results.push({ type: 'game_result', ref_id: s.id, label })
+      const meta = gameByDbKey.get(s.game)
+      const gameName = meta?.name ?? s.game.replace(/_/g, ' ')
+      const label = `${gameName} · Score ${s.score}`
+      if (matches(label, q)) {
+        results.push({ type: 'game_result', ref_id: s.id, label, meta: meta ? { gameId: meta.id } : undefined })
+      }
     }
   }
 
@@ -92,28 +103,40 @@ export async function getTagSuggestions(userId: string, query: string): Promise<
   if (q.length >= 2) {
     const { data: rooms } = await supabase
       .from('room_players')
-      .select('room_id, rooms(id, game, code)')
+      .select('room_id, rooms(id, game_id, code)')
       .eq('user_id', userId)
       .order('room_id', { ascending: false })
       .limit(5)
     for (const r of rooms ?? []) {
-      const room = (r as unknown as { rooms?: { id: string; game: string; code: string } }).rooms
-      if (!room) continue
-      const label = `Multiplayer: ${room.game.replace(/_/g, ' ')} (#${room.code})`
-      if (matches(label, q)) results.push({ type: 'multiplayer_result', ref_id: room.id, label })
+      const room = (r as unknown as { rooms?: { id: string; game_id: string | null; code: string } }).rooms
+      if (!room?.game_id) continue
+      const meta = gameById.get(room.game_id)
+      const gameName = meta?.name ?? room.game_id.replace(/-/g, ' ')
+      const label = `Multiplayer: ${gameName} (#${room.code})`
+      if (matches(label, q)) {
+        results.push({ type: 'multiplayer_result', ref_id: room.id, label, meta: { gameId: room.game_id } })
+      }
     }
   }
 
-  // @mention users
+  // @mention — followers only (people who follow this user), per product decision.
   if (q.length >= 2) {
-    const { data: users } = await supabase
-      .from('profiles')
-      .select('id, username, display_name')
-      .ilike('username', `%${q}%`)
-      .limit(5)
-    for (const u of users ?? []) {
-      if (u.id === userId) continue
-      results.push({ type: 'user', ref_id: u.id, label: `@${u.username}` })
+    const { data: followRows } = await supabase
+      .from('follows')
+      .select('follower_id')
+      .eq('following_id', userId)
+      .limit(200)
+    const followerIds = (followRows ?? []).map(f => f.follower_id)
+    if (followerIds.length > 0) {
+      const { data: followerProfiles } = await supabase
+        .from('profiles')
+        .select('id, username, display_name')
+        .in('id', followerIds)
+        .ilike('username', `%${q}%`)
+        .limit(10)
+      for (const u of followerProfiles ?? []) {
+        results.push({ type: 'user', ref_id: u.id, label: `@${u.username}` })
+      }
     }
   }
 
