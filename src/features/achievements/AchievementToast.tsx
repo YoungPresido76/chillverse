@@ -7,9 +7,10 @@
 // Swipe right to dismiss. Mount once in AppLayout.
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { Trophy, Zap, X } from 'lucide-react'
+import { Trophy, Zap, X, Camera, Check } from 'lucide-react'
 import { supabase } from '../../shared/lib/supabase'
 import { useAuth } from '../auth/useAuth'
+import { createHighlight } from '../highlights/highlights'
 
 interface ToastItem {
   id: string
@@ -35,9 +36,25 @@ const RARITY_GLOW: Record<string, string> = {
 }
 
 // ── Single swipeable toast card ──────────────────────────────────
-function ToastCard({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: string) => void }) {
+function ToastCard({ toast, userId, onDismiss }: { toast: ToastItem; userId: string; onDismiss: (id: string) => void }) {
   const color = RARITY_COLOR[toast.rarity] ?? '#888899'
   const glow  = RARITY_GLOW[toast.rarity]  ?? 'transparent'
+  const [shared, setShared] = useState(false)
+  const [sharing, setSharing] = useState(false)
+
+  async function handleShare(e: React.MouseEvent) {
+    e.stopPropagation()
+    if (shared || sharing) return
+    setSharing(true)
+    const { error } = await createHighlight({
+      authorId: userId,
+      kind: 'achievement',
+      gameKey: null,
+      body: `Unlocked "${toast.title}" 🏆`,
+    })
+    setSharing(false)
+    if (!error) setShared(true)
+  }
 
   // Swipe state
   const startXRef   = useRef<number | null>(null)
@@ -207,6 +224,28 @@ function ToastCard({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: str
         </div>
       </div>
 
+      {/* Share button — posts a Highlight (text + trophy icon, no screenshot) */}
+      <button
+        type="button"
+        onClick={handleShare}
+        disabled={shared}
+        style={{
+          width: 26,
+          height: 26,
+          borderRadius: 8,
+          background: shared ? 'rgba(62,207,142,0.15)' : 'rgba(255,255,255,0.05)',
+          border: `1px solid ${shared ? 'rgba(62,207,142,0.4)' : 'rgba(255,255,255,0.08)'}`,
+          color: shared ? 'var(--green, #3ecf8e)' : 'var(--text-muted)',
+          cursor: shared ? 'default' : 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        {shared ? <Check size={12} /> : <Camera size={12} />}
+      </button>
+
       {/* Dismiss button */}
       <button
         type="button"
@@ -283,7 +322,7 @@ export default function AchievementToast() {
     return () => { supabase.removeChannel(channel) }
   }, [userId, dismiss])
 
-  if (queue.length === 0) return null
+  if (queue.length === 0 || !userId) return null
 
   return (
     <div
@@ -303,7 +342,7 @@ export default function AchievementToast() {
       }}
     >
       {queue.map(toast => (
-        <ToastCard key={toast.id} toast={toast} onDismiss={dismiss} />
+        <ToastCard key={toast.id} toast={toast} userId={userId} onDismiss={dismiss} />
       ))}
 
       <style>{`
