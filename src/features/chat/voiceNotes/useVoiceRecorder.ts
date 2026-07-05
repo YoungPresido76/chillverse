@@ -113,4 +113,4 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
   }, [stopTicker, releaseStream])
 
   return { isRecording, elapsedSeconds, error, startRecording, stopRecording, cancelRecording }
-}
+  }
