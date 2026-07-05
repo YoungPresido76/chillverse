@@ -6,7 +6,7 @@ import {
   ArrowLeft, Settings, Edit3, Users, UserPlus,
   Zap, X, Check, Search, Heart,
   ImageIcon, Package, Star, Trophy, Gamepad2,
-  Sparkles, Sunrise, Moon as MoonIcon, Globe2,
+  Sparkles, Sunrise, Moon as MoonIcon, Globe2, Gift,
 } from 'lucide-react'
 import { useProfile } from './useProfile'
 import { isProActive } from '../../shared/lib/proPlans'
@@ -951,6 +951,11 @@ export default function Profile() {
           onClick={() => setShowAddFriend(true)}
           style={{ padding: '10px 14px', borderRadius: 13, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
           <UserPlus size={13} /> Find Players
+        </button>
+        <button type="button" className="btn-secondary"
+          onClick={() => navigate('/referral')}
+          style={{ padding: '10px 14px', borderRadius: 13, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <Gift size={13} /> Refer & Earn
         </button>
       </div>
 
