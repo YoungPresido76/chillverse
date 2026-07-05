@@ -13,6 +13,7 @@ import { getUserRankTier } from '../features/profile/ranks'
 import { getGlobalSessionInfo } from '../features/games/gameSession'
 import { checkSessionResetNotification, checkMoviesOpenNotification } from '../features/notifications/liveNotifications'
 import { getSessionLimits } from '../shared/lib/proPlans'
+import CallProvider from '../features/chat/calling/CallContext'
 
 const ROUTE_TITLES: Record<string, string> = {
   '/dashboard':  'Dashboard',
@@ -81,46 +82,48 @@ export default function AppLayout() {
   const sidebarWidth = sidebarCollapsed ? 72 : 280
 
   return (
-    <div className="min-h-screen relative" style={{ background: 'var(--bg)' }}>
-      {/* Ambient bubbles */}
-      <div className="bubble-bg">
-        <div className="bubble" style={{ width: 420, height: 420, background: '#ff6b00', left: '-10%', top: '10%', animationDuration: '22s' }} />
-        <div className="bubble" style={{ width: 300, height: 300, background: '#9b6dff', right: '5%', top: '30%', animationDuration: '28s', animationDelay: '-8s' }} />
-        <div className="bubble" style={{ width: 250, height: 250, background: '#4f8ef7', left: '40%', bottom: '15%', animationDuration: '18s', animationDelay: '-4s' }} />
-        <div className="bubble" style={{ width: 180, height: 180, background: '#3ecf8e', right: '25%', top: '5%', animationDuration: '32s', animationDelay: '-12s' }} />
-      </div>
-
-      <Sidebar
-        open={sidebarOpen}
-        collapsed={sidebarCollapsed}
-        onClose={() => setSidebarOpen(false)}
-        onToggleCollapse={() => setSidebarCollapsed(c => !c)}
-      />
-
-      <Topbar
-        title={title}
-        showBack={!isTopLevel}
-        onBack={() => navigate(-1)}
-        onMenuClick={() => setSidebarOpen(true)}
-      />
-
-      <AchievementToast />
-      <NotificationToastRenderer />
-      {referralAd && <PromoOverlay notification={referralAd} onDismiss={dismissReferralAd} />}
-
-      <main
-        className="pt-[68px] pb-12 relative z-10 transition-all duration-300"
-        style={{ paddingLeft: 'clamp(1rem, 4vw, 2rem)', paddingRight: 'clamp(1rem, 4vw, 2rem)' }}
-      >
-        <style>{`
-          @media (min-width: 1024px) {
-            .cv-main-inner { padding-left: ${sidebarWidth + 24}px !important; }
-          }
-        `}</style>
-        <div className="cv-main-inner">
-          <Outlet />
+    <CallProvider myId={myId}>
+      <div className="min-h-screen relative" style={{ background: 'var(--bg)' }}>
+        {/* Ambient bubbles */}
+        <div className="bubble-bg">
+          <div className="bubble" style={{ width: 420, height: 420, background: '#ff6b00', left: '-10%', top: '10%', animationDuration: '22s' }} />
+          <div className="bubble" style={{ width: 300, height: 300, background: '#9b6dff', right: '5%', top: '30%', animationDuration: '28s', animationDelay: '-8s' }} />
+          <div className="bubble" style={{ width: 250, height: 250, background: '#4f8ef7', left: '40%', bottom: '15%', animationDuration: '18s', animationDelay: '-4s' }} />
+          <div className="bubble" style={{ width: 180, height: 180, background: '#3ecf8e', right: '25%', top: '5%', animationDuration: '32s', animationDelay: '-12s' }} />
         </div>
-      </main>
-    </div>
+
+        <Sidebar
+          open={sidebarOpen}
+          collapsed={sidebarCollapsed}
+          onClose={() => setSidebarOpen(false)}
+          onToggleCollapse={() => setSidebarCollapsed(c => !c)}
+        />
+
+        <Topbar
+          title={title}
+          showBack={!isTopLevel}
+          onBack={() => navigate(-1)}
+          onMenuClick={() => setSidebarOpen(true)}
+        />
+
+        <AchievementToast />
+        <NotificationToastRenderer />
+        {referralAd && <PromoOverlay notification={referralAd} onDismiss={dismissReferralAd} />}
+
+        <main
+          className="pt-[68px] pb-12 relative z-10 transition-all duration-300"
+          style={{ paddingLeft: 'clamp(1rem, 4vw, 2rem)', paddingRight: 'clamp(1rem, 4vw, 2rem)' }}
+        >
+          <style>{`
+            @media (min-width: 1024px) {
+              .cv-main-inner { padding-left: ${sidebarWidth + 24}px !important; }
+            }
+          `}</style>
+          <div className="cv-main-inner">
+            <Outlet />
+          </div>
+        </main>
+      </div>
+    </CallProvider>
   )
 }
