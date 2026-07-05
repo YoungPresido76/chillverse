@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
   Gamepad2, ShoppingBag, Film, Swords, Sparkles, Rss,
-  Flame, Zap, ChevronRight, Fan,
+  Flame, Zap, ChevronRight, Fan, Search,
 } from 'lucide-react'
 import { useProfile } from '../profile/useProfile'
 import { getUserRankTier, getNextRankTier, getRankProgress } from '../profile/ranks'
@@ -204,6 +204,7 @@ export default function Dashboard() {
     { label: 'Play Games',  sub: onlineCount != null ? `${onlineCount} online` : '…', to: '/games',      bg: 'linear-gradient(135deg,#9b6dff,#4f8ef7)', icon: Gamepad2 },
     { label: 'Mall',        sub: 'New drops',    to: '/mall',       bg: 'linear-gradient(135deg,#ff6b00,#ff9a3c)', icon: ShoppingBag },
     { label: 'Feed',        sub: 'See what\'s new', to: '/feed',    bg: 'linear-gradient(135deg,#00e5ff,#4f8ef7)', icon: Rss },
+    { label: 'Search',      sub: 'Players, games, mall', to: '/search', bg: 'linear-gradient(135deg,#3ecf8e,#4f8ef7)', icon: Search },
   ]
 
   return (
@@ -273,7 +274,7 @@ export default function Dashboard() {
       {/* ── Quick Actions ── */}
       <section className="su d3">
         <p className="section-label">Quick Actions</p>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {QUICK_ACTIONS.map((a) => {
             const Icon = a.icon
             return (
