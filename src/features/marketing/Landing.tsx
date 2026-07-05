@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Nav from '../../layout/Nav'
 import Footer from '../../layout/Footer'
-import CubeScene from '../exploration/CubeScene'
+import ControllerScene from '../exploration/ControllerScene'
 import { useReveal } from './useReveal'
 import { useAuth } from '../auth/useAuth'
 
@@ -76,15 +76,17 @@ export default function Landing() {
       <Nav />
 
       {/* ── HERO ──
-          Outer div is the tall "pinned" scroll container CubeScene measures
-          progress against; the inner section stays sticky at the top of the
-          viewport while the user scrolls through the extra height, driving
-          the cube's rotate/recede/fade animation. */}
+          Outer div is the tall "pinned" scroll container ControllerScene
+          measures progress against; the inner section stays sticky at the
+          top of the viewport while the user scrolls through the extra
+          height, driving the 3D controller's recede/fade + parallax. */}
       <div ref={heroContainerRef} className="relative h-[150vh] sm:h-[180vh] md:h-[200vh] lg:h-[220vh]">
         <section className="sticky top-0 min-h-screen h-screen relative flex items-center justify-center overflow-hidden px-5 sm:px-6 md:px-16 pt-28 sm:pt-32 pb-20 sm:pb-24">
-          <CubeScene containerRef={heroContainerRef} />
+          <ControllerScene containerRef={heroContainerRef} />
 
-          <div className="relative z-[2] max-w-3xl text-center">
+          {/* pointer-events-none so drag/tilt on the controller works right
+             through this wrapper; the two links below opt back in. */}
+          <div className="relative z-[6] max-w-3xl text-center pointer-events-none">
             <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-chill-violet/35 bg-chill-violet/10 text-sm font-semibold text-chill-violetSoft tracking-wide mb-7">
               <span className="live-dot" />
               Games · Profiles · Streaks · Chat
@@ -102,7 +104,7 @@ export default function Landing() {
               Compete, build your profile, keep your streak alive, and chat with your crew — all inside one electrifying platform.
             </p>
 
-            <div className="flex items-center justify-center gap-3 sm:gap-3.5 flex-wrap px-2">
+            <div className="flex items-center justify-center gap-3 sm:gap-3.5 flex-wrap px-2 pointer-events-auto">
               <Link
                 to="/signup"
                 className="px-8 sm:px-10 py-3.5 sm:py-4 rounded-full text-sm sm:text-base font-bold text-white bg-gradient-to-br from-chill-violet to-[#3d1fb5] shadow-[0_8px_36px_rgba(108,80,255,0.5)] hover:-translate-y-1 hover:shadow-[0_14px_48px_rgba(108,80,255,0.7)] transition-all whitespace-nowrap"
@@ -119,7 +121,7 @@ export default function Landing() {
 
             <div className="mt-10 sm:mt-12 flex items-center justify-center gap-2 text-[11px] sm:text-xs tracking-[3px] uppercase text-chill-textMuted font-mono">
               <div className="w-8 sm:w-10 h-px bg-gradient-to-r from-transparent to-chill-borderBright" />
-              scroll to explore
+              scroll to explore · drag the controller
               <div className="w-8 sm:w-10 h-px bg-gradient-to-l from-transparent to-chill-borderBright" />
             </div>
           </div>
