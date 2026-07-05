@@ -1,5 +1,6 @@
 // src/features/chat/voiceNotes/useVoiceRecorder.ts
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { getMediaErrorMessage } from '../getMediaErrorMessage'
 
 /** Picks the first mime type the browser's MediaRecorder actually supports —
  *  Chrome/Firefox/Edge support webm/opus, Safari does not and needs mp4/aac. */
@@ -69,8 +70,8 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
         setElapsedSeconds(Math.floor((Date.now() - startedAtRef.current) / 1000))
       }, 1000)
       setIsRecording(true)
-    } catch {
-      setError('Microphone access is required to record a voice note.')
+    } catch (err) {
+      setError(getMediaErrorMessage(err, 'voice note'))
       releaseStream()
     }
   }, [releaseStream])
