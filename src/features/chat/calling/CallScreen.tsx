@@ -10,7 +10,7 @@ function formatCallDuration(totalSeconds: number): string {
 }
 
 export default function CallScreen() {
-  const { phase, call, otherParticipant, localStream, remoteStream, isMuted, durationSeconds, error, endCall, toggleMute } = useCall()
+  const { phase, call, otherParticipant, localStream, remoteStream, isMuted, durationSeconds, endCall, toggleMute } = useCall()
 
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
@@ -31,7 +31,6 @@ export default function CallScreen() {
   const name = otherParticipant.display_name || otherParticipant.username
 
   const statusLabel =
-    error ? error :
     phase === 'dialing' ? 'Calling…' :
     phase === 'connecting' ? 'Connecting…' :
     formatCallDuration(durationSeconds)

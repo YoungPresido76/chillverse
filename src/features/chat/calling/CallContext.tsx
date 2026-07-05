@@ -2,6 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { supabase } from '../../../shared/lib/supabase'
 import { getRtcConfig } from './webrtcConfig'
+import { getMediaErrorMessage } from '../getMediaErrorMessage'
 import IncomingCallRinger from './IncomingCallRinger'
 import CallScreen from './CallScreen'
 import type { ActiveCallState, CallParticipant, CallRow, CallSignal, CallType } from './types'
@@ -17,7 +18,6 @@ const INITIAL_STATE: ActiveCallState = {
   remoteStream: null,
   isMuted: false,
   durationSeconds: 0,
-  error: null,
 }
 
 interface CallContextValue extends ActiveCallState {
@@ -56,6 +56,18 @@ interface CallProviderProps {
  *  or WhatsApp call rings regardless of which app/screen you're on. */
 export default function CallProvider({ myId, children }: CallProviderProps) {
   const [state, setState] = useState<ActiveCallState>(INITIAL_STATE)
+
+  // Independent of ActiveCallState on purpose: teardown() resets state to
+  // INITIAL_STATE (which zeroes out state.error) the instant a call ends, so
+  // an error set right before/alongside a teardown call would be wiped before
+  // ever rendering, or shown for a single flash frame at best. This survives
+  // the reset and is shown as a toast even after phase has returned to idle.
+  const [callError, setCallError] = useState<string | null>(null)
+  useEffect(() => {
+    if (!callError) return
+    const t = setTimeout(() => setCallError(null), 6000)
+    return () => clearTimeout(t)
+  }, [callError])
 
   // Mutable refs for things that must survive re-renders but shouldn't trigger
   // them, and that every callback below needs the CURRENT value of (avoiding
@@ -187,7 +199,7 @@ export default function CallProvider({ myId, children }: CallProviderProps) {
         setState(s => (s.phase === 'connected' ? s : { ...s, phase: 'connected' }))
       } else if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
         if (stateRef.current.phase !== 'idle' && stateRef.current.phase !== 'ended') {
-          setState(s => ({ ...s, error: 'Call connection lost.' }))
+          setCallError('Call connection lost.')
           teardown()
         }
       }
@@ -251,8 +263,8 @@ export default function CallProvider({ myId, children }: CallProviderProps) {
 
     try {
       await createPeerConnection(type, channel)
-    } catch {
-      setState(s => ({ ...s, error: 'Microphone/camera access is required to make a call.' }))
+    } catch (err) {
+      setCallError(getMediaErrorMessage(err, 'call'))
       await setCallStatus(call.id, 'canceled')
       teardown()
     }
@@ -276,8 +288,8 @@ export default function CallProvider({ myId, children }: CallProviderProps) {
       await createPeerConnection(call.type, channel)
       setState(s => ({ ...s, phase: 'connecting' }))
       await setCallStatus(call.id, 'accepted')
-    } catch {
-      setState(s => ({ ...s, error: 'Microphone/camera access is required to answer this call.' }))
+    } catch (err) {
+      setCallError(getMediaErrorMessage(err, 'call'))
       await setCallStatus(call.id, 'declined')
       teardown()
     }
@@ -376,6 +388,17 @@ export default function CallProvider({ myId, children }: CallProviderProps) {
       {children}
       {state.phase === 'ringing' && <IncomingCallRinger />}
       {(state.phase === 'dialing' || state.phase === 'connecting' || state.phase === 'connected') && <CallScreen />}
+      {callError && (
+        <div style={{
+          position:'fixed', bottom:24, left:'50%', transform:'translateX(-50%)', zIndex:10000,
+          maxWidth:'min(92vw, 420px)', padding:'12px 16px', borderRadius:12,
+          background:'rgba(30,10,10,0.95)', border:'1px solid rgba(255,79,79,0.3)',
+          color:'#ff6b6b', fontSize:13, fontWeight:600, textAlign:'center',
+          boxShadow:'0 12px 32px rgba(0,0,0,0.4)', backdropFilter:'blur(10px)',
+        }}>
+          {callError}
+        </div>
+      )}
     </CallContext.Provider>
   )
 }
