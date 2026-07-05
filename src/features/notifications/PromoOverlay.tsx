@@ -9,7 +9,8 @@ import { X } from 'lucide-react'
 
 export interface PromoNotification {
   id: string
-  videoUrl: string
+  videoUrl?: string
+  imageUrl?: string // static image alternative to videoUrl — used by image-only promos
   title: string
   // Body text with one word/phrase to bold — split into before/highlight/after
   bodyBefore: string
@@ -17,6 +18,7 @@ export interface PromoNotification {
   bodyAfter: string
   badgeText: string // 'NEW' | 'TAP'
   ctaLabel?: string
+  dismissLabel?: string // defaults to 'Later'
   onCta?: () => void
 }
 
@@ -82,8 +84,15 @@ export default function PromoOverlay({ notification, onDismiss }: Props) {
             loop
             muted
             playsInline
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: notification.imageUrl ? 'none' : 'block' }}
           />
+          {notification.imageUrl && (
+            <img
+              src={notification.imageUrl}
+              alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          )}
           <div style={{
             position: 'absolute', inset: 0,
             background: 'linear-gradient(to bottom, rgba(0,0,0,0.05), rgba(0,0,0,0.55))',
@@ -151,7 +160,7 @@ export default function PromoOverlay({ notification, onDismiss }: Props) {
               background: 'var(--surface)', color: 'var(--text-dim)',
               fontSize: 13, fontWeight: 700, cursor: 'pointer',
             }}>
-              Later
+              {notification.dismissLabel ?? 'Later'}
             </button>
             <button onClick={handleCta} style={{
               flex: 2, padding: '12px 0', borderRadius: 13,
