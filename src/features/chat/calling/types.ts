@@ -58,5 +58,4 @@ export interface ActiveCallState {
   isMuted: boolean
   /** Call duration in seconds, ticking while phase === 'connected'. */
   durationSeconds: number
-  error: string | null
 }
