@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Share2, Check, Users, Gem } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { useAuth } from '../auth/useAuth'
-import { fetchReferralInfo, buildReferralLink } from './referral'
+import { fetchReferralInfo, buildReferralLink, markReferralPageVisited } from './referral'
 import { REFERRAL_MILESTONES, REFERRAL_MAX_TOTAL } from './types'
 import type { ReferralInfo } from './types'
 
@@ -21,6 +21,7 @@ export default function ReferralPage() {
       setInfo(data)
       setLoading(false)
     })
+    markReferralPageVisited(user.id).catch(e => console.error('markReferralPageVisited error:', e))
   }, [user])
 
   async function handleShare() {

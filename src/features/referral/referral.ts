@@ -61,3 +61,28 @@ export async function completeReferralIfEligible(userId: string): Promise<void> 
   const { error } = await supabase.rpc('complete_referral', { p_user_id: userId })
   if (error) console.error('completeReferralIfEligible error:', error)
 }
+
+// ── Referral page visited flag ──────────────────────────────────
+// Drives the "never visited the referral page" advert — once true,
+// stays true forever, so the advert stops nagging that person.
+export async function markReferralPageVisited(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ referral_page_visited: true })
+    .eq('id', userId)
+    .eq('referral_page_visited', false) // no-op write if already true
+  if (error) console.error('markReferralPageVisited error:', error)
+}
+
+export async function hasVisitedReferralPage(userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('referral_page_visited')
+    .eq('id', userId)
+    .maybeSingle()
+  if (error || !data) {
+    console.error('hasVisitedReferralPage error:', error)
+    return true // fail safe — don't nag if we can't tell
+  }
+  return data.referral_page_visited
+}
