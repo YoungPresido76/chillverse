@@ -5,7 +5,7 @@ import {
   ArrowLeft, Search, MoreVertical,
   Smile, Send, X, Trash2, Reply,
   MessageCircle, UserPlus, ShieldOff, UserCheck,
-  ExternalLink, Check, CheckCheck, Pin, PinOff,
+  ExternalLink, Check, CheckCheck, Pin, PinOff, Phone,
 } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { supabase } from '../../shared/lib/supabase'
@@ -13,6 +13,11 @@ import { updateMissionProgress } from '../missions/weeklyMissions'
 import { notifyMessage } from '../achievements/achievements'
 import { useAuth } from '../auth/useAuth'
 import PageOnboarding from '../onboarding/PageOnboarding'
+import StartCallButton from './calling/StartCallButton'
+import VoiceNoteRecorderButton from './voiceNotes/VoiceNoteRecorderButton'
+import VoiceNotePlayer from './voiceNotes/VoiceNotePlayer'
+import { uploadVoiceNote } from './voiceNotes/voiceNoteStorage'
+import type { VoiceRecorderResult } from './voiceNotes/useVoiceRecorder'
 
 // ─── Types ──────────────────────────────────────────────────
 interface RoomMember {
@@ -43,7 +48,13 @@ interface Message {
   reactions: { emoji: string; user_id: string }[]
   senderName?: string
   senderUsername?: string
+  /** 'text' (default) | 'voice_note' | 'call_log' — see migration 0009. */
+  type: MessageType
+  audio_path: string | null
+  audio_duration_seconds: number | null
+  call_id: string | null
 }
+type MessageType = 'text' | 'voice_note' | 'call_log'
 interface SearchedProfile {
   id: string
   username: string
@@ -270,7 +281,21 @@ const MessageRow = memo(function MessageRow({
 
             {/* Message content + inline trailing timestamp (bottom-right, inside the bubble) */}
             <div style={{ display:'flex', alignItems:'flex-end', gap:6 }}>
-              <span style={{ flex:1, minWidth:0 }}>{msg.deleted ? 'Message deleted' : msg.content}</span>
+              <span style={{ flex:1, minWidth:0 }}>
+                {msg.deleted ? 'Message deleted' : msg.type === 'voice_note' ? (
+                  msg.audio_path ? (
+                    <VoiceNotePlayer audioPath={msg.audio_path} durationSeconds={msg.audio_duration_seconds ?? 0} tint={isMine ? 'light' : 'dark'} />
+                  ) : (
+                    <span style={{ fontStyle:'italic', opacity:0.75 }}>Uploading voice note…</span>
+                  )
+                ) : msg.type === 'call_log' ? (
+                  <span style={{ display:'inline-flex', alignItems:'center', gap:6 }}>
+                    <Phone size={13} />
+                    {msg.content}
+                    {msg.audio_duration_seconds ? ` · ${Math.floor(msg.audio_duration_seconds / 60)}:${String(msg.audio_duration_seconds % 60).padStart(2, '0')}` : ''}
+                  </span>
+                ) : msg.content}
+              </span>
               <span style={{ display:'flex', alignItems:'center', gap:3, flexShrink:0, alignSelf:'flex-end', paddingBottom:1 }}>
                 <span style={{ fontSize:10, color:'rgba(255,255,255,0.55)', whiteSpace:'nowrap' }}>{formatTime(msg.created_at)}</span>
                 {isMine && !msg.deleted && readReceipt === 'read' && <CheckCheck size={12} style={{ color:'#4f8ef7' }} />}
@@ -489,6 +514,13 @@ export default function Chat() {
   const [showConv, setShowConv] = useState(false)
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
+  const [isRecordingVoiceNote, setIsRecordingVoiceNote] = useState(false)
+  const [micError, setMicError] = useState<string | null>(null)
+  useEffect(() => {
+    if (!micError) return
+    const t = setTimeout(() => setMicError(null), 4000)
+    return () => clearTimeout(t)
+  }, [micError])
 
   // Search state — split: room search vs player search
   const [roomSearch, setRoomSearch] = useState('')
@@ -834,7 +866,7 @@ export default function Chat() {
     // If I've cleared this chat, only fetch messages after that cutoff.
     let query = supabase
       .from('messages')
-      .select('id, sender_id, content, created_at, deleted, reply_to_id')
+      .select('id, sender_id, content, created_at, deleted, reply_to_id, type, audio_path, audio_duration_seconds, call_id')
       .eq('room_id', room.id)
     if (room.clearedAt) query = query.gt('created_at', room.clearedAt)
     const { data, error } = await query
@@ -944,7 +976,7 @@ export default function Chat() {
         table: 'messages',
         filter: `room_id=eq.${room.id}`
       }, async (payload) => {
-        const raw = payload.new as { id: string; sender_id: string; content: string; created_at: string; deleted: boolean; reply_to_id: string | null }
+        const raw = payload.new as { id: string; sender_id: string; content: string; created_at: string; deleted: boolean; reply_to_id: string | null; type: 'text' | 'voice_note' | 'call_log'; audio_path: string | null; audio_duration_seconds: number | null; call_id: string | null }
 
         // Resolve sender name (may be a new global chat participant not in original members)
         let senderName = 'Unknown'
@@ -978,11 +1010,15 @@ export default function Chat() {
         table: 'messages',
         filter: `room_id=eq.${room.id}`
       }, (payload) => {
-        // Live-syncs edits made by anyone in the room — most importantly, message
-        // deletion. Without this, the other player only sees "Message deleted" after
-        // they reload or reopen the chat, even though the DB was already updated.
-        const raw = payload.new as { id: string; content: string; deleted: boolean }
-        setMessages(ms => ms.map(m => m.id === raw.id ? { ...m, deleted: raw.deleted, content: raw.deleted ? 'Message deleted' : raw.content } : m))
+        // Live-syncs edits made by anyone in the room — message deletion, and a
+        // voice note's audio_path arriving shortly after the row itself (upload
+        // to Storage happens after the DB row exists, since the storage path is
+        // keyed by message id). Without this, other viewers see "Message
+        // deleted" or a perpetually-uploading voice note until they reload.
+        const raw = payload.new as { id: string; content: string; deleted: boolean; audio_path: string | null }
+        setMessages(ms => ms.map(m => m.id === raw.id
+          ? { ...m, deleted: raw.deleted, content: raw.deleted ? 'Message deleted' : raw.content, audio_path: raw.audio_path }
+          : m))
       })
       .on('postgres_changes', {
         event: 'INSERT',
@@ -1059,7 +1095,7 @@ export default function Chat() {
     const oldestCreatedAt = messages[0].created_at
     let query = supabase
       .from('messages')
-      .select('id, sender_id, content, created_at, deleted, reply_to_id')
+      .select('id, sender_id, content, created_at, deleted, reply_to_id, type, audio_path, audio_duration_seconds, call_id')
       .eq('room_id', activeRoom.id)
       .lt('created_at', oldestCreatedAt)
     // Never page past a soft-clear cutoff — that history is hidden for me.
@@ -1259,6 +1295,8 @@ export default function Chat() {
     sender_id: string
     content: string
     reply_to_id?: string
+    type?: MessageType
+    audio_duration_seconds?: number
   }
 
   async function sendMsg() {
@@ -1275,7 +1313,7 @@ export default function Chat() {
 
     const payload: MessageInsertPayload = { room_id: activeRoom.id, sender_id: myId, content: trimmed }
     if (replyTo) payload.reply_to_id = replyTo.id
-    const { data: inserted, error } = await supabase.from('messages').insert(payload).select('id, sender_id, content, created_at, deleted, reply_to_id').single()
+    const { data: inserted, error } = await supabase.from('messages').insert(payload).select('id, sender_id, content, created_at, deleted, reply_to_id, type, audio_path, audio_duration_seconds, call_id').single()
     if (!error && inserted) {
       // Weekly mission: messages_sent
       if (myId) updateMissionProgress(myId, 'messages_sent', 1).catch(console.error)
@@ -1299,6 +1337,58 @@ export default function Chat() {
       setText(''); setReplyTo(null)
     }
     setSending(false)
+  }
+
+  /** Voice-note counterpart to sendMsg(). Two-step by necessity: the storage
+   *  path convention (`<room_id>/<message_id>.<ext>`) requires a message id
+   *  before the file can be uploaded, so the row is inserted first with
+   *  audio_path null (MessageRow renders an "Uploading…" state for that),
+   *  then patched with the real path once the upload finishes. */
+  async function sendVoiceNote({ blob, mimeType, durationSeconds }: VoiceRecorderResult) {
+    if (!activeRoom || !myId || sending) return
+    if (activeRoom.type === 'dm' && dmBlockState !== 'none') return
+    setSending(true)
+
+    const payload: MessageInsertPayload = {
+      room_id: activeRoom.id,
+      sender_id: myId,
+      content: '🎙️ Voice message',
+      type: 'voice_note',
+      audio_duration_seconds: durationSeconds,
+    }
+    if (replyTo) payload.reply_to_id = replyTo.id
+
+    const { data: inserted, error } = await supabase.from('messages').insert(payload)
+      .select('id, sender_id, content, created_at, deleted, reply_to_id, type, audio_path, audio_duration_seconds, call_id').single()
+
+    if (error || !inserted) { setSending(false); return }
+
+    if (myId && activeRoom.type === 'dm') {
+      activeRoom.members.filter(mb => mb.user_id !== myId)
+        .forEach(mb => notifyMessage(myId, mb.user_id, '🎙️ Voice message').catch(console.error))
+    }
+    updateMissionProgress(myId, 'messages_sent', 1).catch(console.error)
+
+    const myMember = activeRoom.members.find(mb => mb.user_id === myId)
+    const senderName = myMember ? (myMember.profile.display_name || myMember.profile.username) : 'Me'
+    const senderUsername = myMember?.profile.username
+    scrollModeRef.current = 'bottom'
+    setMessages(ms => {
+      if (ms.find(m => m.id === inserted.id)) return ms
+      return [...ms, { ...inserted, deleted: false, reactions: [], senderName, senderUsername, replyPreview: replyTo?.content }]
+    })
+    setReplyTo(null)
+    setSending(false)
+
+    try {
+      const audioPath = await uploadVoiceNote(activeRoom.id, inserted.id, blob, mimeType)
+      const { error: patchError } = await supabase.from('messages').update({ audio_path: audioPath }).eq('id', inserted.id)
+      if (patchError) throw new Error(patchError.message)
+      setMessages(ms => ms.map(m => m.id === inserted.id ? { ...m, audio_path: audioPath } : m))
+    } catch (err) {
+      console.error('Voice note upload failed:', err)
+      setMessages(ms => ms.map(m => m.id === inserted.id ? { ...m, type: 'text', content: '⚠️ Voice message failed to send' } : m))
+    }
   }
 
   function handleKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -1649,6 +1739,11 @@ export default function Chat() {
                     })()}
                   </div>
                 </div>
+                {activeRoom.type === 'dm' && dmBlockState === 'none' && (() => {
+                  const other = activeRoom.members.find(m => m.user_id !== myId)
+                  if (!other) return null
+                  return <StartCallButton roomId={activeRoom.id} callee={{ id: other.user_id, username: other.profile.username, display_name: other.profile.display_name, avatar: other.profile.avatar }} size={34} />
+                })()}
                 {activeRoom.type === 'dm' && (
                   <IBtn onClick={(e) => {
                     const rect = e.currentTarget.getBoundingClientRect()
@@ -1793,17 +1888,33 @@ export default function Chat() {
                   )}
                 </div>
               ) : (
-                /* Input bar — text + emoji + send ONLY, no attachments */
-                <div style={{ display:'flex', alignItems:'flex-end', gap:8, padding:'10px 12px', background:'rgba(17,17,19,0.92)', backdropFilter:'blur(14px)', borderTop:'1px solid rgba(255,255,255,0.05)' }}>
-                  <IBtn onClick={() => setEmojiOpen(v => !v)}><Smile size={15} /></IBtn>
-                  <div style={{ flex:1, background:'var(--surface)', boxShadow:'inset 2px 2px 6px var(--neu-dark)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:14, padding:'9px 12px', display:'flex', alignItems:'flex-end' }}>
-                    <textarea rows={1} value={text} onChange={handleTextChange} onKeyDown={handleKey} placeholder="Type a message…" maxLength={MAX_MESSAGE_LENGTH}
-                      style={{ flex:1, background:'transparent', border:'none', outline:'none', color:'var(--text)', fontSize:13.5, resize:'none', maxHeight:80, overflowY:'auto', lineHeight:1.4, fontFamily:'inherit' }} />
+                /* Input bar — text + emoji + send, or a voice-note recorder in place of the send button when idle */
+                <div style={{ display:'flex', flexDirection:'column' }}>
+                  {micError && (
+                    <div style={{ padding:'6px 16px', fontSize:11.5, color:'#ff6b6b', background:'rgba(255,107,107,0.08)' }}>{micError}</div>
+                  )}
+                  <div style={{ display:'flex', alignItems:'flex-end', gap:8, padding:'10px 12px', background:'rgba(17,17,19,0.92)', backdropFilter:'blur(14px)', borderTop:'1px solid rgba(255,255,255,0.05)' }}>
+                    {!isRecordingVoiceNote && <IBtn onClick={() => setEmojiOpen(v => !v)}><Smile size={15} /></IBtn>}
+                    {!isRecordingVoiceNote && (
+                      <div style={{ flex:1, background:'var(--surface)', boxShadow:'inset 2px 2px 6px var(--neu-dark)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:14, padding:'9px 12px', display:'flex', alignItems:'flex-end' }}>
+                        <textarea rows={1} value={text} onChange={handleTextChange} onKeyDown={handleKey} placeholder="Type a message…" maxLength={MAX_MESSAGE_LENGTH}
+                          style={{ flex:1, background:'transparent', border:'none', outline:'none', color:'var(--text)', fontSize:13.5, resize:'none', maxHeight:80, overflowY:'auto', lineHeight:1.4, fontFamily:'inherit' }} />
+                      </div>
+                    )}
+                    {text.trim() ? (
+                      <button type="button" onClick={sendMsg} disabled={!text.trim() || sending}
+                        style={{ width:40, height:40, borderRadius:11, flexShrink:0, border:'none', background:'linear-gradient(135deg,var(--accent),var(--accent2))', boxShadow:'0 4px 14px rgba(255,107,0,0.35)', color:'#fff', cursor: !text.trim() || sending ? 'not-allowed' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s', opacity: !text.trim() || sending ? 0.6 : 1 }}>
+                        <Send size={16} />
+                      </button>
+                    ) : (
+                      <VoiceNoteRecorderButton
+                        onSend={sendVoiceNote}
+                        onError={setMicError}
+                        onRecordingChange={setIsRecordingVoiceNote}
+                        disabled={sending}
+                      />
+                    )}
                   </div>
-                  <button type="button" onClick={sendMsg} disabled={!text.trim() || sending}
-                    style={{ width:40, height:40, borderRadius:11, flexShrink:0, border:'none', background:'linear-gradient(135deg,var(--accent),var(--accent2))', boxShadow:'0 4px 14px rgba(255,107,0,0.35)', color:'#fff', cursor: !text.trim() || sending ? 'not-allowed' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s', opacity: !text.trim() || sending ? 0.6 : 1 }}>
-                    <Send size={16} />
-                  </button>
                 </div>
               )}
 
