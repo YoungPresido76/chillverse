@@ -5,7 +5,7 @@ import {
   ArrowLeft, ChevronRight, Trash2,
   Calendar, Tag, Lock, Eye,
   Circle, Moon, EyeOff, Check, Mail, Key,
-  AlertTriangle, Edit2, X, LogOut, Layers, Volume2,
+  AlertTriangle, Edit2, X, LogOut, Layers, Volume2, LifeBuoy,
 } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { isGameSoundEnabled, setGameSoundEnabled } from '../games/soundSettings'
@@ -424,6 +424,10 @@ export default function Settings() {
         />
 
         <SectionTitle>Chillverse</SectionTitle>
+        <Row icon={<LifeBuoy size={15} />} iconBg="rgba(255,107,0,0.12)" iconColor="var(--accent)"
+          label="Support"
+          onClick={(e) => { ripple(e as any); navigate('/support') }}
+        />
         <Row icon={<Layers size={15} />} iconBg="rgba(155,109,255,0.12)" iconColor="#9b6dff"
           label="Version"
           value="v1.0"
