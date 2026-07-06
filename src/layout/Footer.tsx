@@ -3,10 +3,10 @@ import Wordmark from './Wordmark'
 
 const FOOTER_LINKS: Array<[href: string, label: string]> = [
   ['https://cvwtplatform.vercel.app/', 'Platform'],
-  ['#', 'About'],
+  ['/#features', 'About'],
   ['/privacy', 'Privacy'],
   ['/terms', 'Terms'],
-  ['#', 'Contact'],
+  ['mailto:chillverserelationoffice@gmail.com', 'Contact'],
 ]
 
 export default function Footer() {
