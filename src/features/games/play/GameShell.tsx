@@ -42,16 +42,25 @@ export function PreGameModal({
       position: 'fixed', inset: 0, zIndex: 500,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: 20,
-      background: `radial-gradient(ellipse at center, ${accent}10 0%, rgba(0,0,0,0.85) 80%)`,
+      background: `
+        radial-gradient(circle at 15% 20%, ${accent}14 0%, transparent 40%),
+        radial-gradient(circle at 85% 80%, ${accent}10 0%, transparent 40%),
+        radial-gradient(ellipse at center, ${accent}10 0%, rgba(0,0,0,0.9) 75%)
+      `,
       backdropFilter: 'blur(12px)',
     }}>
       <div style={{
         background: 'var(--surface)', borderRadius: 28,
         border: `1px solid ${accent}30`,
         boxShadow: `0 0 60px ${accent}18, 6px 6px 20px var(--neu-dark), -4px -4px 14px var(--neu-light)`,
-        padding: '32px 28px', maxWidth: 400, width: '100%',
+        padding: 0, width: '100%',
+        maxWidth: 'clamp(340px, 92vw, 440px)',
+        maxHeight: 'min(88vh, 700px)',
+        display: 'flex', flexDirection: 'column',
+        overflow: 'hidden',
         animation: 'popUp 0.35s cubic-bezier(0.34,1.56,0.64,1) both',
       }}>
+        <div style={{ padding: '32px 28px 0', overflowY: 'auto' }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <div style={{
@@ -144,8 +153,10 @@ export function PreGameModal({
             </div>
           </div>
         )}
+        </div>
 
-        {/* Start button */}
+        {/* Start button — fixed footer, never gets clipped on short viewports */}
+        <div style={{ padding: '4px 28px 28px', flexShrink: 0 }}>
         <button
           type="button"
           onClick={onStart}
@@ -162,6 +173,7 @@ export function PreGameModal({
         >
           Start Game <ChevronRight size={18} />
         </button>
+        </div>
       </div>
     </div>
   )
