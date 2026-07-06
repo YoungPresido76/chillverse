@@ -112,6 +112,7 @@ export default function PageOnboarding({ pageKey }: PageOnboardingProps) {
       <div
         style={{
           width: '100%', maxWidth: 380,
+          maxHeight: 'min(86vh, 640px)',
           borderRadius: 24,
           background: 'linear-gradient(160deg, #1a1a1e, #111113)',
           border: '1.5px solid rgba(255,107,0,0.28)',
@@ -130,7 +131,8 @@ export default function PageOnboarding({ pageKey }: PageOnboardingProps) {
           style={{
             position: 'relative',
             width: '100%',
-            aspectRatio: '4 / 3',
+            flexShrink: 0,
+            height: 'clamp(130px, 30vh, 220px)',
             background: '#0a0a0b',
             overflow: 'hidden',
             touchAction: isCarousel ? 'pan-y' : undefined,
@@ -244,8 +246,9 @@ export default function PageOnboarding({ pageKey }: PageOnboardingProps) {
           )}
         </div>
 
-        {/* Text content */}
-        <div style={{ padding: '20px 22px 22px' }}>
+        {/* Text content — scrolls internally if long, so the button below
+            never gets pushed off-screen on shorter PC viewports. */}
+        <div style={{ padding: '16px 22px 0', flexShrink: 0 }}>
           <div
             style={{
               fontSize: 10, fontWeight: 800, color: '#ff9a3c',
@@ -254,18 +257,29 @@ export default function PageOnboarding({ pageKey }: PageOnboardingProps) {
           >
             Onboarding
           </div>
-          <h2 style={{ fontSize: 19, fontWeight: 800, color: 'var(--text)', margin: '0 0 10px' }}>
+          <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)', margin: '0 0 8px' }}>
             {content.title}
           </h2>
+        </div>
+        <div
+          style={{
+            padding: '0 22px',
+            overflowY: 'auto',
+            flex: '1 1 auto',
+            minHeight: 0,
+          }}
+        >
           <p
             style={{
-              fontSize: 14, lineHeight: 1.6, color: 'var(--text-muted)',
+              fontSize: 13.5, lineHeight: 1.55, color: 'var(--text-muted)',
               margin: 0, whiteSpace: 'pre-line',
             }}
           >
             {slide.text}
           </p>
+        </div>
 
+        <div style={{ padding: '14px 22px 20px', flexShrink: 0 }}>
           {/* Got it button */}
           <button
             type="button"
@@ -276,7 +290,6 @@ export default function PageOnboarding({ pageKey }: PageOnboardingProps) {
               markSeen()
             }}
             style={{
-              marginTop: 20,
               width: '100%',
               padding: '14px 0',
               borderRadius: 14,

@@ -29,16 +29,9 @@ export const ONBOARDING_CONTENT: Record<string, OnboardingPageContent> = {
       {
         image: `${BASE}/e0cda9106501f1ad6c3c37ff5c1cbe98.jpg`,
         text:
-          'This is your home. Everything you need starts here.\n\n' +
-          'Your streak, level, and XP display here.\n\n' +
-          'These are the fastest ways to start:\n' +
-          '•  Play games\n' +
-          '•  Visit the mall\n' +
-          '•  Watch movies\n\n' +
-          'These are your main destinations:\n' +
-          '•  Profile\n' +
-          '•  Weekly missions\n' +
-          '•  Rank',
+          'This is home — your streak, level, and XP live here.\n\n' +
+          'Fastest ways in: Play games · Mall · Movies.\n' +
+          'Main destinations: Profile · Weekly missions · Rank.',
       },
     ],
   },
@@ -50,9 +43,8 @@ export const ONBOARDING_CONTENT: Record<string, OnboardingPageContent> = {
       {
         image: `${BASE}/fec00652c32601e5f641ec340973c3c7.jpg`,
         text:
-          'Here is where the grind for XP and rank position lives.\n\n' +
-          'One thing to remember: the most fun and hardest games cost more sessions than others. ' +
-          'For more details, visit session usage.',
+          'This is where the grind for XP and rank lives.\n\n' +
+          'The most fun (and hardest) games cost more sessions — see session usage for details.',
       },
     ],
   },
