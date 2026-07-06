@@ -3,9 +3,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ChevronRight, LifeBuoy, MessageSquarePlus, TicketCheck, Eye } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
-import { fetchSupportCategories, fetchPopularArticles, searchSupportArticles } from './api'
+import { fetchSupportCategoriesWithCounts, fetchPopularArticles, searchSupportArticles } from './api'
 import { getSupportCategoryIcon } from './constants'
-import type { SupportCategory, SupportArticle, SupportArticleSearchResult } from '../../shared/types'
+import type { SupportCategoryWithCount, SupportArticle, SupportArticleSearchResult } from '../../shared/types'
 import SupportSearchBar from './components/SupportSearchBar'
 
 export default function Support() {
@@ -13,7 +13,7 @@ export default function Support() {
   const [searchParams, setSearchParams] = useSearchParams()
   const initialQuery = searchParams.get('q') ?? ''
 
-  const [categories, setCategories] = useState<SupportCategory[]>([])
+  const [categories, setCategories] = useState<SupportCategoryWithCount[]>([])
   const [popularArticles, setPopularArticles] = useState<SupportArticle[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -26,7 +26,7 @@ export default function Support() {
   useEffect(() => {
     let active = true
     setLoading(true)
-    Promise.all([fetchSupportCategories(), fetchPopularArticles(6)])
+    Promise.all([fetchSupportCategoriesWithCounts(), fetchPopularArticles(6)])
       .then(([cats, popular]) => {
         if (!active) return
         setCategories(cats)
@@ -50,7 +50,7 @@ export default function Support() {
   }, [])
 
   const categoryById = useMemo(() => {
-    const map = new Map<string, SupportCategory>()
+    const map = new Map<string, SupportCategoryWithCount>()
     categories.forEach(c => map.set(c.id, c))
     return map
   }, [categories])
@@ -82,10 +82,14 @@ export default function Support() {
     navigate(`/support/${category.slug}/${articleSlug}`)
   }
 
+  function articleCountLabel(count: number): string {
+    return `${count} article${count === 1 ? '' : 's'}`
+  }
+
   const isSearching = query.trim().length > 0
 
   return (
-    <div style={{ maxWidth: 920, margin: '0 auto' }}>
+    <div style={{ maxWidth: 780, margin: '0 auto' }}>
       {/* Hero */}
       <div style={{ textAlign: 'center', marginBottom: 28 }}>
         <div
@@ -98,16 +102,13 @@ export default function Support() {
         >
           <LifeBuoy size={26} color="#fff" />
         </div>
-        <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--text)', marginBottom: 6 }}>
-          How can we help?
+        <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)', marginBottom: 20 }}>
+          Search for answers or browse by topic
         </h1>
-        <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20 }}>
-          Search our help center or browse a topic below.
-        </p>
         <SupportSearchBar
           initialValue={initialQuery}
           onSearch={runSearch}
-          placeholder={'Search articles (e.g. "reset password", "buy diamonds")'}
+          placeholder="Search for articles…"
         />
       </div>
 
@@ -153,11 +154,11 @@ export default function Support() {
         />
       ) : (
         <>
-          {/* Categories */}
+          {/* Categories — one card per topic, showing its published article count */}
           {!loading && categories.length > 0 && (
             <>
-              <SectionTitle>Browse by topic</SectionTitle>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12, marginBottom: 28 }}>
+              <SectionTitle>All Collections</SectionTitle>
+              <div style={{ marginBottom: 28 }}>
                 {categories.map(category => {
                   const Icon = getSupportCategoryIcon(category.icon)
                   return (
@@ -169,17 +170,17 @@ export default function Support() {
                       style={categoryCardStyle}
                     >
                       <div style={{
-                        width: 38, height: 38, borderRadius: 11, flexShrink: 0,
+                        width: 40, height: 40, borderRadius: 12, flexShrink: 0,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         background: 'rgba(255,107,0,0.12)', color: 'var(--accent)',
                       }}>
-                        <Icon size={18} />
+                        <Icon size={19} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{category.name}</div>
-                        {category.description && (
-                          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>{category.description}</div>
-                        )}
+                        <div style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--text)' }}>{category.name}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                          {articleCountLabel(category.article_count)}
+                        </div>
                       </div>
                       <ChevronRight size={15} color="var(--text-muted)" style={{ flexShrink: 0 }} />
                     </button>
@@ -283,9 +284,10 @@ const quickActionStyle: React.CSSProperties = {
 }
 
 const categoryCardStyle: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer',
+  display: 'flex', alignItems: 'center', gap: 12, width: '100%', cursor: 'pointer',
   background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 16,
-  padding: '14px 16px', boxShadow: '3px 3px 9px var(--neu-dark), -2px -2px 7px var(--neu-light)',
+  padding: '14px 16px', marginBottom: 9,
+  boxShadow: '3px 3px 9px var(--neu-dark), -2px -2px 7px var(--neu-light)',
 }
 
 const articleRowStyle: React.CSSProperties = {

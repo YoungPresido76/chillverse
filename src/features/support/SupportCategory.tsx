@@ -1,10 +1,11 @@
 // src/features/support/SupportCategory.tsx
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ChevronRight, Eye } from 'lucide-react'
+import { ChevronRight, Eye } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { fetchSupportCategoryBySlug, fetchArticlesByCategory } from './api'
 import { getSupportCategoryIcon } from './constants'
+import Breadcrumbs from './components/Breadcrumbs'
 import type { SupportCategory as SupportCategoryType, SupportArticle } from '../../shared/types'
 
 export default function SupportCategory() {
@@ -54,7 +55,7 @@ export default function SupportCategory() {
   if (error || !category) {
     return (
       <div style={{ maxWidth: 720, margin: '0 auto' }}>
-        <BackLink onClick={() => navigate('/support')} />
+        <Breadcrumbs items={[{ label: 'All Collections', onClick: () => navigate('/support') }, { label: 'Not found' }]} />
         <div style={errorBoxStyle}>{error || 'This help topic could not be found.'}</div>
       </div>
     )
@@ -64,9 +65,14 @@ export default function SupportCategory() {
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto' }}>
-      <BackLink onClick={() => navigate('/support')} />
+      <Breadcrumbs
+        items={[
+          { label: 'All Collections', onClick: () => navigate('/support') },
+          { label: category.name },
+        ]}
+      />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 22 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8 }}>
         <div style={{
           width: 46, height: 46, borderRadius: 13, flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -80,6 +86,10 @@ export default function SupportCategory() {
             <div style={{ fontSize: 13, color: 'var(--text-dim)', marginTop: 2 }}>{category.description}</div>
           )}
         </div>
+      </div>
+
+      <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 22 }}>
+        {articles.length} article{articles.length === 1 ? '' : 's'}
       </div>
 
       {articles.length === 0 ? (
@@ -109,21 +119,6 @@ export default function SupportCategory() {
         ))
       )}
     </div>
-  )
-}
-
-function BackLink({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none',
-        color: 'var(--text-dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', marginBottom: 18, padding: 0,
-      }}
-    >
-      <ArrowLeft size={15} /> Back to Help Center
-    </button>
   )
 }
 

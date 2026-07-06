@@ -1,13 +1,14 @@
 // src/features/support/SupportArticle.tsx
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ThumbsUp, ThumbsDown, MessageSquarePlus, Check } from 'lucide-react'
+import { ThumbsUp, ThumbsDown, MessageSquarePlus, Check } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { useAuth } from '../auth/useAuth'
 import {
   fetchSupportCategoryBySlug, fetchArticleBySlug, incrementArticleView,
   submitArticleFeedback, fetchMyArticleFeedback,
 } from './api'
+import Breadcrumbs from './components/Breadcrumbs'
 import type { SupportCategory, SupportArticle as SupportArticleType } from '../../shared/types'
 
 export default function SupportArticle() {
@@ -101,19 +102,29 @@ export default function SupportArticle() {
   if (error || !article || !category) {
     return (
       <div style={{ maxWidth: 680, margin: '0 auto' }}>
-        <BackLink onClick={() => navigate('/support')} label="Back to Help Center" />
+        <Breadcrumbs items={[{ label: 'All Collections', onClick: () => navigate('/support') }, { label: 'Not found' }]} />
         <div style={errorBoxStyle}>{error || 'This article could not be found.'}</div>
       </div>
     )
   }
 
   const paragraphs = article.content.split(/\n\s*\n/).filter(Boolean)
+  const publishedDate = new Date(article.created_at).toLocaleDateString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  })
 
   return (
     <div style={{ maxWidth: 680, margin: '0 auto' }}>
-      <BackLink onClick={() => navigate(`/support/${category.slug}`)} label={`Back to ${category.name}`} />
+      <Breadcrumbs
+        items={[
+          { label: 'All Collections', onClick: () => navigate('/support') },
+          { label: category.name, onClick: () => navigate(`/support/${category.slug}`) },
+          { label: article.title },
+        ]}
+      />
 
-      <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', marginBottom: 8 }}>{article.title}</h1>
+      <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', marginBottom: 6 }}>{article.title}</h1>
+      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 18 }}>{publishedDate}</div>
       {article.summary && (
         <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 24 }}>{article.summary}</p>
       )}
@@ -208,21 +219,6 @@ function feedbackButtonStyle(active: boolean, color: string): React.CSSPropertie
     background: active ? color : `${color}1a`,
     border: `1px solid ${active ? color : `${color}40`}`,
   }
-}
-
-function BackLink({ onClick, label }: { onClick: () => void; label: string }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none',
-        color: 'var(--text-dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', marginBottom: 18, padding: 0,
-      }}
-    >
-      <ArrowLeft size={15} /> {label}
-    </button>
-  )
 }
 
 const errorBoxStyle: React.CSSProperties = {

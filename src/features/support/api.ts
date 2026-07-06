@@ -2,6 +2,7 @@
 import { supabase } from '../../shared/lib/supabase'
 import type {
   SupportCategory,
+  SupportCategoryWithCount,
   SupportArticle,
   SupportArticleSearchResult,
   SupportTicket,
@@ -17,6 +18,14 @@ export async function fetchSupportCategories(): Promise<SupportCategory[]> {
 
   if (error) throw error
   return (data as SupportCategory[]) ?? []
+}
+
+/** Fetches all support categories along with their published-article counts. */
+export async function fetchSupportCategoriesWithCounts(): Promise<SupportCategoryWithCount[]> {
+  const { data, error } = await supabase.rpc('list_support_categories_with_counts')
+
+  if (error) throw error
+  return (data as SupportCategoryWithCount[]) ?? []
 }
 
 /** Fetches a single category by its slug, or null if it doesn't exist. */
