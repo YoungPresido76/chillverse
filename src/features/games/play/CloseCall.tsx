@@ -24,7 +24,15 @@ interface Question {
   funFact?: string
 }
 
-const QUESTIONS: Question[] = [
+// ─── Question bank, split into rotating "parts" ───────────────
+// Each part is a self-contained 30-question set (20 normal + 10 harder,
+// same pacing as before). Which part a player sees is picked by the
+// calendar day, so repeat players get a different set day to day instead
+// of memorizing one fixed list. Parts also escalate in difficulty
+// (Part A = easy warm-up, B = medium, C = hard) so the game doesn't feel
+// "too easy" once someone's played a few times.
+
+const PART_A: Question[] = [
   { prompt: "What do you call the dot above the letter 'i'?",           accepted: ['tittle', 'dot', 'jot'],                 funFact: "It's officially called a tittle." },
   { prompt: 'How many sides does a hexagon have?',                      accepted: ['six', '6'],                             funFact: "Bees figured this out before us." },
   { prompt: 'What gas do plants absorb from the air?',                  accepted: ['carbon dioxide', 'co2', 'carbon'],      funFact: "And release oxygen. Good deal for us." },
@@ -56,6 +64,85 @@ const QUESTIONS: Question[] = [
   { prompt: 'What is the chemical formula for water?',                  accepted: ['h2o', 'h₂o'],                           funFact: "Two hydrogen, one oxygen. The OG formula." },
   { prompt: 'Who wrote Romeo and Juliet?',                              accepted: ['shakespeare', 'william shakespeare'],   funFact: "It was originally a poem before it was a play." },
 ]
+
+const PART_B: Question[] = [
+  { prompt: 'What is the collective noun for a group of crows?',        accepted: ['murder', 'a murder'],                   funFact: "A murder of crows. Nobody knows exactly why." },
+  { prompt: 'What year did the Berlin Wall fall?',                      accepted: ['1989'],                                 funFact: "It came down on November 9th, 1989." },
+  { prompt: 'What is the currency of Switzerland?',                     accepted: ['franc', 'swiss franc'],                 funFact: "One of the few currencies to survive both World Wars intact." },
+  { prompt: 'Who developed the theory of general relativity?',          accepted: ['einstein', 'albert einstein'],          funFact: "Published in 1915, it redefined gravity itself." },
+  { prompt: 'What is the largest organ in the human body?',             accepted: ['skin'],                                 funFact: "It makes up about 16% of your body weight." },
+  { prompt: 'How many time zones does Russia span?',                    accepted: ['11', 'eleven'],                         funFact: "It's the most of any country on Earth." },
+  { prompt: 'What is the capital of Australia?',                        accepted: ['canberra'],                             funFact: "Not Sydney — it was a compromise city built for the job." },
+  { prompt: 'What metal is liquid at room temperature?',                accepted: ['mercury'],                              funFact: "It's also called quicksilver." },
+  { prompt: 'Who wrote "1984"?',                                        accepted: ['orwell', 'george orwell'],              funFact: "Published in 1949, decades before the year itself." },
+  { prompt: 'What is the smallest prime number?',                       accepted: ['2', 'two'],                             funFact: "It's also the only even prime number." },
+  { prompt: 'What is the tallest mountain in Africa?',                  accepted: ['kilimanjaro', 'mount kilimanjaro'],     funFact: "It's a dormant volcano, not part of a range." },
+  { prompt: 'What year did World War II end?',                          accepted: ['1945'],                                 funFact: "V-J Day marked the final surrender in September 1945." },
+  { prompt: 'What is the study of earthquakes called?',                 accepted: ['seismology'],                           funFact: "Seismologists use instruments called seismographs." },
+  { prompt: 'How many chambers does the human heart have?',             accepted: ['4', 'four'],                            funFact: "Two atria, two ventricles." },
+  { prompt: 'What is the national language of Brazil?',                 accepted: ['portuguese'],                           funFact: "The only Portuguese-speaking country in South America." },
+  { prompt: 'What is the freezing point of water in Fahrenheit?',       accepted: ['32'],                                   funFact: "That's 0°C, for the rest of the world." },
+  { prompt: 'Who composed the Ninth Symphony?',                         accepted: ['beethoven', 'ludwig van beethoven'],    funFact: "He was almost completely deaf by the time he wrote it." },
+  { prompt: 'What is the capital of Canada?',                           accepted: ['ottawa'],                               funFact: "Not Toronto — a common mix-up." },
+  { prompt: "What gas makes up most of Earth's atmosphere?",            accepted: ['nitrogen'],                             funFact: "About 78%, with oxygen a distant second at 21%." },
+  { prompt: 'What is the main language spoken in Egypt?',               accepted: ['arabic'],                               funFact: "Egyptian Arabic is widely understood across the region." },
+  { prompt: 'What is the term for a word that reads the same backwards?', accepted: ['palindrome'],                         funFact: "\"Racecar\" and \"level\" are classic examples." },
+  { prompt: 'Who was the first woman to win a Nobel Prize?',            accepted: ['marie curie', 'curie'],                 funFact: "She won it twice, in two different sciences." },
+  { prompt: 'What is the SI unit of electrical resistance?',            accepted: ['ohm'],                                  funFact: "Named after physicist Georg Ohm." },
+  { prompt: 'In which year did the Titanic sink?',                      accepted: ['1912'],                                 funFact: "It sank on its very first voyage." },
+  { prompt: 'What is the longest bone in the human body?',              accepted: ['femur'],                                funFact: "It's the thigh bone, roughly a quarter of your height." },
+  { prompt: 'Which country has the most natural lakes?',                accepted: ['canada'],                               funFact: "It holds more freshwater lakes than the rest of the world combined." },
+  { prompt: 'What is the term for an animal that eats both plants and meat?', accepted: ['omnivore'],                       funFact: "Humans, bears, and pigs all fit the bill." },
+  { prompt: 'Who wrote "The Odyssey"?',                                 accepted: ['homer'],                                funFact: "Attributed to Homer, though authorship is still debated." },
+  { prompt: 'What is the chemical symbol for potassium?',               accepted: ['k'],                                    funFact: "From the Latin \"kalium.\"" },
+  { prompt: 'What year was the United Nations founded?',                accepted: ['1945'],                                 funFact: "Founded right after WWII to prevent another one." },
+]
+
+const PART_C: Question[] = [
+  { prompt: 'What is the capital of Mongolia?',                         accepted: ['ulaanbaatar'],                          funFact: "One of the coldest capital cities on Earth." },
+  { prompt: 'Who wrote "Crime and Punishment"?',                        accepted: ['dostoevsky', 'fyodor dostoevsky'],      funFact: "He wrote it partly to pay off gambling debts." },
+  { prompt: 'What is the SI unit of frequency?',                        accepted: ['hertz'],                                funFact: "Named after Heinrich Hertz, who proved radio waves exist." },
+  { prompt: 'Which element has atomic number 1?',                       accepted: ['hydrogen'],                             funFact: "The lightest and most abundant element in the universe." },
+  { prompt: 'What year did the French Revolution begin?',               accepted: ['1789'],                                 funFact: "It kicked off with the storming of the Bastille." },
+  { prompt: 'What is the study of fossils called?',                     accepted: ['paleontology'],                         funFact: "It sits at the crossroads of biology and geology." },
+  { prompt: 'Who was the first person to walk on the moon?',            accepted: ['neil armstrong', 'armstrong'],          funFact: "\"One small step\" — July 20th, 1969." },
+  { prompt: 'What is the capital of Iceland?',                          accepted: ['reykjavik'],                            funFact: "It's the northernmost capital of a sovereign state." },
+  { prompt: 'What is the process by which plants make food called?',    accepted: ['photosynthesis'],                       funFact: "It converts sunlight, water, and CO2 into sugar and oxygen." },
+  { prompt: 'Which ocean is the smallest?',                             accepted: ['arctic', 'arctic ocean'],               funFact: "It's smaller than Russia." },
+  { prompt: 'Who developed the polio vaccine?',                         accepted: ['jonas salk', 'salk'],                   funFact: "He famously refused to patent it." },
+  { prompt: 'What is the largest desert in the world by area?',         accepted: ['antarctic', 'antarctica'],              funFact: "Deserts are defined by dryness, not heat — Antarctica qualifies." },
+  { prompt: 'What is the term for fear of heights?',                    accepted: ['acrophobia'],                           funFact: "Distinct from vertigo, which is a balance disorder." },
+  { prompt: 'Who wrote "Pride and Prejudice"?',                         accepted: ['jane austen', 'austen'],                funFact: "It was originally titled \"First Impressions.\"" },
+  { prompt: 'What is the capital of Peru?',                             accepted: ['lima'],                                 funFact: "Founded by Francisco Pizarro in 1535." },
+  { prompt: 'What is the powerhouse of the cell called?',               accepted: ['mitochondria', 'mitochondrion'],        funFact: "They have their own separate DNA." },
+  { prompt: 'What year did India gain independence?',                   accepted: ['1947'],                                 funFact: "August 15th, 1947, from British rule." },
+  { prompt: 'Who painted the ceiling of the Sistine Chapel?',           accepted: ['michelangelo'],                         funFact: "It took him roughly four years, mostly lying on his back." },
+  { prompt: 'What is the currency of India?',                           accepted: ['rupee', 'indian rupee'],                funFact: "The symbol ₹ was adopted in 2010." },
+  { prompt: 'What is the term for a triangle with all sides equal?',    accepted: ['equilateral'],                          funFact: "All three angles are also equal, at 60° each." },
+  { prompt: 'Who wrote "The Republic"?',                                accepted: ['plato'],                                funFact: "It's structured as a dialogue led by Socrates." },
+  { prompt: 'What is the SI unit of electric current?',                 accepted: ['ampere', 'amp'],                        funFact: "Named after André-Marie Ampère." },
+  { prompt: 'Which vitamin deficiency causes scurvy?',                  accepted: ['vitamin c', 'c'],                       funFact: "Sailors carried citrus fruit for centuries before knowing why it worked." },
+  { prompt: 'What is the capital of Uruguay?',                          accepted: ['montevideo'],                           funFact: "Home to about half the country's population." },
+  { prompt: 'Who discovered penicillin?',                               accepted: ['alexander fleming', 'fleming'],         funFact: "He noticed it by accident in a messy petri dish." },
+  { prompt: 'What is the term for the fear of enclosed spaces?',        accepted: ['claustrophobia'],                       funFact: "One of the most commonly reported phobias." },
+  { prompt: 'Which planet has the shortest day?',                       accepted: ['jupiter'],                              funFact: "It spins all the way around in about 10 hours." },
+  { prompt: 'What is the study of weather called?',                     accepted: ['meteorology'],                          funFact: "Nothing to do with meteors, despite the name." },
+  { prompt: 'Who wrote "War and Peace"?',                               accepted: ['tolstoy', 'leo tolstoy'],               funFact: "At over 1,200 pages, it's one of the longest major novels ever written." },
+  { prompt: 'What is the capital of Kazakhstan?',                       accepted: ['astana'],                               funFact: "It was renamed Nur-Sultan then renamed back to Astana." },
+]
+
+const QUESTION_PARTS: Question[][] = [PART_A, PART_B, PART_C]
+const PART_LABELS = ['Warm-Up', 'Mixed', 'Hard Mode']
+
+// Picks a part based on the calendar day so returning players see a
+// different set day to day, cycling through all parts.
+function getTodayPartIndex(numParts: number): number {
+  const now = new Date()
+  const start = new Date(now.getFullYear(), 0, 0)
+  const diff = now.getTime() - start.getTime()
+  const dayOfYear = Math.floor(diff / 86400000)
+  return dayOfYear % numParts
+}
 
 // ─── Fuzzy match ─────────────────────────────────────────────
 function normalize(s: string): string {
@@ -114,6 +201,7 @@ export default function CloseCall({ rank: _rank, onEnd, onBack, sessionsLeft = 9
   useGamePresence('close-call')
   const [phase, setPhase]         = useState<'info' | 'play' | 'result' | 'quit'>('info')
   const [qIndex, setQIndex]       = useState(0)
+  const [partIndex, setPartIndex] = useState(() => getTodayPartIndex(QUESTION_PARTS.length))
   const [shuffled, setShuffled]   = useState<Question[]>([])
   const [timeLeft, setTimeLeft]   = useState(TIME_LIMIT_NORMAL)
   const [timeLimit, setTimeLimit]  = useState(TIME_LIMIT_NORMAL)
@@ -220,7 +308,9 @@ export default function CloseCall({ rank: _rank, onEnd, onBack, sessionsLeft = 9
   }
 
   function start() {
-    const s = [...QUESTIONS].sort(() => Math.random() - 0.5)
+    const todayPart = getTodayPartIndex(QUESTION_PARTS.length)
+    setPartIndex(todayPart)
+    const s = [...QUESTION_PARTS[todayPart]].sort(() => Math.random() - 0.5)
     setShuffled(s)
     setQIndex(0)
     setInput('')
@@ -236,12 +326,14 @@ export default function CloseCall({ rank: _rank, onEnd, onBack, sessionsLeft = 9
   }
 
   const rankCfg = getRankConfig(_rank)
+  const todaysLabel = PART_LABELS[getTodayPartIndex(QUESTION_PARTS.length)]
   const rules = [
     { icon: '💬', text: "You're asked a question. Type the closest answer you know." },
     { icon: '✅', text: "Close enough counts — typos and near-misses are forgiven." },
     { icon: '⏱️', text: '6 seconds to answer. Time runs out = lose a life.' },
     { icon: '❤️', text: '3 lives total. Lose them all and the session ends.' },
     { icon: '⚡', text: `${XP_PER_Q} XP per correct answer. Session costs 4 plays.` },
+    { icon: '🔄', text: `Today's set: ${todaysLabel}. Questions rotate daily — come back tomorrow for a new set.` },
   ]
 
   if (phase === 'info') return (
@@ -279,6 +371,7 @@ export default function CloseCall({ rank: _rank, onEnd, onBack, sessionsLeft = 9
         extraRight={
           <div style={{ display:'flex', gap:6 }}>
             <StatChip label="Score" value={correct} accent={ACCENT} />
+            <StatChip label="Set" value={PART_LABELS[partIndex]} accent={ACCENT} />
             <StatChip label="Lives" value={'❤️'.repeat(lives) || '💀'} />
           </div>
         }
