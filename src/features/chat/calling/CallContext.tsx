@@ -3,8 +3,10 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { supabase } from '../../../shared/lib/supabase'
 import { getRtcConfig } from './webrtcConfig'
 import { getMediaErrorMessage } from '../getMediaErrorMessage'
+import { notifyMissedCall } from '../../achievements/achievements'
 import IncomingCallRinger from './IncomingCallRinger'
 import CallScreen from './CallScreen'
+import MinimizedCallBar from './MinimizedCallBar'
 import type { ActiveCallState, CallParticipant, CallRow, CallSignal, CallType } from './types'
 
 const RING_TIMEOUT_MS = 45_000 // caller marks the call 'missed' if unanswered this long
@@ -18,6 +20,7 @@ const INITIAL_STATE: ActiveCallState = {
   remoteStream: null,
   isMuted: false,
   durationSeconds: 0,
+  isMinimized: false,
 }
 
 interface CallContextValue extends ActiveCallState {
@@ -29,6 +32,12 @@ interface CallContextValue extends ActiveCallState {
   /** Ends a call in any phase: cancels an outgoing ring, or hangs up a connected call. */
   endCall: () => Promise<void>
   toggleMute: () => void
+  /** Collapses the full-screen call UI to a small persistent bar so the person
+   *  can navigate the rest of the app — the call itself (WebRTC connection,
+   *  timers, signaling) is completely unaffected, since it already lives in
+   *  this provider mounted at the AppLayout level, above the page router. */
+  minimizeCall: () => void
+  restoreCall: () => void
 }
 
 const CallContext = createContext<CallContextValue | null>(null)
@@ -221,7 +230,7 @@ export default function CallProvider({ myId, children }: CallProviderProps) {
       .single()
 
     if (error || !inserted) {
-      setState(s => ({ ...s, error: 'Could not start the call.' }))
+      setCallError('Could not start the call.')
       return
     }
     const call = inserted as CallRow
@@ -229,10 +238,15 @@ export default function CallProvider({ myId, children }: CallProviderProps) {
     setState({ ...INITIAL_STATE, phase: 'dialing', call, otherParticipant: callee, isCaller: true })
 
     // Missed-call timeout — if the callee hasn't answered by RING_TIMEOUT_MS,
-    // the caller (who is guaranteed to still be around to do it) marks it missed.
+    // the caller (who is guaranteed to still be around to do it) marks it missed
+    // and notifies them, matching phone/WhatsApp "missed call" behavior. The
+    // in-chat "Missed call" message itself is written by a DB trigger
+    // (migration 0010) the instant the status update below lands, so it's
+    // guaranteed exactly-once regardless of which side's client is open.
     ringTimeoutRef.current = setTimeout(() => {
       if (stateRef.current.call?.id === call.id && stateRef.current.phase === 'dialing') {
         setCallStatus(call.id, 'missed')
+        notifyMissedCall(myId, callee.id).catch(console.error)
         teardown()
       }
     }, RING_TIMEOUT_MS)
@@ -322,6 +336,13 @@ export default function CallProvider({ myId, children }: CallProviderProps) {
     setState(s => ({ ...s, isMuted: nextMuted }))
   }, [])
 
+  // Purely a UI-visibility toggle — the WebRTC connection, media streams, and
+  // signaling channel are untouched, since they already live in this provider
+  // (mounted once in AppLayout, above the page router) rather than in
+  // whatever page happened to start the call.
+  const minimizeCall = useCallback(() => { setState(s => ({ ...s, isMinimized: true })) }, [])
+  const restoreCall = useCallback(() => { setState(s => ({ ...s, isMinimized: false })) }, [])
+
   // Call-duration ticker — starts the moment WebRTC reports 'connected'.
   useEffect(() => {
     if (state.phase === 'connected' && !durationIntervalRef.current) {
@@ -381,13 +402,17 @@ export default function CallProvider({ myId, children }: CallProviderProps) {
     declineCall,
     endCall,
     toggleMute,
+    minimizeCall,
+    restoreCall,
   }
+
+  const isCallScreenActive = state.phase === 'dialing' || state.phase === 'connecting' || state.phase === 'connected'
 
   return (
     <CallContext.Provider value={value}>
       {children}
       {state.phase === 'ringing' && <IncomingCallRinger />}
-      {(state.phase === 'dialing' || state.phase === 'connecting' || state.phase === 'connected') && <CallScreen />}
+      {isCallScreenActive && (state.isMinimized ? <MinimizedCallBar /> : <CallScreen />)}
       {callError && (
         <div style={{
           position:'fixed', bottom:24, left:'50%', transform:'translateX(-50%)', zIndex:10000,

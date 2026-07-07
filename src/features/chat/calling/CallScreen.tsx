@@ -1,6 +1,6 @@
 // src/features/chat/calling/CallScreen.tsx
 import { useEffect, useRef } from 'react'
-import { Mic, MicOff, PhoneOff } from 'lucide-react'
+import { Mic, MicOff, PhoneOff, ChevronDown } from 'lucide-react'
 import { useCall } from './CallContext'
 
 function formatCallDuration(totalSeconds: number): string {
@@ -10,7 +10,7 @@ function formatCallDuration(totalSeconds: number): string {
 }
 
 export default function CallScreen() {
-  const { phase, call, otherParticipant, localStream, remoteStream, isMuted, durationSeconds, endCall, toggleMute } = useCall()
+  const { phase, call, otherParticipant, localStream, remoteStream, isMuted, durationSeconds, endCall, toggleMute, minimizeCall } = useCall()
 
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
@@ -50,6 +50,16 @@ export default function CallScreen() {
       ) : (
         <audio ref={remoteAudioRef} autoPlay />
       )}
+
+      <button type="button" onClick={minimizeCall} title="Minimize"
+        style={{
+          position:'absolute', top:'max(20px, env(safe-area-inset-top))', left:20, zIndex:3,
+          width:40, height:40, borderRadius:'50%', border:'1px solid rgba(255,255,255,0.15)',
+          background:'rgba(255,255,255,0.1)', color:'#fff', cursor:'pointer',
+          display:'flex', alignItems:'center', justifyContent:'center',
+        }}>
+        <ChevronDown size={20} />
+      </button>
 
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8, marginTop:32, zIndex:1 }}>
         <span style={{ fontSize:13, color:'rgba(255,255,255,0.7)', fontWeight:600, letterSpacing:0.5 }}>

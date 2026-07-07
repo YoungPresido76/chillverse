@@ -58,4 +58,8 @@ export interface ActiveCallState {
   isMuted: boolean
   /** Call duration in seconds, ticking while phase === 'connected'. */
   durationSeconds: number
+  /** true once the person has minimized the full-screen call UI to a small
+   *  persistent bar so they can navigate the rest of the app while the call
+   *  (and its WebRTC connection) keeps running underneath. */
+  isMinimized: boolean
 }
