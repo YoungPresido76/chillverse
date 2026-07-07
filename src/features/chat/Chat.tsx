@@ -1,6 +1,6 @@
 // src/pages/Chat.tsx
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, memo } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Search, MoreVertical,
   Smile, Send, X, Trash2, Reply,
@@ -298,7 +298,7 @@ const MessageRow = memo(function MessageRow({
               </span>
               <span style={{ display:'flex', alignItems:'center', gap:3, flexShrink:0, alignSelf:'flex-end', paddingBottom:1 }}>
                 <span style={{ fontSize:10, color:'rgba(255,255,255,0.55)', whiteSpace:'nowrap' }}>{formatTime(msg.created_at)}</span>
-                {isMine && !msg.deleted && readReceipt === 'read' && <CheckCheck size={12} style={{ color:'#4f8ef7' }} />}
+                {isMine && !msg.deleted && readReceipt === 'read' && <CheckCheck size={12} style={{ color:'var(--accent)' }} />}
                 {isMine && !msg.deleted && readReceipt === 'sent' && <Check size={12} style={{ color:'rgba(255,255,255,0.55)' }} />}
               </span>
             </div>
@@ -470,8 +470,6 @@ function PlayerProfileModal({ profile, myId, onClose, onStartChat, onBlockChange
 export default function Chat() {
   const { session } = useAuth()
   const myId = session?.user?.id ?? null
-  const navigate = useNavigate()
-  const location = useLocation()
 
   const [rooms, setRooms] = useState<ChatRoom[]>([])
   const [roomsLoading, setRoomsLoading] = useState(true)
@@ -493,20 +491,6 @@ export default function Chat() {
       .then(({ data }) => { if (!cancelled && data) setMyProfile(data) })
     return () => { cancelled = true }
   }, [myId])
-
-  // Arriving here via a "Message" button elsewhere (e.g. a player's profile page)
-  // passes the target user's id in navigation state instead of duplicating the
-  // find-existing-or-create-room logic in every caller. Open it once myId is
-  // available, then clear the state so it doesn't re-fire on back/forward nav.
-  const openedDmWithRef = useRef<string | null>(null)
-  useEffect(() => {
-    const targetUserId = (location.state as { openDmWith?: string } | null)?.openDmWith
-    if (!targetUserId || !myId) return
-    if (openedDmWithRef.current === targetUserId) return
-    openedDmWithRef.current = targetUserId
-    startDmWith(targetUserId)
-    navigate(location.pathname, { replace: true, state: null })
-  }, [location.state, myId])
 
   // Users I've blocked — used to hide their content everywhere in this view (most
   // importantly Global Chat, where the server can't reject their messages the way
@@ -1200,23 +1184,18 @@ export default function Chat() {
   async function startDmWith(targetUserId: string) {
     if (!myId || targetUserId === myId) return
 
-    // Guard against slow-network double-taps piling up UI work while the RPC
-    // (below) is in flight — the RPC itself is what actually prevents duplicate
-    // rooms now, this just avoids redundant profile fetches / room opens.
+    // Guard against slow-network double-taps.
     if (creatingDmWithRef.current.has(targetUserId)) return
     creatingDmWithRef.current.add(targetUserId)
 
     try {
-      // Find-or-create the DM room atomically in the database (see
-      // get_or_create_dm_room migration). Previously this was a client-side
-      // "check if a room exists, then insert if not" — two rapid taps (or a
-      // retry after a slow network) could both pass the "does it exist" check
-      // before either had inserted, producing duplicate DM rooms for the same
-      // pair of people. The RPC uses a per-pair advisory lock so this can't
-      // happen no matter how many times or how fast it's called.
-      const { data: roomId, error: rpcErr } = await supabase
-        .rpc('get_or_create_dm_room', { other_user_id: targetUserId })
-      if (rpcErr || !roomId) { console.error('Failed to open DM room:', rpcErr); return }
+      // Atomic, server-side: looks up an existing DM or creates one and adds
+      // both members in a single transaction (see migration 0011). This
+      // replaced a two-request client-side flow that could leave the other
+      // person never actually added to a brand-new DM room.
+      const { data: roomIdResult, error: rpcError } = await supabase.rpc('get_or_create_dm_room', { p_other_user_id: targetUserId })
+      const roomId = roomIdResult as string | null
+      if (rpcError || !roomId) { console.error('Failed to start DM:', rpcError?.message); return }
 
       // Fetch the target user's profile for the room member list
       const { data: targetProfile } = await supabase
@@ -1600,7 +1579,7 @@ export default function Chat() {
                       <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.display_name || p.username}</div>
                       <div style={{ fontSize:11, color:'var(--text-muted)' }}>@{p.username}</div>
                     </div>
-                    <button type="button" onClick={e => { e.stopPropagation(); startDmWith(p.id) }}
+                    <button type="button" onClick={e => { e.stopPropagation(); startDmWith(p.id); setPlayerSearch(''); setPlayerResults([]) }}
                       title="Start chat"
                       style={{ background:'rgba(79,142,247,0.12)', border:'1px solid rgba(79,142,247,0.3)', borderRadius:8, padding:'5px 8px', cursor:'pointer', color:'#4f8ef7', display:'flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, flexShrink:0 }}>
                       <MessageCircle size={12} /> Chat
