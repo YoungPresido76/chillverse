@@ -439,7 +439,7 @@ export default function CloseCall({ rank: _rank, onEnd, onBack, sessionsLeft = 9
             />
             <button
               type="button"
-              onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); submit() }}
+              onClick={(e) => { ripple(e); submit() }}
               disabled={answerState !== 'idle' || !input.trim()}
               className="ripple-wrap"
               style={{

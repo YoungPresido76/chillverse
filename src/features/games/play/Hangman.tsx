@@ -500,7 +500,7 @@ export default function Hangman({ rank: _rank, onEnd, onBack, sessionsLeft = 99,
           {/* Hint button */}
           <button
             type="button"
-            onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); useHint() }}
+            onClick={(e) => { ripple(e); useHint() }}
             disabled={hintsLeft <= 0 || !!wordResult}
             className="ripple-wrap"
             style={{
@@ -525,7 +525,7 @@ export default function Hangman({ rank: _rank, onEnd, onBack, sessionsLeft = 99,
               const isWrong   = isGuessed && !letters.includes(l)
               return (
                 <button key={l} type="button" className="ripple-wrap"
-                  onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); guess(l) }}
+                  onClick={(e) => { ripple(e); guess(l) }}
                   disabled={isGuessed || !!wordResult}
                   style={{
                     width: 32, height: 36, borderRadius: 9, fontSize: 13, fontWeight: 700,
@@ -543,7 +543,7 @@ export default function Hangman({ rank: _rank, onEnd, onBack, sessionsLeft = 99,
             })}
           </div>
 
-          <button type="button" onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); endSession() }} className="ripple-wrap"
+          <button type="button" onClick={(e) => { ripple(e); endSession() }} className="ripple-wrap"
             style={{ marginBottom: 20, padding: '8px 22px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', background: 'var(--surface2)', color: 'var(--text-dim)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
             End Session
           </button>

@@ -720,7 +720,7 @@ export default function Uno({ rank: initialRank, onEnd, onBack, sessionsLeft = 9
             )
             return (
               <div key={card.id}
-                onClick={(e) => { if (playable) { ripple(e as unknown as Parameters<typeof ripple>[0]); onPlayerPlay(card) } }}
+                onClick={(e) => { if (playable) { ripple(e); onPlayerPlay(card) } }}
                 style={{
                   cursor: playable ? 'pointer' : 'not-allowed',
                   filter: playable ? 'none' : 'brightness(0.55) saturate(0.6)',
