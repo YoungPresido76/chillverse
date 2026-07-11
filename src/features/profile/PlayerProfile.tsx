@@ -446,7 +446,7 @@ export default function PlayerProfile() {
 
       {/* ── Info tags row (Likes locked + owner's chosen tags) ── */}
       <div style={{ padding: '0 20px', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <button type="button" onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); handleLike() }} disabled={liking}
+        <button type="button" onClick={(e) => { ripple(e); handleLike() }} disabled={liking}
           className="ripple-wrap"
           style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 20, border: `1px solid ${liked ? 'rgba(255,77,139,0.4)' : 'rgba(255,255,255,0.1)'}`, background: liked ? 'rgba(255,77,139,0.14)' : 'var(--surface)', cursor: liking ? 'default' : 'pointer', boxShadow: '2px 2px 6px var(--neu-dark)' }}>
           <Heart size={13} color={liked ? '#ff4d8b' : 'var(--text-muted)'} style={{ fill: liked ? '#ff4d8b' : 'none' }} />
@@ -561,15 +561,15 @@ export default function PlayerProfile() {
 
       {/* ── Action buttons ── */}
       <div style={{ padding: '0 20px', marginBottom: 24, display: 'flex', gap: 8 }}>
-        <button type="button" onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); handleFollow() }} disabled={actionLoading || followStatus === 'blocked'}
+        <button type="button" onClick={(e) => { ripple(e); handleFollow() }} disabled={actionLoading || followStatus === 'blocked'}
           style={{ flex: 1, padding: '10px 8px', borderRadius: 13, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, border: 'none', cursor: actionLoading || followStatus === 'blocked' ? 'not-allowed' : 'pointer', background: followStatus === 'following' ? 'rgba(62,207,142,0.15)' : 'linear-gradient(135deg,var(--accent),var(--accent2))', color: followStatus === 'following' ? '#3ecf8e' : '#fff', opacity: followStatus === 'blocked' ? 0.4 : 1, transition: 'all 0.15s' }}>
           {followStatus === 'following' ? <><UserCheck size={13} /> Following</> : <><UserPlus size={13} /> Follow</>}
         </button>
-        <button type="button" onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); handleMessage() }}
+        <button type="button" onClick={(e) => { ripple(e); handleMessage() }}
           style={{ flex: 1, padding: '10px 8px', borderRadius: 13, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--text-dim)', cursor: 'pointer', transition: 'all 0.15s' }}>
           <MessageCircle size={13} /> Message
         </button>
-        <button type="button" onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); handleBlock() }} disabled={actionLoading}
+        <button type="button" onClick={(e) => { ripple(e); handleBlock() }} disabled={actionLoading}
           style={{ padding: '10px 12px', borderRadius: 13, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, border: 'none', cursor: actionLoading ? 'not-allowed' : 'pointer', background: followStatus === 'blocked' ? 'rgba(255,107,107,0.2)' : 'rgba(255,107,107,0.08)', color: followStatus === 'blocked' ? '#ff6b6b' : 'var(--text-muted)', transition: 'all 0.15s' }}>
           <ShieldOff size={13} />
         </button>

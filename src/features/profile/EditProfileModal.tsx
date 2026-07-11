@@ -551,7 +551,7 @@ export default function EditProfileModal({
 
         {/* ── Footer save bar ── */}
         <div style={{ flexShrink: 0, padding: '14px 18px', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'var(--bg)' }}>
-          <button type="button" onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); save() }} disabled={saving} className="btn-primary"
+          <button type="button" onClick={(e) => { ripple(e); save() }} disabled={saving} className="btn-primary"
             style={{ width: '100%', padding: 14, borderRadius: 14, fontSize: 14, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: saving ? 0.7 : 1 }}>
             {saving ? <span style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} /> : <><Check size={14} /> Save Changes</>}
           </button>

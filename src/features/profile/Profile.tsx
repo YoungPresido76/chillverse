@@ -813,7 +813,7 @@ export default function Profile() {
 
       {/* ── Info tags row (Likes locked + up to 2 chosen) ── */}
       <div style={{ padding: '0 20px', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <button type="button" onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); handleLike() }} disabled={liking}
+        <button type="button" onClick={(e) => { ripple(e); handleLike() }} disabled={liking}
           className="ripple-wrap"
           style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 20, border: `1px solid ${liked ? 'rgba(255,77,139,0.4)' : 'rgba(255,255,255,0.1)'}`, background: liked ? 'rgba(255,77,139,0.14)' : 'var(--surface)', cursor: liking ? 'default' : 'pointer', boxShadow: '2px 2px 6px var(--neu-dark)' }}>
           <Heart size={13} color={liked ? '#ff4d8b' : 'var(--text-muted)'} style={{ fill: liked ? '#ff4d8b' : 'none' }} />
@@ -943,7 +943,7 @@ export default function Profile() {
       {/* ── Action buttons ── */}
       <div style={{ padding: '0 20px', marginBottom: 24, display: 'flex', gap: 8 }}>
         <button type="button" className="btn-primary"
-          onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); setShowEdit(true) }}
+          onClick={(e) => { ripple(e); setShowEdit(true) }}
           style={{ flex: 1, padding: '10px 8px', borderRadius: 13, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
           <Edit3 size={13} /> Edit Profile
         </button>

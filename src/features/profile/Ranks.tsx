@@ -43,7 +43,7 @@ function RankCard({
 
   return (
     <div
-      onClick={(e) => { ripple(e as any); setOpen(o => !o) }}
+      onClick={(e) => { ripple(e); setOpen(o => !o) }}
       className="ripple-wrap"
       style={{
         background: isCurrent
@@ -360,7 +360,7 @@ export default function Ranks() {
         ] as { id: Tab; label: string; icon: React.ReactNode }[]).map(t => (
           <button
             key={t.id}
-            onClick={(e) => { ripple(e as any); setTab(t.id) }}
+            onClick={(e) => { ripple(e); setTab(t.id) }}
             className="ripple-wrap"
             style={{
               flex: 1, padding: '10px 8px', borderRadius: 12, border: 'none', cursor: 'pointer',
@@ -376,7 +376,7 @@ export default function Ranks() {
           </button>
         ))}
         <button
-          onClick={(e) => { ripple(e as any); setShowLeaderboard(true) }}
+          onClick={(e) => { ripple(e); setShowLeaderboard(true) }}
           className="ripple-wrap"
           style={{
             flex: 1, padding: '10px 8px', borderRadius: 12, border: 'none', cursor: 'pointer',
