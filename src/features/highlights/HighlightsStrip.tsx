@@ -31,7 +31,7 @@ export default function HighlightsStrip() {
   return (
     <button
       type="button"
-      onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); navigate('/feed/highlights') }}
+      onClick={(e) => { ripple(e); navigate('/feed/highlights') }}
       style={{
         display: 'flex', alignItems: 'center', gap: 12, width: '100%',
         padding: '13px 16px', borderRadius: 16, marginBottom: 16,
