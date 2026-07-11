@@ -216,7 +216,7 @@ export default function Dashboard() {
         <div
           className="neu-card ripple-wrap"
           style={{ padding: '22px 20px', position: 'relative', overflow: 'hidden' }}
-          onClick={(e) => ripple(e as Parameters<typeof ripple>[0])}
+          onClick={(e) => ripple(e)}
         >
           <div style={{ position: 'absolute', right: -30, top: -30, width: 160, height: 160, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,107,0,0.10) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
