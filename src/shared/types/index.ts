@@ -19,16 +19,19 @@ export interface Profile {
   info_tags: string[]            // up to 2 of: 'gender' | 'play_time' | 'country' | 'presence'
   favorite_game: string | null   // matches a game's dbKey
   grid_cards: string[]           // up to 3 of: 'achievements' | 'rank' | 'leaderboard'
-  show_follow_counts: boolean
+  show_follow_counts: boolean | null
   // ── Halo AI ──
   halo_messages_today: number            // default 0
   halo_last_message_date: string | null  // ISO date string YYYY-MM-DD or null
-  version_level: number                  // 0 = v1.0 (free), 1 = v2.0, 2 = v3.0, etc.
+  version_level: number | null           // 0 = v1.0 (free), 1 = v2.0, 2 = v3.0, etc.
   // ── Premium (Orbit / Void) ──
   is_pro: boolean                        // default false
   pro_tier: 'orbit' | 'void' | null
   pro_billing_interval: 'monthly' | 'yearly' | null
   pro_expires_at: string | null          // ISO timestamp; renewed by webhook on each successful charge
+  // ── Presence / account housekeeping ──
+  presence: string | null                // 'online' | 'away' | 'invisible' etc.; nullable, defaults to 'online'
+  username_changed_at: string | null     // ISO timestamp of last username change, null if never changed
 }
 
 export interface SignupProfileInput {
