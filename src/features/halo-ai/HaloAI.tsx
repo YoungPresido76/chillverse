@@ -34,7 +34,7 @@ function MiniOrb({ size }: { size: number }) {
 export default function HaloAI() {
   const navigate = useNavigate()
   const { profile } = useProfile()
-  const { messages, loading, error, messagesLeft, dailyLimit, sendMessage, clearError, addLocalMessage } =
+  const { messages, loading, error, messagesLeft, isIncreasedTier, sendMessage, clearError, addLocalMessage } =
     useHaloAI()
   const [input, setInput] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -73,15 +73,9 @@ export default function HaloAI() {
     }
   }
 
-  const badge = (() => {
-    if (dailyLimit === -1) {
-      return { text: '∞', color: 'var(--gold)', glow: true }
-    }
-    if (dailyLimit === 25) {
-      return { text: '25/day', color: 'var(--purple)', glow: false }
-    }
-    return { text: '5/day', color: 'var(--text-dim)', glow: false }
-  })()
+  const badge = isIncreasedTier
+    ? { text: 'Boosted', color: 'var(--purple)', glow: true }
+    : null
 
   const isEmpty = messages.length === 0
 
@@ -130,19 +124,21 @@ export default function HaloAI() {
           <ArrowLeft size={18} color="var(--text)" />
         </button>
         <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--text)', flex: 1 }}>Halo AI</div>
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            color: badge.color,
-            padding: '4px 10px',
-            borderRadius: 12,
-            background: 'var(--surface2)',
-            boxShadow: badge.glow ? '0 0 12px rgba(245,197,66,0.5)' : 'none',
-          }}
-        >
-          {badge.text}
-        </div>
+        {badge && (
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: badge.color,
+              padding: '4px 10px',
+              borderRadius: 12,
+              background: 'var(--surface2)',
+              boxShadow: badge.glow ? '0 0 12px rgba(245,197,66,0.5)' : 'none',
+            }}
+          >
+            {badge.text}
+          </div>
+        )}
       </div>
 
       {/* Hero (empty state) */}
@@ -199,7 +195,7 @@ export default function HaloAI() {
       )}
 
       {/* Daily limit status bar */}
-      {dailyLimit !== -1 && !isEmpty && (
+      {!isEmpty && (
         <div
           style={{
             padding: '8px 18px',
@@ -393,19 +389,23 @@ export default function HaloAI() {
             }}
           >
             <div style={{ fontSize: 12.5, color: 'var(--text-dim)', marginBottom: 10 }}>
-              You've used your {dailyLimit} daily messages. Upgrade to Pro for 25/day.
+              {isIncreasedTier
+                ? "You've used today's Halo AI messages. It resets in 24 hours."
+                : "You've used today's Halo AI messages. Upgrade your Version for an increased daily limit."}
             </div>
-            <Link
-              to="/version"
-              style={{
-                fontSize: 13,
-                fontWeight: 700,
-                color: 'var(--purple)',
-                textDecoration: 'none',
-              }}
-            >
-              Upgrade Version →
-            </Link>
+            {!isIncreasedTier && (
+              <Link
+                to="/version"
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: 'var(--purple)',
+                  textDecoration: 'none',
+                }}
+              >
+                Upgrade Version →
+              </Link>
+            )}
           </div>
         ) : (
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10 }}>
