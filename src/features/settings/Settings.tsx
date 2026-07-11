@@ -67,7 +67,7 @@ const PRESENCE_OPTIONS = [
 function Row({ icon, iconBg, iconColor, label, value, danger = false, onClick, rightEl }: {
   icon: React.ReactNode; iconBg: string; iconColor?: string
   label: string; value?: string; danger?: boolean
-  onClick?: (e: React.MouseEvent) => void
+  onClick?: (e: React.MouseEvent<HTMLDivElement>) => void
   rightEl?: React.ReactNode
 }) {
   return (
@@ -171,9 +171,9 @@ export default function Settings() {
   const displayName = profile?.display_name || profile?.username || 'You'
 
   useEffect(() => {
-    if (profile && (profile as any).presence) setPresence((profile as any).presence)
-    if (profile && typeof (profile as any).show_follow_counts === 'boolean') {
-      setShowFollowCounts((profile as any).show_follow_counts)
+    if (profile?.presence) setPresence(profile.presence)
+    if (typeof profile?.show_follow_counts === 'boolean') {
+      setShowFollowCounts(profile.show_follow_counts)
     }
     if (profile?.username) setNewUsername(profile.username)
   }, [profile])
@@ -209,7 +209,7 @@ export default function Settings() {
     if (!trimmed || !profile?.id) return
 
     // 30-day cooldown check
-    const daysLeft = getDaysUntilUsernameChange((profile as any).username_changed_at)
+    const daysLeft = getDaysUntilUsernameChange(profile.username_changed_at)
     if (daysLeft !== null && daysLeft > 0) {
       setFeedback(`You can change your username again in ${daysLeft} day${daysLeft === 1 ? '' : 's'}.`)
       return
@@ -344,13 +344,13 @@ export default function Settings() {
 
         <SectionTitle>Profile</SectionTitle>
         {(() => {
-          const daysLeft = getDaysUntilUsernameChange((profile as any)?.username_changed_at)
+          const daysLeft = getDaysUntilUsernameChange(profile?.username_changed_at)
           const locked = daysLeft !== null && daysLeft > 0
           return (
             <>
               <Row icon={<Tag size={15} />} iconBg="rgba(79,142,247,0.12)" iconColor="#4f8ef7"
                 label="Username" value={profile?.username ?? '—'}
-                onClick={(e) => { ripple(e as any); setModal('username') }}
+                onClick={(e) => { ripple(e); setModal('username') }}
                 rightEl={<Edit2 size={13} color="var(--text-muted)" style={{ marginRight: 4 }} />}
               />
               {locked && (
@@ -366,12 +366,12 @@ export default function Settings() {
         })()}
         <Row icon={<Mail size={15} />} iconBg="rgba(62,207,142,0.12)" iconColor="#3ecf8e"
           label="Email" value={userEmail ? userEmail.replace(/(.{2}).+(@.+)/, '$1…$2') : '—'}
-          onClick={(e) => { ripple(e as any); setModal('email') }}
+          onClick={(e) => { ripple(e); setModal('email') }}
           rightEl={<Edit2 size={13} color="var(--text-muted)" style={{ marginRight: 4 }} />}
         />
         <Row icon={<Key size={15} />} iconBg="rgba(245,197,66,0.12)" iconColor="#f5c542"
           label="Change Password"
-          onClick={(e) => { ripple(e as any); setModal('password') }}
+          onClick={(e) => { ripple(e); setModal('password') }}
         />
 
         <SectionTitle>Status</SectionTitle>
@@ -426,26 +426,26 @@ export default function Settings() {
         <SectionTitle>Chillverse</SectionTitle>
         <Row icon={<LifeBuoy size={15} />} iconBg="rgba(255,107,0,0.12)" iconColor="var(--accent)"
           label="Support"
-          onClick={(e) => { ripple(e as any); navigate('/support') }}
+          onClick={(e) => { ripple(e); navigate('/support') }}
         />
         <Row icon={<Layers size={15} />} iconBg="rgba(155,109,255,0.12)" iconColor="#9b6dff"
           label="Version"
           value="v1.0"
-          onClick={(e) => { ripple(e as any); navigate('/version') }}
+          onClick={(e) => { ripple(e); navigate('/version') }}
         />
 
         <SectionTitle>Danger zone</SectionTitle>
         <Row icon={<LogOut size={15} />} iconBg="rgba(255,107,0,0.12)" iconColor="var(--accent)"
           label="Log out"
-          onClick={(e) => { ripple(e as any); setModal('logout') }}
+          onClick={(e) => { ripple(e); setModal('logout') }}
         />
         <Row icon={<Lock size={15} />} iconBg="rgba(255,107,107,0.12)" iconColor="#ff6b6b"
           label="Log out all devices"
-          onClick={(e) => { ripple(e as any); handleLogoutAllDevices() }}
+          onClick={(e) => { ripple(e); handleLogoutAllDevices() }}
         />
         <Row icon={<Trash2 size={15} />} iconBg="rgba(255,107,107,0.12)"
           label="Delete account" danger
-          onClick={(e) => { ripple(e as any); setModal('delete') }}
+          onClick={(e) => { ripple(e); setModal('delete') }}
         />
       </div>
 
@@ -476,7 +476,7 @@ export default function Settings() {
       )}
 
       {modal === 'username' && (() => {
-        const daysLeft = getDaysUntilUsernameChange((profile as any)?.username_changed_at)
+        const daysLeft = getDaysUntilUsernameChange(profile?.username_changed_at)
         const locked = daysLeft !== null && daysLeft > 0
         return (
           <Modal title="Change Username" onClose={() => { setModal(null); setFeedback(''); setUsernameSuggestions([]) }}>
