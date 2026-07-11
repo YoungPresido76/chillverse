@@ -8,13 +8,13 @@ import Privacy from '../features/marketing/Privacy'
 import Terms from '../features/marketing/Terms'
 import Dashboard from '../features/dashboard/Dashboard'
 import ComingSoon from '../features/marketing/ComingSoon'
-import Games from '../features/games/Games'
 import AppLayout from '../layout/AppLayout'
 import ProtectedRoute from '../features/auth/ProtectedRoute'
-import { supabase } from '../shared/lib/supabase'
+import { supabase, supabaseConfigError } from '../shared/lib/supabase'
 import { updateStreak } from '../features/auth/auth'
 import { triggerAchievementCheck } from '../features/achievements/triggerAchievements'
 
+const Games               = lazy(() => import('../features/games/Games'))
 const Profile            = lazy(() => import('../features/profile/Profile'))
 const PlayerProfile      = lazy(() => import('../features/profile/PlayerProfile'))
 const Chat               = lazy(() => import('../features/chat/Chat'))
@@ -59,6 +59,8 @@ export default function App() {
   const navigate = useNavigate()
 
   useEffect(() => {
+    if (supabaseConfigError) return
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
         const flagKey = `streak_done_${session.user.id}`
@@ -78,6 +80,17 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [navigate])
 
+  if (supabaseConfigError) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', padding: 24, textAlign: 'center', fontFamily: 'sans-serif' }}>
+        <div>
+          <h1 style={{ fontSize: 20, marginBottom: 8 }}>Chillverse is misconfigured</h1>
+          <p style={{ color: '#888' }}>{supabaseConfigError}</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <Routes>
       <Route path="/"                element={<Landing />} />
@@ -92,8 +105,8 @@ export default function App() {
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route path="/dashboard"        element={<Dashboard />} />
         <Route path="/coming-soon"      element={<ComingSoon />} />
-        <Route path="/games"            element={<Games />} />
-        <Route path="/exploration"      element={<Exploration />} />
+        <Route path="/games"            element={<Suspense fallback={<Fallback />}><Games /></Suspense>} />
+        <Route path="/exploration"      element={<Suspense fallback={<Fallback />}><Exploration /></Suspense>} />
         <Route path="/mall"             element={<Suspense fallback={<Fallback />}><Mall /></Suspense>} />
         <Route path="/gift"             element={<Suspense fallback={<Fallback />}><GiftPage /></Suspense>} />
         <Route path="/buy-diamonds"     element={<Suspense fallback={<Fallback />}><BuyDiamonds /></Suspense>} />
