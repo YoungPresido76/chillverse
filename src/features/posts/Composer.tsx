@@ -211,7 +211,7 @@ export default function Composer({ open, onClose, onPosted, initialTag }: Compos
             <button
               type="button"
               className="btn-primary ripple-wrap"
-              onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); handleSubmit() }}
+              onClick={(e) => { ripple(e); handleSubmit() }}
               disabled={!body.trim() || submitting}
               style={{ width: '100%', padding: '11px 0', marginTop: 14, opacity: !body.trim() || submitting ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
             >

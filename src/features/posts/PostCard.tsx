@@ -234,7 +234,7 @@ export default function PostCard({ post, onDeleted }: { post: Post; onDeleted?: 
         <button
           type="button"
           className="ripple-wrap"
-          onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); handleLike() }}
+          onClick={(e) => { ripple(e); handleLike() }}
           style={{
             display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none',
             cursor: 'pointer', color: liked ? 'var(--red)' : 'var(--text-dim)', fontSize: 12.5, fontWeight: 600,

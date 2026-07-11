@@ -30,7 +30,7 @@ export default function SinglePostPage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 20px', marginBottom: 16, paddingTop: 4 }}>
         <button
           type="button"
-          onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); navigate('/feed') }}
+          onClick={(e) => { ripple(e); navigate('/feed') }}
           style={{
             width: 38, height: 38, borderRadius: 11,
             background: 'var(--surface)',

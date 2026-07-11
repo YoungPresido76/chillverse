@@ -22,7 +22,7 @@ export default function Feed({ initialTag }: { initialTag?: PostTag }) {
         <button
           type="button"
           className="btn-secondary ripple-wrap"
-          onClick={(e) => { ripple(e as Parameters<typeof ripple>[0]); setComposerOpen(true) }}
+          onClick={(e) => { ripple(e); setComposerOpen(true) }}
           style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12 }}
         >
           <PenSquare size={13} /> Post
