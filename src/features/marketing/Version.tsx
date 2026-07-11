@@ -400,7 +400,7 @@ export default function Version() {
   // Which versions are owned — stored in profile or a dedicated column.
   // We use a local Supabase column `version_level` (int, default 1).
   // If it doesn't exist yet we fall back to 1.
-  const versionLevel: number = (profile as any)?.version_level ?? 1
+  const versionLevel: number = profile?.version_level ?? 1
 
   const diamonds = wallet?.gem_balance ?? 0
 
@@ -426,26 +426,31 @@ export default function Version() {
 
     setUpgrading(true)
     try {
-      // Deduct diamonds
-      await supabase
-        .from('user_wallets')
-        .update({ gem_balance: diamonds - cost })
-        .eq('user_id', profile.id)
-
-      // Bump version level
       const nextLevel = versionLevel + 1
-      await supabase
-        .from('profiles')
-        .update({ version_level: nextLevel } as any)
-        .eq('id', profile.id)
+      const { error } = await supabase.rpc('upgrade_version', {
+        p_user_id: profile.id,
+        p_cost: cost,
+        p_target_level: nextLevel,
+      })
+
+      if (error) {
+        console.error('[Version] upgrade_version RPC failed', error)
+        alert(
+          error.message === 'insufficient_funds'
+            ? 'Upgrade failed — not enough diamonds.'
+            : 'Upgrade failed. Please try again.'
+        )
+        return
+      }
 
       refetchWallet()
-    } catch (err) {
-      console.error('Upgrade failed', err)
-    } finally {
-      setUpgrading(false)
       setModal(null)
       setUpgradeTarget(null)
+    } catch (err) {
+      console.error('[Version] Upgrade failed', err)
+      alert('Upgrade failed. Please try again.')
+    } finally {
+      setUpgrading(false)
     }
   }
 
