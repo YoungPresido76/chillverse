@@ -1,7 +1,7 @@
 // src/lib/ripple.ts
 import type { MouseEvent } from 'react'
 
-export function ripple(e: MouseEvent<HTMLElement>): void {
+export function ripple<T extends HTMLElement>(e: MouseEvent<T>): void {
   const target = e.currentTarget
   const rect = target.getBoundingClientRect()
   const size = Math.max(rect.width, rect.height) * 2
