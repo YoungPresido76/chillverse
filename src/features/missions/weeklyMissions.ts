@@ -257,18 +257,7 @@ export async function grantMissionReward(
 
   // Step 1: XP reward
   if (def.xp_reward > 0) {
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('xp')
-      .eq('id', userId)
-      .single()
-
-    if (profileData) {
-      await supabase
-        .from('profiles')
-        .update({ xp: (profileData.xp ?? 0) + def.xp_reward })
-        .eq('id', userId)
-    }
+    await supabase.rpc('award_xp', { p_user_id: userId, p_xp: def.xp_reward })
 
     await supabase
       .from('user_weekly_missions')
