@@ -2,7 +2,8 @@
 import type { LucideIcon } from 'lucide-react'
 import {
   Rocket, UserCircle, Gamepad2, Gem, Users, CreditCard, ShieldCheck,
-  HelpCircle,
+  HelpCircle, Users2, MessageCircle, Crown, Trophy, Newspaper, Bell,
+  Gift, Search, Settings,
 } from 'lucide-react'
 import type { SupportTicketPriority, SupportTicketStatus } from '../../shared/types'
 
@@ -16,6 +17,15 @@ export const SUPPORT_CATEGORY_ICONS: Record<string, LucideIcon> = {
   CreditCard,
   ShieldCheck,
   HelpCircle,
+  Users2,
+  MessageCircle,
+  Crown,
+  Trophy,
+  Newspaper,
+  Bell,
+  Gift,
+  Search,
+  Settings,
 }
 
 export function getSupportCategoryIcon(icon: string): LucideIcon {
