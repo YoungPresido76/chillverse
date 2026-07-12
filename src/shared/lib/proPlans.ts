@@ -64,7 +64,7 @@ export const TIERS: ProTierInfo[] = [
     badge: 'POPULAR',
     features: [
       'Everything in Free',
-      '10× more session usage than Free',
+      '19 sessions a day (up from 15 on Free)',
       'Version 2.0 – 4.0 unlocked',
       'More games',
       'Exclusive Orbit tag on your profile',
@@ -81,13 +81,21 @@ export const TIERS: ProTierInfo[] = [
     badge: 'BEST VALUE',
     features: [
       'Everything in Free + Orbit',
-      '20×+ more session usage than Orbit',
-      'Access to Social Island',
-      'Live session-limit tracker',
+      '25 sessions a day (up from 19 on Orbit)',
       'Exclusive Void tag + profile pic added to your inventory',
     ],
   },
 ]
+
+// NOTE: the numbers above are real daily session counts (see
+// getSessionLimits below), not multipliers — a previous version of this
+// copy claimed "10×" (Orbit) and "20×+" (Void) more sessions, which never
+// matched the actual 15 → 19 → 25/day figures. "Social Island" and a
+// Void-exclusive "live session-limit tracker" were also advertised here
+// at one point; neither was ever built (the session counter in Games.tsx
+// is shown to every tier, not just Void), so both were removed rather than
+// left as unfulfilled promises. Reintroduce them here only once they
+// actually exist.
 
 // ── Shared "is this user's Pro plan currently active" check ──────
 // Single source of truth so Games.tsx, Version.tsx, Mall.tsx, Profile.tsx,
