@@ -21,8 +21,10 @@ const BASE_DAILY_LIMIT = 5
 const INCREASED_DAILY_LIMIT = 10
 const INCREASED_TIER_VERSION = 2
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const GATEKEEPER_MODEL = 'openai/gpt-oss-20b'
 const MAIN_MODEL = 'openai/gpt-oss-120b'
+const PROVIDER_TIMEOUT_MS = 15000
 
 const SYSTEM_PROMPT = `You are Halo, the companion AI inside the Chillverse app (the app is called
 "Chillverse" — always spell it exactly that way). You ONLY answer questions
@@ -97,31 +99,106 @@ interface GroqMessage {
   name?: string
 }
 
-class GroqToolUseError extends Error {}
+class ToolUseError extends Error {}
+class ProviderFailureError extends Error {
+  constructor(message: string, public providerName: string) { super(message) }
+}
 
-async function callGroq(groqKey: string, model: string, messages: GroqMessage[], tools?: unknown[]) {
-  const res = await fetch(GROQ_URL, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model,
-      messages,
-      ...(tools ? { tools, tool_choice: 'auto' } : {}),
-    }),
-  })
+async function callProvider(
+  providerName: string,
+  url: string,
+  apiKey: string,
+  model: string,
+  messages: GroqMessage[],
+  tools: unknown[] | undefined,
+  extraHeaders: Record<string, string> = {},
+) {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS)
+
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', ...extraHeaders },
+      body: JSON.stringify({
+        model,
+        messages,
+        ...(tools ? { tools, tool_choice: 'auto' } : {}),
+      }),
+      signal: controller.signal,
+    })
+  } catch (err) {
+    // Network error or our own timeout (AbortError) — always worth trying
+    // the other provider for.
+    const isTimeout = err instanceof Error && err.name === 'AbortError'
+    throw new ProviderFailureError(
+      `${providerName} ${isTimeout ? 'timed out' : 'network error'}: ${err instanceof Error ? err.message : String(err)}`,
+      providerName,
+    )
+  } finally {
+    clearTimeout(timeoutId)
+  }
+
   if (!res.ok) {
     const errText = await res.text()
+
     // The model can occasionally hallucinate a tool name that wasn't
     // offered (e.g. "get_chillworld_knowledge" instead of
-    // "get_chillverse_knowledge") — Groq validates this server-side and
-    // rejects the whole completion. Tag this specific case so the caller
-    // can retry without tools instead of failing the request outright.
+    // "get_chillverse_knowledge") — the provider validates this
+    // server-side and rejects the whole completion. This is a same-
+    // provider retry-without-tools case, not a fallback-to-other-provider
+    // case (the other provider would likely hallucinate the same way).
     if (res.status === 400 && errText.includes('tool_use_failed')) {
-      throw new GroqToolUseError(`Groq tool-call validation failed: ${errText}`)
+      throw new ToolUseError(`${providerName} tool-call validation failed: ${errText}`)
     }
-    throw new Error(`Groq API error (${res.status}): ${errText}`)
+
+    // 401/403 (bad or revoked key for THIS provider specifically — the
+    // other provider has a wholly separate credential, worth trying),
+    // 429 (rate limited), and 5xx (provider-side outage) are all worth
+    // falling back for. A plain 400 otherwise means our own request was
+    // malformed — falling back wouldn't help since it's the same bad
+    // request, and it would mask a real bug.
+    if (res.status === 401 || res.status === 403 || res.status === 429 || res.status >= 500) {
+      throw new ProviderFailureError(`${providerName} error (${res.status}): ${errText}`, providerName)
+    }
+
+    throw new Error(`${providerName} API error (${res.status}): ${errText}`)
   }
   return res.json()
+}
+
+async function callGroq(groqKey: string, model: string, messages: GroqMessage[], tools?: unknown[]) {
+  return callProvider('Groq', GROQ_URL, groqKey, model, messages, tools)
+}
+
+async function callOpenRouter(openrouterKey: string, model: string, messages: GroqMessage[], tools?: unknown[]) {
+  return callProvider('OpenRouter', OPENROUTER_URL, openrouterKey, model, messages, tools, {
+    'HTTP-Referer': 'https://chillverse.com.ng',
+    'X-Title': 'Chillverse Halo AI',
+  })
+}
+
+// Tries Groq first; falls back to OpenRouter (same model name — both host
+// openai/gpt-oss-120b and openai/gpt-oss-20b under identical IDs) only for
+// genuine provider-level failures. Returns { result, provider } so callers
+// can log which provider actually served the request.
+async function callAI(
+  groqKey: string,
+  openrouterKey: string | undefined,
+  model: string,
+  messages: GroqMessage[],
+  tools?: unknown[],
+): Promise<{ result: any; provider: 'groq' | 'openrouter' }> {
+  try {
+    return { result: await callGroq(groqKey, model, messages, tools), provider: 'groq' }
+  } catch (err) {
+    if (err instanceof ProviderFailureError && openrouterKey) {
+      console.error(`halo-ai-chat: ${err.message} — falling back to OpenRouter`)
+      return { result: await callOpenRouter(openrouterKey, model, messages, tools), provider: 'openrouter' }
+    }
+    throw err
+  }
 }
 
 Deno.serve(async (req: Request) => {
@@ -181,6 +258,12 @@ Deno.serve(async (req: Request) => {
       })
     }
 
+    const openrouterKey = Deno.env.get('OPENROUTER_API_KEY')
+    if (!openrouterKey) {
+      // Not fatal — Groq alone still works, just without a fallback.
+      console.error('halo-ai-chat: OPENROUTER_API_KEY not set — no fallback provider available')
+    }
+
     const admin = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
     const today = new Date().toISOString().slice(0, 10)
 
@@ -211,9 +294,11 @@ Deno.serve(async (req: Request) => {
       })
     }
 
+    const providersUsed = new Set<string>()
+
     // ── 2. Gatekeeper pass — cheap/fast on-topic check. Declines do NOT
     //    count toward the daily limit (spec default). ──
-    const gatekeeperResult = await callGroq(groqKey, GATEKEEPER_MODEL, [
+    const { result: gatekeeperResult, provider: gatekeeperProvider } = await callAI(groqKey, openrouterKey, GATEKEEPER_MODEL, [
       {
         role: 'system',
         content:
@@ -223,6 +308,7 @@ Deno.serve(async (req: Request) => {
       },
       { role: 'user', content: question },
     ])
+    providersUsed.add(gatekeeperProvider)
     const gatekeeperAnswer: string = gatekeeperResult?.choices?.[0]?.message?.content?.trim().toUpperCase() ?? ''
     const isOnTopic = gatekeeperAnswer.startsWith('YES')
 
@@ -264,14 +350,18 @@ Deno.serve(async (req: Request) => {
       const isLastRound = round === MAX_ROUNDS - 1
       let result
       try {
-        result = await callGroq(groqKey, MAIN_MODEL, messages, isLastRound ? undefined : TOOLS)
+        const r = await callAI(groqKey, openrouterKey, MAIN_MODEL, messages, isLastRound ? undefined : TOOLS)
+        result = r.result
+        providersUsed.add(r.provider)
       } catch (err) {
-        if (err instanceof GroqToolUseError) {
+        if (err instanceof ToolUseError) {
           // The model hallucinated a tool name — drop tools entirely and
           // force a plain-text answer from whatever context we have so far,
           // rather than failing the whole request.
           console.error('halo-ai-chat: tool hallucination, retrying without tools:', err.message)
-          result = await callGroq(groqKey, MAIN_MODEL, messages, undefined)
+          const r = await callAI(groqKey, openrouterKey, MAIN_MODEL, messages, undefined)
+          result = r.result
+          providersUsed.add(r.provider)
         } else {
           throw err
         }
@@ -362,6 +452,7 @@ Deno.serve(async (req: Request) => {
       question,
       answer: finalAnswer,
       tool_calls: toolCallsLog.length ? toolCallsLog : null,
+      providers_used: Array.from(providersUsed),
     })
 
     return new Response(JSON.stringify({ answer: finalAnswer, limit_tier: limitTier, remaining: Math.max(0, dailyLimit - newCount) }), {
