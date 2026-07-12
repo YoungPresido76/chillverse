@@ -374,8 +374,8 @@ export default function PlayerProfile() {
     // Room creation/lookup previously happened here, but it inserted a
     // chat_rooms.created_by column that doesn't exist in the schema — the
     // insert failed silently and you'd land on an empty chat list with no
-    // conversation opened. Chat.tsx's startDmWith() already does this
-    // correctly (find-existing-or-create + open), so just hand off to it.
+    // conversation opened. Handed off to Chat.tsx's startDmWith() instead,
+    // triggered by the `openDmWith` state read in Chat.tsx's useEffect.
     navigate('/chat', { state: { openDmWith: userId } })
   }
 
