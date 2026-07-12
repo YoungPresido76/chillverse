@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, mem
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Search, MoreVertical,
-  Smile, Send, X, Trash2, Reply,
+  Smile, Send, X, Trash2, Reply, Flag, Lock,
   MessageCircle, UserPlus, ShieldOff, UserCheck,
   ExternalLink, Check, CheckCheck, Pin, PinOff, Phone,
 } from 'lucide-react'
@@ -18,6 +18,9 @@ import VoiceNoteRecorderButton from './voiceNotes/VoiceNoteRecorderButton'
 import VoiceNotePlayer from './voiceNotes/VoiceNotePlayer'
 import { uploadVoiceNote } from './voiceNotes/voiceNoteStorage'
 import type { VoiceRecorderResult } from './voiceNotes/useVoiceRecorder'
+import ReportModal from '../safety/ReportModal'
+import { containsProfanity, PROFANITY_BLOCKED_MESSAGE } from '../../shared/lib/profanityFilter'
+import { isProActive } from '../../shared/lib/proPlans'
 
 // ─── Types ──────────────────────────────────────────────────
 interface RoomMember {
@@ -470,6 +473,7 @@ function PlayerProfileModal({ profile, myId, onClose, onStartChat, onBlockChange
 export default function Chat() {
   const { session } = useAuth()
   const myId = session?.user?.id ?? null
+  const navigate = useNavigate()
 
   const [rooms, setRooms] = useState<ChatRoom[]>([])
   const [roomsLoading, setRoomsLoading] = useState(true)
@@ -481,16 +485,17 @@ export default function Chat() {
   const roomMembersRef = useRef<RoomMember[]>([])
   const creatingDmWithRef = useRef<Set<string>>(new Set()) // guards startDmWith against double-taps/slow-network races
 
-  // Own profile (avatar, display_name) — loaded once on mount
-  const [myProfile, setMyProfile] = useState<{ username: string; display_name: string | null; avatar: string | null } | null>(null)
+  // Own profile (avatar, display_name, pro status) — loaded once on mount
+  const [myProfile, setMyProfile] = useState<{ username: string; display_name: string | null; avatar: string | null; is_pro: boolean | null; pro_expires_at: string | null } | null>(null)
 
   useEffect(() => {
     if (!myId) return
     let cancelled = false
-    supabase.from('profiles').select('username, display_name, avatar').eq('id', myId).single()
+    supabase.from('profiles').select('username, display_name, avatar, is_pro, pro_expires_at').eq('id', myId).single()
       .then(({ data }) => { if (!cancelled && data) setMyProfile(data) })
     return () => { cancelled = true }
   }, [myId])
+  const myIsPro = isProActive(myProfile)
 
   // Users I've blocked — used to hide their content everywhere in this view (most
   // importantly Global Chat, where the server can't reject their messages the way
@@ -521,6 +526,13 @@ export default function Chat() {
     const t = setTimeout(() => setMicError(null), 4000)
     return () => clearTimeout(t)
   }, [micError])
+  const [composerError, setComposerError] = useState<string | null>(null)
+  useEffect(() => {
+    if (!composerError) return
+    const t = setTimeout(() => setComposerError(null), 4000)
+    return () => clearTimeout(t)
+  }, [composerError])
+  const [reportTarget, setReportTarget] = useState<{ id: string; senderName: string } | null>(null)
 
   // Search state — split: room search vs player search
   const [roomSearch, setRoomSearch] = useState('')
@@ -1270,6 +1282,7 @@ export default function Chat() {
     if (!trimmed || !activeRoom || !myId || sending) return
     if (trimmed.length > MAX_MESSAGE_LENGTH) return // guards against a pasted block over the DB check-constraint limit
     if (activeRoom.type === 'dm' && dmBlockState !== 'none') return // composer is hidden in this state, but guard defensively
+    if (containsProfanity(trimmed)) { setComposerError(PROFANITY_BLOCKED_MESSAGE); return }
 
     setSending(true)
 
@@ -1301,6 +1314,8 @@ export default function Chat() {
       setText(''); setReplyTo(null)
     } else if (!error) {
       setText(''); setReplyTo(null)
+    } else if (error.message?.includes('CV_PROFANITY')) {
+      setComposerError(PROFANITY_BLOCKED_MESSAGE)
     }
     setSending(false)
   }
@@ -1313,6 +1328,7 @@ export default function Chat() {
   async function sendVoiceNote({ blob, mimeType, durationSeconds }: VoiceRecorderResult) {
     if (!activeRoom || !myId || sending) return
     if (activeRoom.type === 'dm' && dmBlockState !== 'none') return
+    if (!myIsPro) { setMicError('Voice notes are a Chillverse Pro perk (Orbit or Void).'); return }
     setSending(true)
 
     const payload: MessageInsertPayload = {
@@ -1327,7 +1343,13 @@ export default function Chat() {
     const { data: inserted, error } = await supabase.from('messages').insert(payload)
       .select('id, sender_id, content, created_at, deleted, reply_to_id, type, audio_path, audio_duration_seconds, call_id').single()
 
-    if (error || !inserted) { setSending(false); return }
+    if (error || !inserted) {
+      if (error?.message?.includes('CV_VOICE_NOTES_PRO_ONLY')) {
+        setMicError('Voice notes are a Chillverse Pro perk (Orbit or Void).')
+      }
+      setSending(false)
+      return
+    }
 
     if (myId && activeRoom.type === 'dm') {
       activeRoom.members.filter(mb => mb.user_id !== myId)
@@ -1859,6 +1881,9 @@ export default function Chat() {
                   {micError && (
                     <div style={{ padding:'6px 16px', fontSize:11.5, color:'#ff6b6b', background:'rgba(255,107,107,0.08)' }}>{micError}</div>
                   )}
+                  {composerError && (
+                    <div style={{ padding:'6px 16px', fontSize:11.5, color:'#ff6b6b', background:'rgba(255,107,107,0.08)' }}>{composerError}</div>
+                  )}
                   <div style={{ display:'flex', alignItems:'flex-end', gap:8, padding:'10px 12px', background:'rgba(17,17,19,0.92)', backdropFilter:'blur(14px)', borderTop:'1px solid rgba(255,255,255,0.05)' }}>
                     {!isRecordingVoiceNote && <IBtn onClick={() => setEmojiOpen(v => !v)}><Smile size={15} /></IBtn>}
                     {!isRecordingVoiceNote && (
@@ -1872,13 +1897,22 @@ export default function Chat() {
                         style={{ width:40, height:40, borderRadius:11, flexShrink:0, border:'none', background:'linear-gradient(135deg,var(--accent),var(--accent2))', boxShadow:'0 4px 14px rgba(255,107,0,0.35)', color:'#fff', cursor: !text.trim() || sending ? 'not-allowed' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s', opacity: !text.trim() || sending ? 0.6 : 1 }}>
                         <Send size={16} />
                       </button>
-                    ) : (
+                    ) : myIsPro ? (
                       <VoiceNoteRecorderButton
                         onSend={sendVoiceNote}
                         onError={setMicError}
                         onRecordingChange={setIsRecordingVoiceNote}
                         disabled={sending}
                       />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => navigate('/pro')}
+                        title="Voice notes are a Chillverse Pro perk"
+                        style={{ width:40, height:40, borderRadius:11, flexShrink:0, border:'1px solid rgba(255,255,255,0.08)', background:'var(--surface2)', color:'var(--text-dim)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}
+                      >
+                        <Lock size={15} />
+                      </button>
                     )}
                   </div>
                 </div>
@@ -1922,10 +1956,18 @@ export default function Chat() {
                           setCtxMsg(null)
                         }
                       }] : []),
+                      ...(ctxMsg.sender_id !== myId ? [{
+                        icon: <Flag size={14} />,
+                        label: 'Report',
+                        action: () => {
+                          setReportTarget({ id: ctxMsg.id, senderName: ctxMsg.senderName || 'this user' })
+                          setCtxMsg(null)
+                        }
+                      }] : []),
                       ...(ctxMsg.sender_id === myId ? [{ icon: <Trash2 size={14} />, label:'Delete', action: () => deleteMsg(ctxMsg.id) }] : []),
                     ].map(({ icon, label, action }) => (
                       <button key={label} type="button" onClick={action}
-                        style={{ display:'flex', alignItems:'center', gap:10, padding:'11px 16px', width:'100%', background:'none', border:'none', cursor:'pointer', fontSize:13, color: label === 'Delete' || label === 'Block' ? '#ff6b6b' : 'var(--text-dim)' }}
+                        style={{ display:'flex', alignItems:'center', gap:10, padding:'11px 16px', width:'100%', background:'none', border:'none', cursor:'pointer', fontSize:13, color: label === 'Delete' || label === 'Block' || label === 'Report' ? '#ff6b6b' : 'var(--text-dim)' }}
                         onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
                         onMouseLeave={e => { e.currentTarget.style.background = 'none' }}>
                         {icon} {label}
@@ -2066,6 +2108,16 @@ export default function Chat() {
             </button>
           </div>
         </>
+      )}
+
+      {reportTarget && myId && (
+        <ReportModal
+          reporterId={myId}
+          targetType="message"
+          targetId={reportTarget.id}
+          targetLabel={`message from ${reportTarget.senderName}`}
+          onClose={() => setReportTarget(null)}
+        />
       )}
 
       <style>{`
