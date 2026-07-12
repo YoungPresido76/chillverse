@@ -1,6 +1,6 @@
 // src/pages/Chat.tsx
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, memo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   ArrowLeft, Search, MoreVertical,
   Smile, Send, X, Trash2, Reply, Flag, Lock,
@@ -474,6 +474,7 @@ export default function Chat() {
   const { session } = useAuth()
   const myId = session?.user?.id ?? null
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [rooms, setRooms] = useState<ChatRoom[]>([])
   const [roomsLoading, setRoomsLoading] = useState(true)
@@ -1266,6 +1267,20 @@ export default function Chat() {
       creatingDmWithRef.current.delete(targetUserId)
     }
   }
+
+  // Handles the handoff from PlayerProfile.tsx's "Message" button, which
+  // navigates here with `state: { openDmWith: userId }` for a user the
+  // player may never have chatted with before. Waits for the initial room
+  // list load to finish (so startDmWith's own setRooms update doesn't race
+  // it) and clears the state afterward so refreshing/going back doesn't
+  // re-trigger a duplicate DM lookup.
+  useEffect(() => {
+    const targetUserId = (location.state as { openDmWith?: string } | null)?.openDmWith
+    if (!targetUserId || !myId || roomsLoading) return
+    startDmWith(targetUserId)
+    navigate(location.pathname, { replace: true, state: {} })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state, myId, roomsLoading])
 
   // ── Send ────────────────────────────────────────────────────
   interface MessageInsertPayload {
