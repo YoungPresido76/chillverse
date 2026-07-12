@@ -4,9 +4,11 @@
 // have never once visited the referral page. As soon as they visit it
 // (Referral.tsx marks this server-side), the advert stops for good.
 //
-// Kept separate from the existing (currently unmounted) usePromoNotifications
-// hook on purpose — that hook has other promo checks that aren't fully wired
-// to real conditions yet, and mounting it wholesale would surface those too.
+// Previously kept separate from a usePromoNotifications hook that had other
+// promo checks (including a buggy, never-fixed premium check) wired to it.
+// That hook was dead code — never mounted anywhere — and was deleted rather
+// than fixed, since nothing depended on it. If a similar "other promo"
+// system is needed later, build it fresh rather than reviving that file.
 
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
