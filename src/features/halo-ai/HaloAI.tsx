@@ -5,6 +5,17 @@ import { ArrowLeft, Send } from 'lucide-react'
 import { useHaloAI, type HaloMessage } from './useHaloAI'
 import { useProfile } from '../profile/useProfile'
 
+const LOADING_WORDS = [
+  'Musing',
+  'Thinking',
+  'Tabulating',
+  'Accessing',
+  'Consulting the archives',
+  'Crunching data',
+  'Gathering intel',
+  'Pondering',
+]
+
 const SUGGESTED_PROMPTS = [
   'How do I rank up faster?',
   'What games give the most XP?',
@@ -37,8 +48,21 @@ export default function HaloAI() {
   const { messages, loading, error, messagesLeft, isIncreasedTier, sendMessage, clearError, addLocalMessage } =
     useHaloAI()
   const [input, setInput] = useState('')
+  const [loadingWord, setLoadingWord] = useState(LOADING_WORDS[0])
   const scrollRef = useRef<HTMLDivElement>(null)
   const welcomedRef = useRef(false)
+
+  useEffect(() => {
+    if (!loading) return
+    setLoadingWord(LOADING_WORDS[Math.floor(Math.random() * LOADING_WORDS.length)])
+    const interval = setInterval(() => {
+      setLoadingWord(prev => {
+        const others = LOADING_WORDS.filter(w => w !== prev)
+        return others[Math.floor(Math.random() * others.length)]
+      })
+    }, 1400)
+    return () => clearInterval(interval)
+  }, [loading])
 
   useEffect(() => {
     if (welcomedRef.current) return
@@ -307,22 +331,26 @@ export default function HaloAI() {
                 border: '1px solid rgba(155,109,255,0.15)',
                 borderRadius: '18px 18px 18px 4px',
                 display: 'flex',
-                gap: 4,
+                alignItems: 'center',
+                gap: 8,
               }}
             >
-              {[0, 150, 300].map(delay => (
-                <span
-                  key={delay}
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: '50%',
-                    background: 'var(--text-dim)',
-                    animation: 'dotPulse 1.2s infinite',
-                    animationDelay: `${delay}ms`,
-                  }}
-                />
-              ))}
+              <span style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>{loadingWord}…</span>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {[0, 150, 300].map(delay => (
+                  <span
+                    key={delay}
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      background: 'var(--text-dim)',
+                      animation: 'dotPulse 1.2s infinite',
+                      animationDelay: `${delay}ms`,
+                    }}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         )}
