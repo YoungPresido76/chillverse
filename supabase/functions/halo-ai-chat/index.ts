@@ -1,8 +1,9 @@
 // supabase/functions/halo-ai-chat/index.ts
 //
 // Halo AI — Chillverse's in-app companion chatbot.
-// Flow: auth -> daily limit check -> gatekeeper (on-topic?) -> main pass
-// with tool calling (knowledge base + player's own data) -> log -> answer.
+// Flow: auth -> rate limit -> daily limit check -> gatekeeper (on-topic?)
+// -> main pass with tool calling (knowledge base + player's own data) ->
+// log -> answer.
 //
 // Model routing (Groq): gatekeeper = openai/gpt-oss-20b, main = openai/gpt-oss-120b.
 // NOTE: the build spec originally asked for llama-3.1-8b-instant as the
@@ -10,12 +11,10 @@
 // openai/gpt-oss-20b, so that's what's wired in here instead.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const CORS_HEADERS: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { preflightResponse } from '../_shared/cors.ts'
+import { jsonResponse, errorResponse } from '../_shared/response.ts'
+import { authenticate } from '../_shared/auth.ts'
+import { enforceRateLimit } from '../_shared/rateLimit.ts'
 
 const BASE_DAILY_LIMIT = 5
 const INCREASED_DAILY_LIMIT = 10
@@ -200,59 +199,47 @@ async function callAI(
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { status: 200, headers: CORS_HEADERS })
+    return preflightResponse(req)
+  }
+
+  if (req.method !== 'POST') {
+    return errorResponse(req, 'Method not allowed', 405)
   }
 
   try {
-    if (req.method !== 'POST') {
-      return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-        status: 405,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      })
-    }
-
     // ── Auth: player_id is ALWAYS derived from the verified session, never
     //    trusted from the request body — matches every other RPC/edge
     //    function in this app. ──
-    const authHeader = req.headers.get('Authorization') ?? ''
-    const jwt = authHeader.replace('Bearer ', '').trim()
-    if (!jwt) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      })
-    }
+    const authResult = await authenticate(req)
+    if (!authResult.ok) return authResult.response
+    const playerId = authResult.auth.user.id
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
-    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: `Bearer ${jwt}` } },
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+    const admin = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
+
+    // ── Abuse-prevention rate limit — separate from (and tighter-windowed
+    //    than) the per-day question quota below. That quota is a product
+    //    limit tracked in halo_ai_usage; this is infrastructure protection
+    //    against a client hammering the endpoint faster than any real user
+    //    would, which would otherwise burn through paid Groq/OpenRouter
+    //    credits before the daily-quota check even runs. ──
+    const rateLimited = await enforceRateLimit(req, admin, {
+      key: `halo-ai-chat:${playerId}`,
+      limit: 12,
+      windowSeconds: 60,
     })
-    const { data: userData, error: userError } = await authClient.auth.getUser(jwt)
-    if (userError || !userData?.user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      })
-    }
-    const playerId = userData.user.id
+    if (rateLimited) return rateLimited
 
     const body = await req.json()
     const question: string = (body?.question ?? '').toString().trim()
     if (!question) {
-      return new Response(JSON.stringify({ error: 'question is required' }), {
-        status: 400,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      })
+      return errorResponse(req, 'question is required', 400)
     }
 
     const groqKey = Deno.env.get('GROQ_API_KEY')
     if (!groqKey) {
       console.error('halo-ai-chat: GROQ_API_KEY not set')
-      return new Response(JSON.stringify({ error: 'AI service unavailable' }), {
-        status: 502,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      })
+      return errorResponse(req, 'AI service unavailable', 502)
     }
 
     const openrouterKey = Deno.env.get('OPENROUTER_API_KEY')
@@ -261,7 +248,6 @@ Deno.serve(async (req: Request) => {
       console.error('halo-ai-chat: OPENROUTER_API_KEY not set — no fallback provider available')
     }
 
-    const admin = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
     const today = new Date().toISOString().slice(0, 10)
 
     // ── 1. Daily limit check — BEFORE any paid API call ──
@@ -285,10 +271,7 @@ Deno.serve(async (req: Request) => {
     const countSoFar = usageRow?.question_count ?? 0
 
     if (countSoFar >= dailyLimit) {
-      return new Response(JSON.stringify({ error: 'limit_reached', limit_tier: limitTier, remaining: 0 }), {
-        status: 429,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      })
+      return jsonResponse(req, { error: 'limit_reached', limit_tier: limitTier, remaining: 0 }, 429)
     }
 
     const providersUsed = new Set<string>()
@@ -310,16 +293,13 @@ Deno.serve(async (req: Request) => {
     const isOnTopic = gatekeeperAnswer.startsWith('YES')
 
     if (!isOnTopic) {
-      return new Response(
-        JSON.stringify({
-          answer:
-            "I can only help with Chillverse stuff — features, mechanics, how-tos, or your own stats. " +
-            "Ask me something about the app and I'm on it!",
-          limit_tier: limitTier,
-          remaining: dailyLimit - countSoFar,
-        }),
-        { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
-      )
+      return jsonResponse(req, {
+        answer:
+          "I can only help with Chillverse stuff — features, mechanics, how-tos, or your own stats. " +
+          "Ask me something about the app and I'm on it!",
+        limit_tier: limitTier,
+        remaining: dailyLimit - countSoFar,
+      })
     }
 
     // ── 3. On-topic — this question counts. Increment (upsert) now. ──
@@ -452,15 +432,13 @@ Deno.serve(async (req: Request) => {
       providers_used: Array.from(providersUsed),
     })
 
-    return new Response(JSON.stringify({ answer: finalAnswer, limit_tier: limitTier, remaining: Math.max(0, dailyLimit - newCount) }), {
-      status: 200,
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    return jsonResponse(req, {
+      answer: finalAnswer,
+      limit_tier: limitTier,
+      remaining: Math.max(0, dailyLimit - newCount),
     })
   } catch (err) {
     console.error('halo-ai-chat error:', err)
-    return new Response(JSON.stringify({ error: 'Internal error' }), {
-      status: 500,
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    })
+    return errorResponse(req, 'Internal error', 500)
   }
 })
