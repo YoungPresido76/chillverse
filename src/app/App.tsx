@@ -13,6 +13,7 @@ import ProtectedRoute from '../features/auth/ProtectedRoute'
 import { supabase, supabaseConfigError } from '../shared/lib/supabase'
 import { updateStreak } from '../features/auth/auth'
 import { triggerAchievementCheck } from '../features/achievements/triggerAchievements'
+import { subscribeToPush } from '../features/notifications/push'
 
 const Games               = lazy(() => import('../features/games/Games'))
 const Profile            = lazy(() => import('../features/profile/Profile'))
@@ -48,7 +49,6 @@ const SupportCategory     = lazy(() => import('../features/support/SupportCatego
 const SupportArticle      = lazy(() => import('../features/support/SupportArticle'))
 const NewTicket           = lazy(() => import('../features/support/NewTicket'))
 const MyTickets           = lazy(() => import('../features/support/MyTickets'))
-const ModerationPanel     = lazy(() => import('../features/moderation/ModerationPanel'))
 
 const Fallback = () => (
   <div style={{ color: 'var(--text-dim)', padding: 40, textAlign: 'center' }}>Loading…</div>
@@ -71,6 +71,11 @@ export default function App() {
           sessionStorage.setItem(flagKey, '1')
           await updateStreak(session.user.id)
           triggerAchievementCheck(session.user.id).catch(console.error)
+          // Fire-and-forget: shows the native "Allow notifications?"
+          // prompt right after signup/login. Never awaited so it can't
+          // delay the dashboard redirect below, and subscribeToPush()
+          // itself never throws (see push.ts) so it's safe uncaught.
+          subscribeToPush(session.user.id)
         }
 
         if (PUBLIC_PATHS.includes(window.location.pathname)) {
@@ -139,7 +144,6 @@ export default function App() {
         <Route path="/support/tickets/new"               element={<Suspense fallback={<Fallback />}><NewTicket /></Suspense>} />
         <Route path="/support/:categorySlug"             element={<Suspense fallback={<Fallback />}><SupportCategory /></Suspense>} />
         <Route path="/support/:categorySlug/:articleSlug" element={<Suspense fallback={<Fallback />}><SupportArticle /></Suspense>} />
-        <Route path="/moderation" element={<Suspense fallback={<Fallback />}><ModerationPanel /></Suspense>} />
       </Route>
     </Routes>
   )
