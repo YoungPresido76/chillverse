@@ -5,9 +5,10 @@ import type { LucideIcon } from 'lucide-react'
 import {
   Trophy, Home, Flame, Gamepad2, ShoppingBag, Gift,
   User, Settings, Zap, X, ChevronLeft, ChevronRight,
-  Package, ChevronDown, Wallet, GamepadIcon, Compass, Layers,
+  Package, ChevronDown, Wallet, GamepadIcon, Compass, Layers, ShieldCheck,
 } from 'lucide-react'
 import { ripple } from '../shared/lib/ripple'
+import { useModRole } from '../features/moderation/useModRole'
 
 interface NavItem {
   label: string
@@ -80,6 +81,11 @@ interface SidebarProps {
 export default function Sidebar({ open, collapsed, onClose, onToggleCollapse }: SidebarProps) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
+  const { isStaff } = useModRole()
+
+  const items: NavItem[] = isStaff
+    ? [...NAV_ITEMS, { label: 'Moderation', to: '/moderation', icon: ShieldCheck, badge: null }]
+    : NAV_ITEMS
 
   // Track which collapsible groups are open; default Mall open if active
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
@@ -147,7 +153,7 @@ export default function Sidebar({ open, collapsed, onClose, onToggleCollapse }: 
 
         {/* Nav */}
         <nav className="flex-1 flex flex-col gap-1 px-2 overflow-y-auto overflow-x-hidden">
-          {NAV_ITEMS.map((item) => {
+          {items.map((item) => {
             const groupActive = isGroupActive(item, pathname)
             const Icon = item.icon
             const hasChildren = !!item.children
