@@ -63,14 +63,37 @@ export default function App() {
     if (supabaseConfigError) return
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        const flagKey = `streak_done_${session.user.id}`
-        const alreadyRanThisSession = sessionStorage.getItem(flagKey)
+      // IMPORTANT: Supabase only fires 'SIGNED_IN' for a fresh sign-in
+      // action (password login, signup, or an OAuth redirect completing).
+      // A user who was ALREADY logged in — the common case, since a
+      // session persists across reloads — gets 'INITIAL_SESSION' instead
+      // when the app loads. Reacting to 'SIGNED_IN' only meant existing
+      // users were silently skipped and never got the push-notification
+      // permission prompt at all. Both events need to run this block.
+      const isRelevantAuthEvent =
+        (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && !!session
 
-        if (!alreadyRanThisSession) {
-          sessionStorage.setItem(flagKey, '1')
+      if (isRelevantAuthEvent) {
+        const streakFlagKey = `streak_done_${session.user.id}`
+        const alreadyRanStreakThisSession = sessionStorage.getItem(streakFlagKey)
+
+        if (!alreadyRanStreakThisSession) {
+          sessionStorage.setItem(streakFlagKey, '1')
           await updateStreak(session.user.id)
           triggerAchievementCheck(session.user.id).catch(console.error)
+        }
+
+        // Separate, longer-lived flag (localStorage, not sessionStorage):
+        // we only want to ask for notification permission once per user
+        // per device — not spam the native prompt on every tab/reload —
+        // but it must survive across sessions so an existing user who
+        // was never asked (because of the SIGNED_IN-only bug above)
+        // gets asked the next time they open the app.
+        const pushFlagKey = `push_prompted_${session.user.id}`
+        const alreadyPromptedForPush = localStorage.getItem(pushFlagKey)
+
+        if (!alreadyPromptedForPush) {
+          localStorage.setItem(pushFlagKey, '1')
           // Fire-and-forget: shows the native "Allow notifications?"
           // prompt right after signup/login. Never awaited so it can't
           // delay the dashboard redirect below, and subscribeToPush()
