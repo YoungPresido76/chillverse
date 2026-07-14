@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { sendPasswordReset } from './auth'
 import Wordmark from '../../layout/Wordmark'
+import Logo from '../../layout/Logo'
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('')
@@ -36,7 +37,7 @@ export default function ForgotPassword() {
       <div className="relative z-[2] w-full max-w-[460px] neu-card" style={{ padding: '32px 44px' }}>
 
         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28, textDecoration: 'none' }}>
-          <span style={{ fontSize: 24 }}>🎮</span>
+          <Logo size={28} />
           <Wordmark size={20} animated={false} />
         </Link>
 

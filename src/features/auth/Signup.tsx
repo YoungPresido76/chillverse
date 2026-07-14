@@ -5,6 +5,8 @@ import { Rocket, Check } from 'lucide-react'
 import { signUpWithEmail, signInWithGoogle, upsertProfile, getCurrentSession } from './auth'
 import { interestIcons } from '../../shared/lib/icons'
 import { stashReferralCode, consumePendingReferralCode, applyReferralCode } from '../referral/referral'
+import Wordmark from '../../layout/Wordmark'
+import Logo from '../../layout/Logo'
 
 const INTERESTS = ['Strategy', 'Action', 'Puzzle', 'Compete', 'Social', 'Casual']
 const COUNTRIES = [
@@ -239,8 +241,8 @@ export default function Signup() {
 
         {/* Logo */}
         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28, textDecoration: 'none' }}>
-          <span style={{ fontSize: 22 }}>🎮</span>
-          <span style={{ fontSize: 20, fontWeight: 800, background: 'linear-gradient(135deg, var(--accent), var(--accent2))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Chillverse</span>
+          <Logo size={26} />
+          <Wordmark size={20} animated={false} />
         </Link>
 
         {/* Step indicator */}

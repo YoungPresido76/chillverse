@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { signInWithEmail, signInWithGoogle, signInWithDiscord, resendConfirmationEmail } from './auth'
 import Wordmark from '../../layout/Wordmark'
+import Logo from '../../layout/Logo'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -79,7 +80,7 @@ export default function Login() {
       <div className="relative z-[2] w-full max-w-[460px] neu-card" style={{ padding: '32px 44px' }}>
 
         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28, textDecoration: 'none' }}>
-          <span style={{ fontSize: 24 }}>🎮</span>
+          <Logo size={28} />
           <Wordmark size={20} animated={false} />
         </Link>
 
