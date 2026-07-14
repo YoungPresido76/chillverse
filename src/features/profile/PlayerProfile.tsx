@@ -17,6 +17,10 @@ import { getUserRankTier, type RankTier } from './ranks'
 import { GAMES, getGameMeta } from '../games/games'
 import { getAllPlayerRanks } from '../games/gameSession'
 import ReportModal from '../safety/ReportModal'
+import { usePlayerBadges } from '../badges/usePlayerBadges'
+import BadgeRow from '../badges/BadgeRow'
+import BadgesStatRow from '../badges/BadgesStatRow'
+import BadgesModal from '../badges/BadgesModal'
 
 function getRank(xp: number): RankTier { return getUserRankTier(xp) }
 
@@ -98,6 +102,7 @@ function MiniToast({ msg, onDone }: { msg: string; onDone: () => void }) {
 interface PlayerData {
   id: string
   username: string
+  original_username: string
   display_name: string | null
   avatar: string
   country: string | null
@@ -146,6 +151,8 @@ export default function PlayerProfile() {
   const [likeCount, setLikeCount] = useState(0)
   const [liking, setLiking] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [showBadgesModal, setShowBadgesModal] = useState(false)
+  const { badges: playerBadges, defs: badgeDefs } = usePlayerBadges(userId)
 
   // Redirect to own profile if viewing self
   useEffect(() => {
@@ -163,7 +170,7 @@ export default function PlayerProfile() {
   useEffect(() => {
     if (!userId) return
     setLoading(true)
-    supabase.from('profiles').select('id, username, display_name, avatar, country, interests, xp, level, streak, bio, gender, play_time, info_tags, favorite_game, grid_cards, show_follow_counts')
+    supabase.from('profiles').select('id, username, original_username, display_name, avatar, country, interests, xp, level, streak, bio, gender, play_time, info_tags, favorite_game, grid_cards, show_follow_counts')
       .eq('id', userId).single()
       .then(({ data }) => {
         setPlayer(data as PlayerData)
@@ -434,7 +441,10 @@ export default function PlayerProfile() {
               <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.4px' }}>{displayName}</span>
               <PresenceDot status={presence} />
             </div>
-            <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>@{player.username}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>@{player.username}</div>
+              <BadgeRow badges={playerBadges} defs={badgeDefs} originalUsername={player.original_username ?? player.username} onOpenAll={() => setShowBadgesModal(true)} />
+            </div>
           </div>
         </div>
       </div>
@@ -518,6 +528,9 @@ export default function PlayerProfile() {
             </div>
             <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-dim)' }}>{wishlistCount}/10</span>
           </button>
+
+          {/* Badges */}
+          <BadgesStatRow collected={playerBadges.length} total={badgeDefs.length} onClick={() => setShowBadgesModal(true)} />
 
           {/* Current XP */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
@@ -675,6 +688,9 @@ export default function PlayerProfile() {
         </SimpleListModal>
       )}
       {showWishlist && <ViewerWishlistModal userId={userId!} onClose={() => setShowWishlist(false)} />}
+      {showBadgesModal && (
+        <BadgesModal badges={playerBadges} allDefs={badgeDefs} originalUsername={player.original_username ?? player.username} onClose={() => setShowBadgesModal(false)} />
+      )}
       {toast && <MiniToast msg={toast} onDone={() => setToast(null)} />}
 
       <style>{`

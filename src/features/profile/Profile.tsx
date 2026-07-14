@@ -18,6 +18,11 @@ import { getAllPlayerRanks } from '../games/gameSession'
 import EditProfileModal, { type EditProfileSavedFields } from './EditProfileModal'
 import { AchIcon, RARITY_COLOR } from '../achievements/Achievements'
 import PageOnboarding from '../onboarding/PageOnboarding'
+import { usePlayerBadges } from '../badges/usePlayerBadges'
+import { checkAndAwardAutoBadges } from '../badges/badges'
+import BadgeRow from '../badges/BadgeRow'
+import BadgesStatRow from '../badges/BadgesStatRow'
+import BadgesModal from '../badges/BadgesModal'
 
 /** Use the real rank system (lib/ranks.ts) everywhere on this page —
  *  this used to be a hardcoded 7-tier placeholder ("Newcomer" etc).
@@ -555,6 +560,14 @@ export default function Profile() {
   const [liking, setLiking]                         = useState(false)
   const [likeToast, setLikeToast]                   = useState<string | null>(null)
   const [saveToast, setSaveToast]                   = useState<string | null>(null)
+  const [showBadgesModal, setShowBadgesModal]       = useState(false)
+  const { badges: playerBadges, defs: badgeDefs }   = usePlayerBadges(profile?.id)
+
+  // Re-check auto badges every time the owner opens their own profile —
+  // catches streak/gift/version changes that happened elsewhere in the app.
+  useEffect(() => {
+    if (profile?.id) checkAndAwardAutoBadges(profile.id)
+  }, [profile?.id])
 
   const displayName = profileOverride.display_name ?? profile?.display_name ?? profile?.username ?? ''
   const bio          = profileOverride.bio          ?? profile?.bio          ?? null
@@ -799,7 +812,10 @@ export default function Profile() {
               <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.4px' }}>{displayName}</span>
               <PresenceDot status={presence} />
             </div>
-            <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>@{profile.username}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>@{profile.username}</div>
+              <BadgeRow badges={playerBadges} defs={badgeDefs} originalUsername={profile.original_username ?? profile.username} onOpenAll={() => setShowBadgesModal(true)} />
+            </div>
           </div>
         </div>
       </div>
@@ -896,6 +912,9 @@ export default function Profile() {
             </div>
             <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-dim)' }}>{wishlistCount}/10</span>
           </button>
+
+          {/* Badges */}
+          <BadgesStatRow collected={playerBadges.length} total={badgeDefs.length} onClick={() => setShowBadgesModal(true)} />
 
           {/* Locked: Current XP (tap does nothing) */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
@@ -1055,6 +1074,10 @@ export default function Profile() {
       )}
       {showWishlist && profile?.id && (
         <WishlistSheet profileId={profile.id} onClose={() => setShowWishlist(false)} />
+      )}
+
+      {showBadgesModal && profile?.id && (
+        <BadgesModal badges={playerBadges} allDefs={badgeDefs} originalUsername={profile.original_username ?? profile.username} onClose={() => setShowBadgesModal(false)} />
       )}
       {showAchievements && (
         <AchievementsModal total={achievementCount} recent={recentAchievements} onClose={() => setShowAchievements(false)} />
