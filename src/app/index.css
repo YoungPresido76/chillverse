@@ -444,14 +444,6 @@
   to   { transform: rotate(-18deg) scaleY(0.62) rotate(360deg); }
 }
 
-/* Nav spinning logo */
-@keyframes nav-spin { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }
-@keyframes nav-logo-glow {
-  0%, 100% { box-shadow: 0 0 6px rgba(108,80,255,0.35), 0 0 0 rgba(0,229,255,0); }
-  50%      { box-shadow: 0 0 16px rgba(108,80,255,0.65), 0 0 10px rgba(0,229,255,0.35); }
-}
-.nav-logo-face { animation: nav-logo-glow 3.2s ease-in-out infinite; }
-
 /* Leaderboard float */
 @keyframes lb-float { 0%,100% { transform: translateY(0) rotateX(4deg); } 50% { transform: translateY(-12px) rotateX(4deg); } }
 .lb-float { animation: lb-float 5s ease-in-out infinite; perspective: 700px; }
