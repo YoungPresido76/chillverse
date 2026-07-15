@@ -9,6 +9,7 @@ import { useWallet } from './useWallet'
 import { useMallItems } from './useMallItems'
 import type { MallItem, MallRarity } from '../../shared/types'
 import PageOnboarding from '../onboarding/PageOnboarding'
+import SharedAvatar from '../../shared/components/Avatar'
 
 const SEND_IMG   = 'https://gnobzfxtxrtcxfhhfjni.supabase.co/storage/v1/object/public/Adverts/Onboarding/e0cda9106501f1ad6c3c37ff5c1cbe98.jpg'
 const RECV_IMG   = 'https://gnobzfxtxrtcxfhhfjni.supabase.co/storage/v1/object/public/Adverts/Onboarding/0eda2173d4487db6bf6c7868e62a00a3.webp.jpg'
@@ -30,16 +31,7 @@ interface SearchedUser {
 }
 
 function Avatar({ name, avatar, size = 32 }: { name: string; avatar?: string | null; size?: number }) {
-  const colors = ['#ff6b6b','#4f8ef7','#9b6dff','#3ecf8e','#f5c542','#ff4d8b','#ff9a3c','#00e5ff']
-  const color = colors[(name.charCodeAt(0) || 0) % colors.length]
-  return (
-    <div style={{ width:size, height:size, borderRadius:size*0.32, background:color, color:'#fff', fontWeight:700, fontSize:size*0.4, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, overflow:'hidden' }}>
-      {avatar && avatar.startsWith('http')
-        ? <img src={avatar} alt={name} style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'center top' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-        : (name || '?').charAt(0).toUpperCase()
-      }
-    </div>
-  )
+  return <SharedAvatar src={avatar} name={name} size={size} radius={size * 0.32} disabled />
 }
 
 // ─── Toast ────────────────────────────────────────────────────
