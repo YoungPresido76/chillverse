@@ -934,6 +934,29 @@ export default function Exploration() {
 
   const [energy, setEnergy] = useState(MAX_ENERGY)
 
+  // ── Broadcast "exploring" presence for the live ticker on profiles.
+  //    Mirrors Watch.tsx's movie presence — instant, automatic cleanup
+  //    on unmount, zero DB writes.
+  useEffect(() => {
+    if (!userId) return
+
+    const channel = supabase.channel(`user-activity:${userId}`, {
+      config: { presence: { key: userId } },
+    })
+
+    channel
+      .on('presence', { event: 'sync' }, () => {})
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({ activity: 'exploring', since: Date.now() })
+        }
+      })
+
+    return () => {
+      channel.untrack().then(() => supabase.removeChannel(channel))
+    }
+  }, [userId])
+
   const refreshEnergy = async () => {
     if (!userId) return
     const { data, error } = await supabase.rpc('get_exploration_energy', { p_user_id: userId })
