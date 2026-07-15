@@ -318,41 +318,45 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
           {profile?.banner_url && (
             <img src={profile.banner_url} alt="banner" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} />
           )}
+        </div>
+
+        {/* Close + menu buttons live outside the banner's overflow:hidden
+            box now, so the dropdown floats over the card instead of being
+            clipped/"sunk" into the banner. */}
+        <button
+          type="button" onClick={close}
+          style={{ position: 'absolute', top: 10, right: 46, width: 30, height: 30, borderRadius: 9, background: 'rgba(0,0,0,0.28)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 2 }}
+        >
+          <X size={15} color="#fff" />
+        </button>
+        <div ref={menuRef} style={{ position: 'absolute', top: 10, right: 10, zIndex: 2 }}>
           <button
-            type="button" onClick={close}
-            style={{ position: 'absolute', top: 10, right: 46, width: 30, height: 30, borderRadius: 9, background: 'rgba(0,0,0,0.28)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            type="button" onClick={() => setMenuOpen(v => !v)}
+            style={{ width: 30, height: 30, borderRadius: 9, background: 'rgba(0,0,0,0.28)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
           >
-            <X size={15} color="#fff" />
+            <MoreVertical size={15} color="#fff" />
           </button>
-          <div ref={menuRef} style={{ position: 'absolute', top: 10, right: 10 }}>
-            <button
-              type="button" onClick={() => setMenuOpen(v => !v)}
-              style={{ width: 30, height: 30, borderRadius: 9, background: 'rgba(0,0,0,0.28)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-            >
-              <MoreVertical size={15} color="#fff" />
-            </button>
-            {menuOpen && (
-              <div style={{
-                position: 'absolute', top: 36, right: 0, minWidth: 190, background: 'var(--surface2)',
-                border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 6,
-                boxShadow: '0 10px 32px rgba(0,0,0,0.5)', zIndex: 1,
-              }}>
-                <MenuItem icon={<UserCheck size={14} />} label="View full profile" onClick={() => { setMenuOpen(false); viewFullProfile() }} />
-                {!isMe && (
-                  <MenuItem
-                    icon={<ShieldOff size={14} />}
-                    label={followStatus === 'blocked' ? 'Unblock user' : 'Block user'}
-                    danger
-                    onClick={handleBlock}
-                  />
-                )}
-                <MenuItem icon={usernameCopied ? <Check size={14} /> : <Copy size={14} />} label={usernameCopied ? 'Copied!' : 'Copy username'} onClick={handleCopyUsername} />
-                {!isMe && (
-                  <MenuItem icon={<Flag size={14} />} label="Report" danger onClick={() => { setMenuOpen(false); setReportOpen(true) }} />
-                )}
-              </div>
-            )}
-          </div>
+          {menuOpen && (
+            <div style={{
+              position: 'absolute', top: 36, right: 0, minWidth: 190, background: 'var(--surface2)',
+              border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 6,
+              boxShadow: '0 10px 32px rgba(0,0,0,0.5)', zIndex: 1,
+            }}>
+              <MenuItem icon={<UserCheck size={14} />} label="View full profile" onClick={() => { setMenuOpen(false); viewFullProfile() }} />
+              {!isMe && (
+                <MenuItem
+                  icon={<ShieldOff size={14} />}
+                  label={followStatus === 'blocked' ? 'Unblock user' : 'Block user'}
+                  danger
+                  onClick={handleBlock}
+                />
+              )}
+              <MenuItem icon={usernameCopied ? <Check size={14} /> : <Copy size={14} />} label={usernameCopied ? 'Copied!' : 'Copy username'} onClick={handleCopyUsername} />
+              {!isMe && (
+                <MenuItem icon={<Flag size={14} />} label="Report" danger onClick={() => { setMenuOpen(false); setReportOpen(true) }} />
+              )}
+            </div>
+          )}
         </div>
 
         <div style={{ padding: '0 18px 20px' }}>
