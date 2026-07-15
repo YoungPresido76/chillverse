@@ -22,6 +22,7 @@ import BadgeRow from '../badges/BadgeRow'
 import BadgesStatRow from '../badges/BadgesStatRow'
 import BadgesModal from '../badges/BadgesModal'
 import Avatar from '../../shared/components/Avatar'
+import ModeratorProfile from './ModeratorProfile'
 
 function getRank(xp: number): RankTier { return getUserRankTier(xp) }
 
@@ -121,7 +122,34 @@ interface PlayerData {
 }
 interface AlbumPic { id: string; label: string; imageUrl: string; equippedAsBanner?: boolean }
 
+// Thin wrapper: checks whether the viewed account is a moderator BEFORE
+// mounting the full stats-heavy profile below, so none of PlayerProfileInner's
+// data-fetching effects (XP, streak, ranks, wishlist, album, etc.) run for
+// moderator showcase profiles that don't display any of that.
 export default function PlayerProfile() {
+  const { userId } = useParams<{ userId: string }>()
+  const [isModerator, setIsModerator] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    if (!userId) return
+    setIsModerator(null)
+    supabase.from('user_moderation').select('role').eq('user_id', userId).maybeSingle()
+      .then(({ data }) => setIsModerator(data?.role === 'moderator'))
+  }, [userId])
+
+  if (!userId || isModerator === null) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
+        <span style={{ display: 'block', width: 36, height: 36, borderRadius: '50%', border: '2px solid var(--surface3)', borderTopColor: 'var(--accent)', animation: 'spin 0.8s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    )
+  }
+
+  return isModerator ? <ModeratorProfile userId={userId} /> : <PlayerProfileInner />
+}
+
+function PlayerProfileInner() {
   const { userId } = useParams<{ userId: string }>()
   const navigate = useNavigate()
   const { session } = useAuth()
