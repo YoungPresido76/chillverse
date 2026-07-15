@@ -21,6 +21,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/profile':    'Profile',
   '/chat':       'Chat',
   '/games':      'Games',
+  '/leaderboards': 'Leaderboards',
   '/ranks':      'Rank',
   '/mall':       'Mall',
   '/streak':     'Streak',
@@ -28,7 +29,7 @@ const ROUTE_TITLES: Record<string, string> = {
 }
 
 const TOP_LEVEL_ROUTES = [
-  '/dashboard', '/games', '/chat', '/profile',
+  '/dashboard', '/games', '/leaderboards', '/chat', '/profile',
   '/ranks', '/mall', '/streak', '/settings',
 ]
 
