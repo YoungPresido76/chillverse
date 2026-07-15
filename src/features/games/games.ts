@@ -58,3 +58,11 @@ export const GAMES: GameMeta[] = [...STANDARD_GAMES, ...PREMIUM_GAMES]
 export function getGameMeta(dbKey: string): GameMeta | undefined {
   return GAMES.find(g => g.dbKey === dbKey)
 }
+
+// Looks up by the hyphenated `id` (e.g. 'tac-zone') — this is the form
+// broadcast over Realtime Presence by useGamePresence, NOT the dbKey
+// (e.g. 'tac_zone') used for game_sessions rows. Use this one for
+// anything reading the live "currently playing" presence state.
+export function getGameById(id: string): GameMeta | undefined {
+  return GAMES.find(g => g.id === id)
+}

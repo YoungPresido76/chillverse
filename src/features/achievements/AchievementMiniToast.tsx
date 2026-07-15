@@ -1,14 +1,12 @@
-// src/features/badges/BadgeToast.tsx
+// src/features/achievements/AchievementMiniToast.tsx
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { BadgeIcon } from './badgeIcons'
-import { BADGE_RARITY_COLOR } from './badges'
+import { AchIcon, RARITY_COLOR } from './Achievements'
 
-// A small "notification-style" toast, but anchored to the TOP of the
-// screen (not the bottom, like MiniToast) and shorter. Slides down on
-// mount, auto-dismisses after ~2.6s, and can be swiped up to dismiss
-// early. Shows only the badge icon + name — nothing else.
-export default function BadgeToast({
+// Same interaction pattern as badges/BadgeToast.tsx — a small toast
+// anchored to the top of the screen, showing just the icon + name.
+// Auto-dismisses after ~2.6s, swipe up to dismiss early.
+export default function AchievementMiniToast({
   title, icon, rarity, onDone,
 }: { title: string; icon: string; rarity: string; onDone: () => void }) {
   const [dragY, setDragY] = useState(0)
@@ -37,7 +35,7 @@ export default function BadgeToast({
   function handleTouchMove(e: React.TouchEvent) {
     if (startY.current === null) return
     const delta = e.touches[0].clientY - startY.current
-    setDragY(Math.min(0, delta)) // only allow dragging up
+    setDragY(Math.min(0, delta))
   }
   function handleTouchEnd() {
     if (dragY < -30) { close(); return }
@@ -45,7 +43,7 @@ export default function BadgeToast({
     timerRef.current = setTimeout(() => close(), 1600)
   }
 
-  const color = BADGE_RARITY_COLOR[rarity] ?? '#888899'
+  const color = RARITY_COLOR[rarity] ?? '#888899'
   const translateY = dismissing ? -120 : entered ? dragY : -120
 
   return createPortal(
@@ -65,7 +63,7 @@ export default function BadgeToast({
       }}
     >
       <div style={{ width: 26, height: 26, borderRadius: 8, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: color + '20' }}>
-        <BadgeIcon iconKey={icon} size={14} color={color} />
+        <AchIcon iconKey={icon} size={14} color={color} />
       </div>
       <span style={{ fontSize: 12.5, fontWeight: 700, color: '#fff' }}>{title}</span>
     </div>,
