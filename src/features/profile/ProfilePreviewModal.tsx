@@ -42,6 +42,7 @@ interface PreviewProfile {
   is_pro: boolean
   original_username: string
   staff_member_since: string | null
+  banner_url: string | null
 }
 
 const BADGE_PREVIEW_COUNT = 6
@@ -234,7 +235,10 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
         )}
 
         {/* Banner */}
-        <div style={{ position: 'relative', height: 74, background: 'linear-gradient(120deg, var(--accent), var(--accent2))' }}>
+        <div style={{ position: 'relative', height: 74, background: profile?.banner_url ? 'transparent' : 'linear-gradient(120deg, var(--accent), var(--accent2))', overflow: 'hidden' }}>
+          {profile?.banner_url && (
+            <img src={profile.banner_url} alt="banner" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} />
+          )}
           <button
             type="button" onClick={close}
             style={{ position: 'absolute', top: 10, right: 46, width: 30, height: 30, borderRadius: 9, background: 'rgba(0,0,0,0.28)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
