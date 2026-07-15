@@ -523,6 +523,20 @@
     transform: none !important;
     box-shadow: 0 24px 80px rgba(0,0,0,0.6);
   }
+  /* Wider variant for content-heavier sheets (composer, etc) */
+  .sheet-or-modal-wide {
+    width: 580px;
+  }
+}
+
+/* Mobile/tablet drag-handle affordance — hidden once we're a centered
+   desktop modal, since there's nothing to "drag" anymore. */
+.sheet-drag-handle {
+  width: 36px; height: 4px; border-radius: 2px;
+  background: rgba(255,255,255,0.18); margin: 0 auto 16px;
+}
+@media (min-width: 1024px) {
+  .sheet-drag-handle { display: none; }
 }
 
 /* ── Collapsed sidebar — icon-only nav ──────────────────────── */
