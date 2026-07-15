@@ -56,7 +56,7 @@ export default function BadgeToast({
       style={{
         position: 'fixed', top: 14, left: '50%',
         transform: `translate(-50%, 0) translateY(${translateY}px)`,
-        zIndex: 10000, display: 'flex', alignItems: 'center', gap: 9,
+        zIndex: 20500, display: 'flex', alignItems: 'center', gap: 9,
         padding: '10px 16px 10px 12px', borderRadius: 16,
         background: 'rgba(20,20,24,0.96)', border: `1px solid ${color}55`,
         boxShadow: '0 8px 28px rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)',
