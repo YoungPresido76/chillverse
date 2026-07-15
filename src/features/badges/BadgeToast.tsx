@@ -1,5 +1,6 @@
 // src/features/badges/BadgeToast.tsx
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { BadgeIcon } from './badgeIcons'
 import { BADGE_RARITY_COLOR } from './badges'
 
@@ -47,7 +48,7 @@ export default function BadgeToast({
   const color = BADGE_RARITY_COLOR[rarity] ?? '#888899'
   const translateY = dismissing ? -120 : entered ? dragY : -120
 
-  return (
+  return createPortal(
     <div
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
@@ -67,6 +68,7 @@ export default function BadgeToast({
         <BadgeIcon iconKey={icon} size={14} color={color} />
       </div>
       <span style={{ fontSize: 12.5, fontWeight: 700, color: '#fff' }}>{title}</span>
-    </div>
+    </div>,
+    document.body,
   )
 }
