@@ -11,6 +11,7 @@ import {
   type RankTier,
 } from './ranks'
 import PageOnboarding from '../onboarding/PageOnboarding'
+import Avatar from '../../shared/components/Avatar'
 
 // ─── Tab type ────────────────────────────────────────
 type Tab = 'my-rank' | 'all-ranks'
@@ -183,17 +184,13 @@ function LeaderboardRow({ entry, position, isMe }: { entry: LeaderboardEntry; po
 
       {/* Avatar */}
       <div style={{
-        width: 38, height: 38, borderRadius: 11, flexShrink: 0,
-        background: `linear-gradient(135deg, ${tier.color}60, ${tier.color}30)`,
-        overflow: 'hidden',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 16, fontWeight: 800, color: '#fff',
+        borderRadius: 11, flexShrink: 0,
         boxShadow: `0 0 10px ${tier.glowColor}`,
       }}>
-        {entry.avatar && entry.avatar.startsWith('http')
-          ? <img src={entry.avatar} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-          : name.charAt(0).toUpperCase()
-        }
+        <Avatar
+          src={entry.avatar} name={name} userId={entry.id} size={38} radius={11}
+          style={{ background: `linear-gradient(135deg, ${tier.color}60, ${tier.color}30)` }}
+        />
       </div>
 
       {/* Name + rank */}
@@ -530,11 +527,11 @@ export default function Ranks() {
                           {/* Medal emoji — always rendered, never hidden */}
                           <div style={{ fontSize: isFirst ? 22 : 18, marginBottom: 4, lineHeight: 1 }}>{medals[i]}</div>
                           {/* Avatar */}
-                          <div style={{ width: isFirst ? 52 : 44, height: isFirst ? 52 : 44, borderRadius: 14, marginBottom: 5, background: `linear-gradient(135deg, ${entryTier.color}50, ${entryTier.color}20)`, border: `2px solid ${entryTier.color}70`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isFirst ? 24 : 18, fontWeight: 800, color: '#fff', boxShadow: `0 0 ${isFirst ? 22 : 14}px ${entryTier.glowColor}`, flexShrink: 0 }}>
-                            {entry.avatar && entry.avatar.startsWith('http')
-                              ? <img src={entry.avatar} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                              : name.charAt(0).toUpperCase()
-                            }
+                          <div style={{ width: isFirst ? 52 : 44, height: isFirst ? 52 : 44, borderRadius: 14, marginBottom: 5, border: `2px solid ${entryTier.color}70`, overflow: 'hidden', boxShadow: `0 0 ${isFirst ? 22 : 14}px ${entryTier.glowColor}`, flexShrink: 0 }}>
+                            <Avatar
+                              src={entry.avatar} name={name} userId={entry.id} size={isFirst ? 48 : 40} radius={12}
+                              style={{ background: `linear-gradient(135deg, ${entryTier.color}50, ${entryTier.color}20)` }}
+                            />
                           </div>
                           {/* Name */}
                           <div style={{ fontSize: isFirst ? 12 : 10, fontWeight: 700, color: 'var(--text)', marginBottom: 4, maxWidth: 72, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
