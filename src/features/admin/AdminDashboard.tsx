@@ -32,16 +32,21 @@ function StatCard({
       style={{
         padding: 16, display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0,
         cursor: onClick ? 'pointer' : 'default',
+        border: onClick ? '1px solid rgba(124,102,255,0.3)' : undefined,
+        boxShadow: onClick ? '0 0 0 1px rgba(124,102,255,0.08), 4px 4px 10px var(--neu-dark)' : undefined,
       }}
     >
-      <div className="flex items-center gap-2">
-        <div style={{
-          width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: `${tint ?? 'var(--accent)'}22`, color: tint ?? 'var(--accent)', flexShrink: 0,
-        }}>
-          <Icon size={14} />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div style={{
+            width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: `${tint ?? 'var(--accent)'}22`, color: tint ?? 'var(--accent)', flexShrink: 0,
+          }}>
+            <Icon size={14} />
+          </div>
+          <p style={{ fontSize: 11.5, color: 'var(--text-dim)', fontWeight: 600 }}>{label}</p>
         </div>
-        <p style={{ fontSize: 11.5, color: 'var(--text-dim)', fontWeight: 600 }}>{label}</p>
+        {onClick && <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--violet-soft)', letterSpacing: '0.04em' }}>VIEW →</span>}
       </div>
       <p style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)' }}>{value}</p>
     </div>

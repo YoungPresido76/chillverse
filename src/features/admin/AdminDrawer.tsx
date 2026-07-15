@@ -3,8 +3,12 @@
 // a second AdminDrawer while one is already open renders on top of it with
 // a slightly higher z-index, which is what lets "Total Users" open a list
 // and a row in that list open a detail view without either replacing the
-// other. Kept intentionally dumb (title + back + content) so every future
-// drill-down (economy, games, event schedule, etc.) can reuse it as-is.
+// other. Styled as a dark glass command-center panel (violet-tinted glass
+// over near-black, matching the app's existing `.glass-panel` system used
+// on public pages) so every drill-down reads as one connected surface
+// rather than a stack of unrelated sheets. Kept intentionally dumb (title
+// + back + content) so every future drill-down (economy, games, event
+// schedule, etc.) can reuse it as-is.
 import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowLeft, X } from 'lucide-react'
@@ -30,43 +34,64 @@ export default function AdminDrawer({ open, title, subtitle, depth = 0, onClose,
   return createPortal(
     <div
       style={{
-        position: 'fixed', inset: 0, background: depth === 0 ? 'rgba(0,0,0,0.55)' : 'transparent',
+        position: 'fixed', inset: 0,
+        background: depth === 0 ? 'rgba(3,3,6,0.72)' : 'transparent',
+        backdropFilter: depth === 0 ? 'blur(3px)' : undefined,
+        WebkitBackdropFilter: depth === 0 ? 'blur(3px)' : undefined,
         zIndex: 200 + depth * 10, display: 'flex', justifyContent: 'flex-end',
       }}
       onClick={depth === 0 ? onClose : undefined}
     >
       <div
-        className="neu-card"
+        className="glass-panel glass-panel-strong glow-violet-tint"
         style={{
-          width: '100%', maxWidth: 520, height: '100%', borderRadius: 0,
-          marginLeft: depth * 28, boxShadow: '-8px 0 24px rgba(0,0,0,0.35)',
+          width: '100%', maxWidth: 540, height: '100%', borderRadius: 0,
+          marginLeft: depth * 30, boxShadow: '-16px 0 60px rgba(0,0,0,0.6)',
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          background: 'linear-gradient(180deg, rgba(108,80,255,0.05), rgba(10,10,18,0.2)), var(--lsurface)',
         }}
         onClick={e => e.stopPropagation()}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', gap: 10, padding: '18px 20px',
+            borderBottom: '1px solid var(--lborder)', flexShrink: 0,
+            background: 'linear-gradient(180deg, rgba(108,80,255,0.08), transparent)',
+          }}
+        >
           {onBack && (
             <button
               type="button"
               onClick={onBack}
-              style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', display: 'flex', padding: 4 }}
+              style={{
+                background: 'rgba(255,255,255,0.04)', border: '1px solid var(--lborder)', borderRadius: 9,
+                color: 'var(--ltext-sec)', cursor: 'pointer', display: 'flex', padding: 7, flexShrink: 0,
+              }}
             >
-              <ArrowLeft size={17} />
+              <ArrowLeft size={15} />
             </button>
           )}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--text)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</p>
-            {subtitle && <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0 }}>{subtitle}</p>}
+            <p style={{
+              fontSize: 15, fontWeight: 800, color: 'var(--ltext)', margin: 0,
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em',
+            }}>
+              {title}
+            </p>
+            {subtitle && <p style={{ fontSize: 11.5, color: 'var(--ltext-muted)', margin: '2px 0 0' }}>{subtitle}</p>}
           </div>
           <button
             type="button"
             onClick={onClose}
-            style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', display: 'flex', padding: 4 }}
+            style={{
+              background: 'rgba(255,255,255,0.04)', border: '1px solid var(--lborder)', borderRadius: 9,
+              color: 'var(--ltext-sec)', cursor: 'pointer', display: 'flex', padding: 7, flexShrink: 0,
+            }}
           >
-            <X size={17} />
+            <X size={15} />
           </button>
         </div>
-        <div style={{ flex: 1, overflowY: 'auto', padding: 18 }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
           {children}
         </div>
       </div>

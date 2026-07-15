@@ -1,8 +1,9 @@
 // src/features/admin/AdminUsersDrawer.tsx
 import { useEffect, useState } from 'react'
-import { Search, ChevronLeft, ChevronRight, AlertTriangle, Crown, ShieldCheck, ShieldBan } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight, AlertTriangle, Crown, ShieldCheck, ShieldBan, Gem } from 'lucide-react'
 import AdminDrawer from './AdminDrawer'
 import AdminUserDetailDrawer from './AdminUserDetailDrawer'
+import Avatar from '../../shared/components/Avatar'
 import { fetchAdminUserList, type AdminUserRow } from './adminStats'
 
 const PAGE_SIZE = 20
@@ -10,6 +11,20 @@ const PAGE_SIZE = 20
 interface AdminUsersDrawerProps {
   open: boolean
   onClose: () => void
+}
+
+function RolePill({ role }: { role: AdminUserRow['staff_role'] }) {
+  if (!role || role === 'user') return null
+  const color = role === 'admin' ? 'var(--lred)' : role === 'moderator' ? 'var(--cyan)' : 'var(--violet-soft)'
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9.5, fontWeight: 800,
+      textTransform: 'uppercase', letterSpacing: '0.04em', color, background: `${color}1c`,
+      border: `1px solid ${color}40`, borderRadius: 6, padding: '2px 6px',
+    }}>
+      <ShieldCheck size={9} /> {role}
+    </span>
+  )
 }
 
 export default function AdminUsersDrawer({ open, onClose }: AdminUsersDrawerProps) {
@@ -50,69 +65,69 @@ export default function AdminUsersDrawer({ open, onClose }: AdminUsersDrawerProp
   return (
     <>
       <AdminDrawer open={open} onClose={onClose} title="Users" subtitle={`${total.toLocaleString()} total`}>
-        <div style={{ position: 'relative', marginBottom: 14 }}>
-          <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
+        <div style={{ position: 'relative', marginBottom: 16 }}>
+          <Search size={14} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--ltext-muted)' }} />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search by username, name, or email…"
             style={{
-              width: '100%', background: 'var(--surface2)', border: 'none', borderRadius: 10,
-              padding: '9px 12px 9px 34px', fontSize: 12.5, color: 'var(--text)', outline: 'none',
+              width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--lborder)', borderRadius: 12,
+              padding: '11px 14px 11px 38px', fontSize: 13, color: 'var(--ltext)', outline: 'none',
             }}
+            onFocus={e => { e.currentTarget.style.borderColor = 'var(--lborder-bright)' }}
+            onBlur={e => { e.currentTarget.style.borderColor = 'var(--lborder)' }}
           />
         </div>
 
-        {error && <p style={{ fontSize: 12, color: 'var(--red)', marginBottom: 10 }}>{error}</p>}
+        {error && (
+          <div style={{
+            fontSize: 12, color: 'var(--lred)', marginBottom: 12, padding: '9px 12px', borderRadius: 10,
+            background: 'rgba(255,79,79,0.08)', border: '1px solid rgba(255,79,79,0.25)',
+          }}>
+            {error}
+          </div>
+        )}
 
         {loading ? (
-          <p style={{ fontSize: 12, color: 'var(--text-dim)', textAlign: 'center', padding: '20px 0' }}>Loading…</p>
+          <p style={{ fontSize: 12, color: 'var(--ltext-muted)', textAlign: 'center', padding: '32px 0' }}>Loading…</p>
         ) : rows.length === 0 ? (
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0' }}>No users match that search.</p>
+          <p style={{ fontSize: 12, color: 'var(--ltext-muted)', textAlign: 'center', padding: '32px 0' }}>No users match that search.</p>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {rows.map(u => (
               <button
                 key={u.id}
                 type="button"
                 onClick={() => setSelectedUserId(u.id)}
+                className="glass-chip"
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
-                  background: 'var(--surface2)', border: 'none', borderRadius: 12, padding: 10, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left',
+                  borderRadius: 12, padding: '10px 12px', cursor: 'pointer', transition: 'border-color 0.15s',
                 }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--lborder-bright)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)' }}
               >
-                <div style={{
-                  width: 34, height: 34, borderRadius: 10, flexShrink: 0, overflow: 'hidden',
-                  background: 'linear-gradient(135deg, var(--purple), var(--blue))',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#fff',
-                }}>
-                  {u.avatar.startsWith('http')
-                    ? <img src={u.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : (u.display_name || u.username).charAt(0).toUpperCase()}
-                </div>
+                <Avatar src={u.avatar} name={u.display_name || u.username} userId={u.id} size={36} onClick={() => setSelectedUserId(u.id)} />
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div className="flex items-center gap-1.5">
-                    <p style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <p style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ltext)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {u.display_name || u.username}
                     </p>
-                    {u.staff_role && <ShieldCheck size={11} style={{ color: 'var(--blue)', flexShrink: 0 }} />}
-                    {u.is_pro && <Crown size={11} style={{ color: 'var(--purple)', flexShrink: 0 }} />}
-                    {u.is_banned && <ShieldBan size={11} style={{ color: 'var(--red)', flexShrink: 0 }} />}
+                    <RolePill role={u.staff_role} />
+                    {u.is_pro && <Crown size={11} style={{ color: 'var(--amber)', flexShrink: 0 }} />}
+                    {u.is_banned && <ShieldBan size={11} style={{ color: 'var(--lred)', flexShrink: 0 }} />}
                   </div>
-                  <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <p style={{ fontSize: 10.5, color: 'var(--ltext-muted)', margin: '1px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {u.email}
                   </p>
                 </div>
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <p style={{
-                    fontSize: 12.5, fontWeight: 800, margin: 0,
-                    color: u.balance_flagged ? 'var(--red)' : 'var(--text)',
-                    display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end',
-                  }}>
-                    {u.balance_flagged && <AlertTriangle size={11} />}
-                    {u.gem_balance.toLocaleString()}
-                  </p>
-                  <p style={{ fontSize: 9.5, color: 'var(--text-muted)', margin: 0 }}>diamonds</p>
+                <div style={{
+                  textAlign: 'right', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5,
+                  fontSize: 12.5, fontWeight: 800, color: u.balance_flagged ? 'var(--lred)' : 'var(--amber)',
+                }}>
+                  {u.balance_flagged ? <AlertTriangle size={12} /> : <Gem size={12} />}
+                  {u.gem_balance.toLocaleString()}
                 </div>
               </button>
             ))}
@@ -120,23 +135,31 @@ export default function AdminUsersDrawer({ open, onClose }: AdminUsersDrawerProp
         )}
 
         {totalPages > 1 && (
-          <div className="flex items-center justify-between" style={{ marginTop: 16 }}>
+          <div className="flex items-center justify-between" style={{ marginTop: 18 }}>
             <button
               type="button"
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page <= 1}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: page <= 1 ? 'var(--text-muted)' : 'var(--text-dim)', fontSize: 12, cursor: page <= 1 ? 'default' : 'pointer' }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(255,255,255,0.03)',
+                border: '1px solid var(--lborder)', borderRadius: 9, padding: '6px 10px',
+                color: page <= 1 ? 'var(--ltext-muted)' : 'var(--ltext-sec)', fontSize: 12, cursor: page <= 1 ? 'default' : 'pointer',
+              }}
             >
-              <ChevronLeft size={14} /> Prev
+              <ChevronLeft size={13} /> Prev
             </button>
-            <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Page {page} of {totalPages}</span>
+            <span style={{ fontSize: 11.5, color: 'var(--ltext-muted)' }}>Page {page} of {totalPages}</span>
             <button
               type="button"
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: page >= totalPages ? 'var(--text-muted)' : 'var(--text-dim)', fontSize: 12, cursor: page >= totalPages ? 'default' : 'pointer' }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(255,255,255,0.03)',
+                border: '1px solid var(--lborder)', borderRadius: 9, padding: '6px 10px',
+                color: page >= totalPages ? 'var(--ltext-muted)' : 'var(--ltext-sec)', fontSize: 12, cursor: page >= totalPages ? 'default' : 'pointer',
+              }}
             >
-              Next <ChevronRight size={14} />
+              Next <ChevronRight size={13} />
             </button>
           </div>
         )}

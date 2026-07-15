@@ -155,6 +155,28 @@ export interface AdminUserWalletActivity {
   created_at: string
 }
 
+export interface AdminUserTopGame {
+  game: string
+  sessions: number
+}
+
+export interface AdminUserRecentSession {
+  game: string
+  score: number
+  xp_earned: number
+  duration_sec: number
+  result: string
+  played_at: string
+}
+
+export interface AdminUserGamesSummary {
+  total_sessions: number
+  sessions_7d: number
+  total_xp_from_games: number
+  top_games: AdminUserTopGame[]
+  recent_sessions: AdminUserRecentSession[]
+}
+
 export interface AdminUserDetail {
   id: string
   username: string
@@ -179,6 +201,7 @@ export interface AdminUserDetail {
   referral_count: number
   wallet: AdminUserWalletBreakdown
   recent_wallet_activity: AdminUserWalletActivity[]
+  games: AdminUserGamesSummary
 }
 
 /** Fetches the full detail record — profile, role/ban status, and a
