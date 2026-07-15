@@ -1,7 +1,7 @@
 // src/pages/Ranks.tsx
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Trophy, Star, ChevronRight, Crown, Shield, Lock } from 'lucide-react'
+import { ArrowLeft, Trophy, Star, ChevronRight, Crown, Shield, Lock, Target } from 'lucide-react'
 import { useProfile } from './useProfile'
 import { supabase } from '../../shared/lib/supabase'
 import { ripple } from '../../shared/lib/ripple'
@@ -159,13 +159,13 @@ interface LeaderboardEntry {
   avatar: string | null
 }
 
-function LeaderboardRow({ entry, position, isMe }: { entry: LeaderboardEntry; position: number; isMe: boolean }) {
+function LeaderboardRow({ entry, position, isMe, innerRef }: { entry: LeaderboardEntry; position: number; isMe: boolean; innerRef?: React.Ref<HTMLDivElement> }) {
   const tier = getUserRankTier(entry.xp)
   const posColor = position === 1 ? '#f5c542' : position === 2 ? '#b0b8c8' : position === 3 ? '#cd7f32' : 'var(--text-muted)'
   const name = entry.display_name || entry.username
 
   return (
-    <div style={{
+    <div ref={innerRef} style={{
       display: 'flex', alignItems: 'center', gap: 12,
       padding: '13px 16px',
       background: isMe ? `${tier.color}10` : 'var(--surface)',
@@ -223,16 +223,34 @@ export default function Ranks() {
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [lbLoading, setLbLoading] = useState(false)
+  const [lbMode, setLbMode] = useState<'tier' | 'global'>('tier')
+  const myRowRef = useRef<HTMLDivElement>(null)
 
   const userXp   = profile?.xp ?? 0
   const userTier = getUserRankTier(userXp)
   const nextTier = getNextRankTier(userTier)
   const { pct, xpIntoTier, xpNeeded } = getRankProgress(userXp)
 
-  // Load leaderboard — only people in the same rank tier as the user
+  // Load leaderboard — either everyone in the user's own rank tier (normal
+  // view), or the full global ranking across all players (triggered by the
+  // "Check My Global Rank" toggle below).
   useEffect(() => {
     if (!showLeaderboard) return
     setLbLoading(true)
+
+    if (lbMode === 'global') {
+      supabase
+        .from('profiles')
+        .select('id, display_name, username, xp, level, streak, avatar')
+        .order('xp', { ascending: false })
+        .limit(200)
+        .then(({ data }) => {
+          setLeaderboard((data ?? []) as LeaderboardEntry[])
+          setLbLoading(false)
+        })
+      return
+    }
+
     // Find user's rank tier bounds
     const tier = getUserRankTier(userXp)
     supabase
@@ -251,7 +269,15 @@ export default function Ranks() {
         setLeaderboard(sameRank)
         setLbLoading(false)
       })
-  }, [showLeaderboard, userXp])
+  }, [showLeaderboard, userXp, lbMode])
+
+  // In global mode, once the (potentially long) full list loads, jump
+  // straight to the player's own row instead of leaving them to scroll.
+  useEffect(() => {
+    if (lbMode === 'global' && !lbLoading && myRowRef.current) {
+      myRowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [lbMode, lbLoading])
 
   // Which tiers has the user unlocked
   const unlockedIds = new Set(RANK_TIERS.filter(t => userXp >= t.xpRequired).map(t => t.id))
@@ -488,7 +514,7 @@ export default function Ranks() {
             {/* Back button — sticky, always on top with its own background strip */}
             <div style={{ position: 'sticky', top: 0, zIndex: 20, paddingTop: 16, paddingBottom: 10, background: 'var(--bg, #0e0e12)' }}>
               <button
-                onClick={() => setShowLeaderboard(false)}
+                onClick={() => { setShowLeaderboard(false); setLbMode('tier') }}
                 style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--surface)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)', boxShadow: '2px 2px 6px var(--neu-dark),-1px -1px 4px var(--neu-light)' }}
               >
                 <ArrowLeft size={15} />
@@ -546,13 +572,37 @@ export default function Ranks() {
                   </div>
                 )}
                 {leaderboard.map((entry, i) => (
-                  <LeaderboardRow key={entry.id} entry={entry} position={i + 1} isMe={entry.id === profile?.id} />
+                  <LeaderboardRow
+                    key={entry.id}
+                    entry={entry}
+                    position={i + 1}
+                    isMe={entry.id === profile?.id}
+                    innerRef={entry.id === profile?.id ? myRowRef : undefined}
+                  />
                 ))}
                 {leaderboard.length === 0 && (
                   <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)', fontSize: 13 }}>
                     No players yet. Be the first!
                   </div>
                 )}
+
+                {/* Toggle between the normal (same-tier) board and the full global ranking */}
+                <button
+                  type="button"
+                  onClick={(e) => { ripple(e); setLbMode(m => m === 'global' ? 'tier' : 'global') }}
+                  className="ripple-wrap"
+                  style={{
+                    width: '100%', marginTop: 16, padding: '13px 0', borderRadius: 14, border: 'none', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    fontSize: 13, fontWeight: 700, color: '#111',
+                    background: userTier.color,
+                    boxShadow: `0 4px 16px ${userTier.glowColor}`,
+                  }}
+                >
+                  {lbMode === 'global'
+                    ? <><Trophy size={15} /> Back to Leaderboard</>
+                    : <><Target size={15} /> Check My Global Rank</>}
+                </button>
               </>
             )}
           </div>
