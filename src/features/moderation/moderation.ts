@@ -165,3 +165,52 @@ export async function fetchModerationLog(): Promise<{ data: ModerationLogEntry[]
 
   return { data: (data as ModerationLogEntry[] | null) ?? [], error: friendlyError(error) }
 }
+
+export interface Strike {
+  id: string
+  category: string
+  target_type: 'message' | 'post' | 'comment'
+  target_id: string
+  created_at: string
+}
+
+export interface StaffAlert {
+  id: string
+  user_id: string
+  strike_count: number
+  resolved: boolean
+  created_at: string
+  user?: { username: string } | null
+}
+
+/** Strike history for one user — shown on their card in the Users tab. */
+export async function fetchStrikes(userId: string): Promise<{ data: Strike[]; error: string | null }> {
+  const { data, error } = await supabase
+    .from('strikes')
+    .select('id, category, target_type, target_id, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+
+  return { data: (data as Strike[] | null) ?? [], error: friendlyError(error) }
+}
+
+/** Unresolved staff pings — someone just crossed the strike threshold and needs a ban/no-ban decision. */
+export async function fetchUnresolvedAlerts(): Promise<{ data: StaffAlert[]; error: string | null }> {
+  const { data, error } = await supabase
+    .from('staff_alerts')
+    .select('*, user:profiles!staff_alerts_user_id_fkey(username)')
+    .eq('resolved', false)
+    .order('created_at', { ascending: false })
+
+  return { data: (data as StaffAlert[] | null) ?? [], error: friendlyError(error) }
+}
+
+export async function resolveAlert(alertId: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('mod_resolve_alert', { p_alert_id: alertId })
+  return { error: friendlyError(error) }
+}
+
+export async function unhideContent(targetType: 'message' | 'post' | 'comment', targetId: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('mod_unhide_content', { p_target_type: targetType, p_target_id: targetId })
+  return { error: friendlyError(error) }
+}

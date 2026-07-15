@@ -1,19 +1,19 @@
 // src/features/moderation/ModerationPanel.tsx
 import { useEffect, useState } from 'react'
-import { ShieldAlert, Flag, Users as UsersIcon, ScrollText, Search, Ban, ShieldCheck, Trash2 } from 'lucide-react'
+import { ShieldAlert, Flag, Users as UsersIcon, ScrollText, Search, Ban, ShieldCheck, Trash2, Bell, Eye } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { useModRole } from './useModRole'
 import {
   fetchOpenReports, getReportContext, reviewReport, searchUserByUsername,
   banUser, unbanUser, setUserRole, deleteMessage, deletePost, deleteComment,
-  fetchModerationLog,
-  type ContentReport, type ModerationLogEntry, type StaffRole,
+  fetchModerationLog, fetchStrikes, fetchUnresolvedAlerts, resolveAlert, unhideContent,
+  type ContentReport, type ModerationLogEntry, type StaffRole, type Strike, type StaffAlert,
 } from './moderation'
 import { REPORT_REASON_LABELS, SYSTEM_REPORT_REASON_LABEL } from '../safety/reports'
 import { getAllBadges, getPlayerBadges, grantManualBadge, revokeManualBadge, BADGE_RARITY_COLOR, type BadgeDef } from '../badges/badges'
 import { BadgeIcon } from '../badges/badgeIcons'
 
-type Tab = 'reports' | 'users' | 'log'
+type Tab = 'alerts' | 'reports' | 'users' | 'log'
 
 const REASON_COLORS: Record<ContentReport['status'], string> = {
   open: '#ff9a3c',
@@ -24,7 +24,13 @@ const REASON_COLORS: Record<ContentReport['status'], string> = {
 
 export default function ModerationPanel() {
   const { role, isStaff, isAdmin, loading } = useModRole()
-  const [tab, setTab] = useState<Tab>('reports')
+  const [tab, setTab] = useState<Tab>('alerts')
+  const [alertCount, setAlertCount] = useState(0)
+
+  useEffect(() => {
+    if (!isStaff) return
+    fetchUnresolvedAlerts().then(({ data }) => setAlertCount(data.length))
+  }, [isStaff])
 
   if (loading) {
     return <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-dim)', fontSize: 13.5 }}>Loading…</div>
@@ -41,6 +47,7 @@ export default function ModerationPanel() {
   }
 
   const tabs: { key: Tab; label: string; icon: typeof Flag }[] = [
+    { key: 'alerts', label: 'Alerts', icon: Bell },
     { key: 'reports', label: 'Reports', icon: Flag },
     { key: 'users', label: 'Users', icon: UsersIcon },
     { key: 'log', label: 'Audit log', icon: ScrollText },
@@ -77,14 +84,152 @@ export default function ModerationPanel() {
               }}
             >
               <Icon size={14} /> {t.label}
+              {t.key === 'alerts' && alertCount > 0 && (
+                <span style={{
+                  fontSize: 10, fontWeight: 800, color: '#fff', background: 'var(--red)',
+                  borderRadius: 999, minWidth: 16, height: 16, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '0 4px',
+                }}>
+                  {alertCount}
+                </span>
+              )}
             </button>
           )
         })}
       </div>
 
+      {tab === 'alerts' && <AlertsTab onResolved={() => setAlertCount(c => Math.max(0, c - 1))} />}
       {tab === 'reports' && <ReportsTab />}
       {tab === 'users' && <UsersTab isAdmin={isAdmin} />}
       {tab === 'log' && <LogTab />}
+    </div>
+  )
+}
+
+// ── Alerts ──────────────────────────────────────────────────────────────
+
+const STRIKE_CATEGORY_LABELS: Record<string, string> = {
+  hate_speech: 'Hate speech',
+  threat_of_violence: 'Threat of violence',
+  self_harm_directed: 'Self-harm language directed at someone',
+  doxxing: 'Doxxing',
+  illegal_activity: 'Illegal activity solicitation',
+  phishing_scam: 'Phishing or scam content',
+}
+
+function AlertsTab({ onResolved }: { onResolved: () => void }) {
+  const [alerts, setAlerts] = useState<StaffAlert[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [strikes, setStrikes] = useState<Strike[]>([])
+  const [strikesLoading, setStrikesLoading] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [banReason, setBanReason] = useState('')
+
+  function load() {
+    setLoading(true)
+    fetchUnresolvedAlerts().then(({ data, error }) => {
+      setAlerts(data)
+      setError(error)
+      setLoading(false)
+    })
+  }
+
+  useEffect(load, [])
+
+  async function toggleExpand(alert: StaffAlert) {
+    if (expanded === alert.id) { setExpanded(null); return }
+    setExpanded(alert.id)
+    setBanReason('')
+    setStrikesLoading(true)
+    const { data } = await fetchStrikes(alert.user_id)
+    setStrikes(data)
+    setStrikesLoading(false)
+  }
+
+  async function handleDismiss(alert: StaffAlert) {
+    setBusy(true)
+    const { error } = await resolveAlert(alert.id)
+    setBusy(false)
+    if (error) { setError(error); return }
+    setAlerts(a => a.filter(x => x.id !== alert.id))
+    onResolved()
+  }
+
+  async function handleBan(alert: StaffAlert, durationHours: number | null) {
+    if (!banReason.trim()) { setError('Please enter a reason.'); return }
+    setBusy(true)
+    const { error } = await banUser(alert.user_id, banReason.trim(), durationHours)
+    if (error) { setBusy(false); setError(error); return }
+    const { error: resolveError } = await resolveAlert(alert.id)
+    setBusy(false)
+    if (resolveError) { setError(resolveError); return }
+    setError(null)
+    setAlerts(a => a.filter(x => x.id !== alert.id))
+    onResolved()
+  }
+
+  if (loading) return <div style={{ textAlign: 'center', padding: 30, color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>
+  if (error) return <div style={errorBox}>{error}</div>
+  if (alerts.length === 0) return <EmptyState icon={Bell} text="No pending alerts — nobody has crossed the strike threshold." />
+
+  return (
+    <div>
+      {alerts.map(a => (
+        <div key={a.id} style={cardStyle}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--text)' }}>@{a.user?.username ?? 'unknown'}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                {a.strike_count} strikes · flagged {new Date(a.created_at).toLocaleString()}
+              </div>
+            </div>
+            <StatusPill label={`${a.strike_count} strikes`} color="var(--red)" />
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+            <SmallButton onClick={() => toggleExpand(a)}>
+              <Eye size={12} /> {expanded === a.id ? 'Hide history' : 'View strike history'}
+            </SmallButton>
+            <SmallButton onClick={() => handleDismiss(a)} disabled={busy}>Dismiss (no action)</SmallButton>
+          </div>
+
+          {expanded === a.id && (
+            <div style={{ marginTop: 12, padding: 12, borderRadius: 10, background: 'var(--surface2)' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', marginBottom: 8 }}>Strike history</div>
+              {strikesLoading ? (
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Loading…</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                  {strikes.map(s => (
+                    <div key={s.id} style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+                      {STRIKE_CATEGORY_LABELS[s.category] ?? s.category}
+                      <span style={{ color: 'var(--text-muted)' }}> · {s.target_type} · {new Date(s.created_at).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', marginBottom: 8 }}>Take action</div>
+              <input
+                value={banReason}
+                onChange={e => setBanReason(e.target.value)}
+                placeholder="Reason (required)"
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12.5, marginBottom: 8 }}
+              />
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <SmallButton danger onClick={() => handleBan(a, 168)} disabled={busy}>
+                  <Ban size={12} /> Suspend 7 days
+                </SmallButton>
+                <SmallButton danger onClick={() => handleBan(a, null)} disabled={busy}>
+                  <Ban size={12} /> Ban permanently
+                </SmallButton>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   )
 }
@@ -139,6 +284,14 @@ function ReportsTab() {
     await handleReview(report.id, 'actioned')
   }
 
+  async function handleUnhide(report: ContentReport) {
+    if (report.target_type === 'user') return
+    const { error } = await unhideContent(report.target_type, report.target_id)
+    if (error) { setActionMsg(error); return }
+    setActionMsg(null)
+    await handleReview(report.id, 'dismissed')
+  }
+
   if (loading) return <div style={{ textAlign: 'center', padding: 30, color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>
   if (error) return <div style={errorBox}>{error}</div>
   if (reports.length === 0) return <EmptyState icon={Flag} text="No reports yet." />
@@ -166,6 +319,11 @@ function ReportsTab() {
 
           <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
             <SmallButton onClick={() => toggleExpand(r)}>{expanded === r.id ? 'Hide content' : 'View content'}</SmallButton>
+            {r.target_type !== 'user' && (
+              <SmallButton onClick={() => handleUnhide(r)}>
+                <Eye size={12} /> Unhide
+              </SmallButton>
+            )}
             {r.status === 'open' && (
               <>
                 <SmallButton onClick={() => handleReview(r.id, 'dismissed')}>Dismiss</SmallButton>
