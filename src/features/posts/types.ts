@@ -2,6 +2,8 @@
 
 export type PostAuthorType = 'user' | 'admin' | 'system'
 
+export type PostKind = 'announcement' | 'feature_update' | 'general'
+
 export type TagType =
   | 'achievement'
   | 'game_result'
