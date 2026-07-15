@@ -30,6 +30,13 @@ export function PreGameModal({
   gameName, tagline, accent, icon, rules,
   rankState, streakRequired, onStart, onClose, extraContent,
 }: PreGameModalProps) {
+  const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1024)
+  useEffect(() => {
+    function onResize() { setIsDesktop(window.innerWidth >= 1024) }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
   const rank = getRankConfig(rankState.rank)
   const next = getNextRank(rankState.rank)
   const nextRank = next ? getRankConfig(next) : null
@@ -50,23 +57,25 @@ export function PreGameModal({
       backdropFilter: 'blur(12px)',
     }}>
       <div style={{
-        background: 'var(--surface)', borderRadius: 28,
+        background: 'var(--surface)', borderRadius: isDesktop ? 22 : 28,
         border: `1px solid ${accent}30`,
-        boxShadow: `0 0 60px ${accent}18, 6px 6px 20px var(--neu-dark), -4px -4px 14px var(--neu-light)`,
+        boxShadow: isDesktop
+          ? `0 0 40px ${accent}14, 4px 4px 16px var(--neu-dark), -3px -3px 10px var(--neu-light)`
+          : `0 0 60px ${accent}18, 6px 6px 20px var(--neu-dark), -4px -4px 14px var(--neu-light)`,
         padding: 0, width: '100%',
-        maxWidth: 'clamp(340px, 92vw, 440px)',
-        maxHeight: 'min(88vh, 700px)',
+        maxWidth: isDesktop ? 360 : 'clamp(340px, 92vw, 440px)',
+        maxHeight: isDesktop ? 'min(78vh, 600px)' : 'min(88vh, 700px)',
         display: 'flex', flexDirection: 'column',
         overflow: 'hidden',
         animation: 'popUp 0.35s cubic-bezier(0.34,1.56,0.64,1) both',
       }}>
-        <div style={{ padding: '32px 28px 0', overflowY: 'auto' }}>
+        <div style={{ padding: isDesktop ? '22px 22px 0' : '32px 28px 0', overflowY: 'auto' }}>
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isDesktop ? 16 : 24 }}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 8,
             background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: 20, padding: '6px 12px',
+            borderRadius: 20, padding: isDesktop ? '5px 10px' : '6px 12px',
           }}>
             <span style={{ color: accent }}>{icon}</span>
             <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '1.2px', color: 'var(--text-dim)', textTransform: 'uppercase' }}>
@@ -74,7 +83,7 @@ export function PreGameModal({
             </span>
           </div>
           <button type="button" onClick={onClose} style={{
-            width: 32, height: 32, borderRadius: 10,
+            width: isDesktop ? 28 : 32, height: isDesktop ? 28 : 32, borderRadius: 10,
             background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.07)',
             color: 'var(--text-dim)', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -84,9 +93,9 @@ export function PreGameModal({
         </div>
 
         {/* Icon */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: isDesktop ? 14 : 20 }}>
           <div style={{
-            width: 88, height: 88, borderRadius: 24,
+            width: isDesktop ? 64 : 88, height: isDesktop ? 64 : 88, borderRadius: isDesktop ? 18 : 24,
             background: `linear-gradient(135deg, ${accent}22, ${accent}08)`,
             border: `2px solid ${accent}30`,
             boxShadow: `0 0 32px ${accent}20, 4px 4px 12px var(--neu-dark), -3px -3px 8px var(--neu-light)`,
@@ -97,10 +106,10 @@ export function PreGameModal({
         </div>
 
         {/* Title & tagline */}
-        <h2 style={{ fontSize: 26, fontWeight: 800, color: 'var(--text)', textAlign: 'center', marginBottom: 6, letterSpacing: '-0.5px' }}>
+        <h2 style={{ fontSize: isDesktop ? 20 : 26, fontWeight: 800, color: 'var(--text)', textAlign: 'center', marginBottom: 5, letterSpacing: '-0.5px' }}>
           {gameName}
         </h2>
-        <p style={{ fontSize: 14, color: 'var(--text-dim)', textAlign: 'center', marginBottom: 20, lineHeight: 1.5 }}>
+        <p style={{ fontSize: isDesktop ? 12.5 : 14, color: 'var(--text-dim)', textAlign: 'center', marginBottom: isDesktop ? 14 : 20, lineHeight: 1.5 }}>
           {tagline}
         </p>
 
@@ -108,12 +117,12 @@ export function PreGameModal({
         <div style={{
           background: 'var(--surface2)', borderRadius: 14,
           border: '1px solid rgba(255,255,255,0.06)',
-          padding: '14px 16px', marginBottom: 20,
-          display: 'flex', flexDirection: 'column', gap: 10,
+          padding: isDesktop ? '10px 14px' : '14px 16px', marginBottom: isDesktop ? 14 : 20,
+          display: 'flex', flexDirection: 'column', gap: isDesktop ? 7 : 10,
         }}>
           {rules.map((r, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text-dim)' }}>
-              <span style={{ fontSize: 16, flexShrink: 0 }}>{r.icon}</span>
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: isDesktop ? 12 : 13, color: 'var(--text-dim)' }}>
+              <span style={{ fontSize: isDesktop ? 14 : 16, flexShrink: 0 }}>{r.icon}</span>
               <span>{r.text}</span>
             </div>
           ))}
@@ -122,7 +131,7 @@ export function PreGameModal({
         {extraContent}
 
         {/* Rank badge */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isDesktop ? 8 : 10 }}>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
             padding: '5px 12px', borderRadius: 20,
@@ -143,7 +152,7 @@ export function PreGameModal({
 
         {/* Streak progress to next rank */}
         {nextRank && streakRequired > 0 && (
-          <div style={{ marginBottom: 20 }}>
+          <div style={{ marginBottom: isDesktop ? 14 : 20 }}>
             <div style={{ height: 5, borderRadius: 3, background: 'var(--surface3)', overflow: 'hidden', boxShadow: 'inset 1px 1px 4px var(--neu-dark)' }}>
               <div style={{
                 height: '100%', borderRadius: 3,
@@ -156,15 +165,15 @@ export function PreGameModal({
         </div>
 
         {/* Start button — fixed footer, never gets clipped on short viewports */}
-        <div style={{ padding: '4px 28px 28px', flexShrink: 0 }}>
+        <div style={{ padding: isDesktop ? '4px 22px 22px' : '4px 28px 28px', flexShrink: 0 }}>
         <button
           type="button"
           onClick={onStart}
           style={{
-            width: '100%', padding: '14px', borderRadius: 16,
+            width: '100%', padding: isDesktop ? '12px' : '14px', borderRadius: 16,
             background: `linear-gradient(135deg, ${accent}, ${accent}bb)`,
             boxShadow: `0 6px 24px ${accent}40`,
-            border: 'none', color: '#fff', fontSize: 15, fontWeight: 800,
+            border: 'none', color: '#fff', fontSize: isDesktop ? 14 : 15, fontWeight: 800,
             cursor: 'pointer', transition: 'all 0.2s',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           }}
