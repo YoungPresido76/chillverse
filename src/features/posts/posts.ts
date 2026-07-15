@@ -3,22 +3,19 @@ import { supabase } from '../../shared/lib/supabase'
 import { containsProfanity, PROFANITY_BLOCKED_MESSAGE } from '../../shared/lib/profanityFilter'
 import type { Post, Comment, PostTag, PostingEligibility } from './types'
 
-// ── Feed ──────────────────────────────────────────────────────
-// Sorted by influence first (the whole point of the metric), then recency.
-export async function fetchFeed(userId: string | null, limit = 30): Promise<Post[]> {
-  const { data: posts, error } = await supabase
-    .from('posts')
-    .select('*')
-    .order('influence', { ascending: false })
-    .order('created_at', { ascending: false })
-    .limit(limit)
+/** Shape of a raw row straight off `posts`, before the author/like-status
+ *  joins that turn it into a display-ready `Post`. Exported so other
+ *  modules querying `posts` directly (e.g. staffPosts.ts) can type their
+ *  results consistently instead of falling back to `any`. */
+export type PostRow = Omit<Post, 'author' | 'liked_by_me'>
 
-  if (error || !posts) {
-    console.error('fetchFeed error:', error)
-    return []
-  }
+// ── Shared hydration: attach author profile + "did I like this" flag ───
+// Pulled out of fetchFeed so fetchAnnouncements (staffPosts.ts) can reuse
+// the exact same join logic instead of duplicating it.
+export async function hydratePosts(rows: PostRow[], userId: string | null): Promise<Post[]> {
+  if (rows.length === 0) return []
 
-  const authorIds = [...new Set(posts.map(p => p.author_id).filter(Boolean))] as string[]
+  const authorIds = [...new Set(rows.map(p => p.author_id).filter(Boolean))] as string[]
   const authorsById = new Map<string, { id: string; username: string; display_name: string | null; avatar: string }>()
 
   if (authorIds.length > 0) {
@@ -35,15 +32,33 @@ export async function fetchFeed(userId: string | null, limit = 30): Promise<Post
       .from('post_likes')
       .select('post_id')
       .eq('user_id', userId)
-      .in('post_id', posts.map(p => p.id))
+      .in('post_id', rows.map(p => p.id))
     likedPostIds = new Set((likes ?? []).map(l => l.post_id))
   }
 
-  return posts.map(p => ({
+  return rows.map(p => ({
     ...p,
     author: p.author_id ? authorsById.get(p.author_id) : undefined,
     liked_by_me: likedPostIds.has(p.id),
-  })) as Post[]
+  }))
+}
+
+// ── Feed ──────────────────────────────────────────────────────
+// Sorted by influence first (the whole point of the metric), then recency.
+export async function fetchFeed(userId: string | null, limit = 30): Promise<Post[]> {
+  const { data: posts, error } = await supabase
+    .from('posts')
+    .select('*')
+    .order('influence', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error || !posts) {
+    console.error('fetchFeed error:', error)
+    return []
+  }
+
+  return hydratePosts(posts as PostRow[], userId)
 }
 
 // ── Single post (for share links) ───────────────────────────────
@@ -70,8 +85,8 @@ export async function fetchPostById(postId: string, userId: string | null): Prom
 }
 
 // ── Delete ────────────────────────────────────────────────────
-// RLS (see migration 0008) only allows an author to delete their own posts —
-// this is a hard delete; comments/likes cascade automatically via FK.
+// RLS (see migrations 0008 and 0028) allows an author to delete their own
+// posts, and staff to delete any staff-authored post.
 export async function deletePost(postId: string): Promise<boolean> {
   const { error } = await supabase.from('posts').delete().eq('id', postId)
   if (error) console.error('deletePost error:', error)

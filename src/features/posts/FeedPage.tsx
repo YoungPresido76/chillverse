@@ -1,12 +1,22 @@
 // src/features/posts/FeedPage.tsx
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Rss, Megaphone } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import Feed from './Feed'
+import AnnouncementsFeed from './AnnouncementsFeed'
 import HighlightsStrip from '../highlights/HighlightsStrip'
+
+type FeedTab = 'feed' | 'announcements'
+
+const TABS: { key: FeedTab; label: string; icon: typeof Rss }[] = [
+  { key: 'feed', label: 'Feed', icon: Rss },
+  { key: 'announcements', label: 'Announcements', icon: Megaphone },
+]
 
 export default function FeedPage() {
   const navigate = useNavigate()
+  const [tab, setTab] = useState<FeedTab>('feed')
 
   return (
     <div style={{ maxWidth: 680, margin: '0 auto', paddingBottom: 56 }}>
@@ -34,8 +44,38 @@ export default function FeedPage() {
       </div>
 
       <div style={{ padding: '0 20px' }}>
-        <HighlightsStrip />
-        <Feed />
+        <div style={{ display: 'flex', gap: 6, marginBottom: 14, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          {TABS.map(t => {
+            const Icon = t.icon
+            const active = tab === t.key
+            return (
+              <button
+                key={t.key}
+                type="button"
+                onClick={(e) => { ripple(e); setTab(t.key) }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontSize: 13, fontWeight: 700,
+                  color: active ? 'var(--accent)' : 'var(--text-dim)',
+                  borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
+                  marginBottom: -1,
+                }}
+              >
+                <Icon size={14} /> {t.label}
+              </button>
+            )
+          })}
+        </div>
+
+        {tab === 'feed' ? (
+          <>
+            <HighlightsStrip />
+            <Feed />
+          </>
+        ) : (
+          <AnnouncementsFeed />
+        )}
       </div>
     </div>
   )
