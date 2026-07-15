@@ -23,6 +23,7 @@ import { BadgeIcon } from '../badges/badgeIcons'
 import { BADGE_RARITY_COLOR, BADGE_RARITY_RANK, badgeDisplayTitle } from '../badges/badges'
 import ReportModal from '../safety/ReportModal'
 import { useCall } from '../chat/calling/CallContext'
+import { MOD_AVATAR_URL } from '../moderation/modShowcase'
 
 type Presence = 'online' | 'idle' | 'offline' | 'invisible'
 const PRESENCE_COLORS: Record<Presence, string> = {
@@ -40,6 +41,7 @@ interface PreviewProfile {
   presence: Presence | null
   is_pro: boolean
   original_username: string
+  staff_member_since: string | null
 }
 
 const BADGE_PREVIEW_COUNT = 6
@@ -59,6 +61,7 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
   const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 768)
   const [closing, setClosing] = useState(false)
   const [entered, setEntered] = useState(false)
+  const [isModerator, setIsModerator] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   const isMe = user?.id === userId
@@ -83,6 +86,9 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
       if (!active) return
       setProfile((data as PreviewProfile | null) ?? null)
       setLoading(false)
+    })
+    supabase.from('user_moderation').select('role').eq('user_id', userId).maybeSingle().then(({ data }) => {
+      if (active) setIsModerator(data?.role === 'moderator')
     })
     return () => { active = false }
   }, [userId])
@@ -180,7 +186,10 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
   const displayName = profile?.display_name || profile?.username || '…'
   const rank = profile ? getUserRankTier(profile.xp) : null
   const presence: Presence = (profile?.presence as Presence) || 'offline'
-  const memberSince = profile ? new Date(profile.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : ''
+  const memberSince = profile
+    ? new Date((isModerator ? profile.staff_member_since : null) ?? profile.created_at)
+      .toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+    : ''
 
   const ownedBadges = [...badges]
     .map(b => defs.find(d => d.id === b.badge_id))
@@ -268,7 +277,7 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
           <div style={{ marginTop: -34, marginBottom: 8 }}>
             <div style={{ position: 'relative', width: 68, height: 68 }}>
               <Avatar
-                src={profile?.avatar} name={displayName} size={68} radius={20}
+                src={isModerator ? MOD_AVATAR_URL : profile?.avatar} name={displayName} size={68} radius={20}
                 ring="var(--bg)" disabled
               />
               <div style={{
@@ -289,7 +298,7 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
               </p>
               <p style={{ fontSize: 12.5, color: 'var(--text-dim)', marginTop: 1 }}>@{profile.username}</p>
 
-              {rank && (
+              {!isModerator && rank && (
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 8, padding: '3px 9px', borderRadius: 20, background: rank.color + '18', border: `1px solid ${rank.color}44` }}>
                   <span>{rank.emoji}</span>
                   <span style={{ fontSize: 10.5, fontWeight: 700, color: rank.color }}>{rank.name}</span>
@@ -305,7 +314,7 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
                 <p style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>{memberSince}</p>
               </div>
 
-              {ownedBadges.length > 0 && (
+              {!isModerator && ownedBadges.length > 0 && (
                 <div style={{ marginTop: 12 }}>
                   <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 8 }}>Badges</p>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -325,7 +334,7 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
                 </div>
               )}
 
-              {!isMe && (
+              {!isModerator && !isMe && (
                 <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
                   <button
                     type="button" onClick={(e) => { ripple(e); handleFollow() }} disabled={busy || followStatus === 'blocked'}

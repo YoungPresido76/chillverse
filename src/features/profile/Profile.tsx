@@ -24,6 +24,7 @@ import { checkAndAwardAutoBadges } from '../badges/badges'
 import BadgeRow from '../badges/BadgeRow'
 import BadgesStatRow from '../badges/BadgesStatRow'
 import BadgesModal from '../badges/BadgesModal'
+import ModeratorSelfProfile from './ModeratorSelfProfile'
 
 /** Use the real rank system (lib/ranks.ts) everywhere on this page —
  *  this used to be a hardcoded 7-tier placeholder ("Newcomer" etc).
@@ -524,7 +525,36 @@ function AlbumDetailModal({
 
 
 // ── Main Profile Page ─────────────────────────────────────────
+// Thin wrapper: checks whether the signed-in user is themselves a
+// moderator BEFORE mounting the full stats-heavy self-profile below, so
+// none of ProfileInner's data-fetching effects (XP, streak, ranks,
+// wishlist, album, equipped items, etc.) run for the moderator showcase
+// self-view, which only shows badges/achievements/likes/followers/
+// following/posts.
 export default function Profile() {
+  const { profile, loading } = useProfile()
+  const [isModerator, setIsModerator] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    if (!profile?.id) return
+    setIsModerator(null)
+    supabase.from('user_moderation').select('role').eq('user_id', profile.id).maybeSingle()
+      .then(({ data }) => setIsModerator(data?.role === 'moderator'))
+  }, [profile?.id])
+
+  if (loading || !profile || isModerator === null) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
+        <span style={{ display: 'block', width: 36, height: 36, borderRadius: '50%', border: '2px solid var(--surface3)', borderTopColor: 'var(--accent)', animation: 'spin 0.8s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    )
+  }
+
+  return isModerator ? <ModeratorSelfProfile profile={profile} /> : <ProfileInner />
+}
+
+function ProfileInner() {
   const { profile, loading, refetch: refetchProfile } = useProfile()
   const navigate = useNavigate()
 

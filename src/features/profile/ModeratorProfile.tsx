@@ -9,7 +9,7 @@
 // mod-showcase-achievement-drip edge function for the backing data).
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Share2, ShieldCheck, Megaphone, Check } from 'lucide-react'
+import { ArrowLeft, Share2, ShieldCheck, Megaphone, Check, Heart, Users } from 'lucide-react'
 import { supabase } from '../../shared/lib/supabase'
 import { useAuth } from '../auth/useAuth'
 import { ripple } from '../../shared/lib/ripple'
@@ -24,11 +24,8 @@ import type { Post } from '../posts/types'
 import { getAllAchievements, getPlayerAchievements } from '../achievements/achievements'
 import type { Achievement } from '../achievements/achievements'
 import { AchIcon, RARITY_COLOR } from '../achievements/Achievements'
-
-// Locked profile pic for every moderator showcase — never editable, and
-// intentionally ignores whatever is in profiles.avatar/equipped_avatar.
-const MOD_AVATAR_URL =
-  'https://gnobzfxtxrtcxfhhfjni.supabase.co/storage/v1/object/public/profile-pics/Normal%20tier/3308681882ad4310930d385a6efb6a37.jpg'
+import { notifyProfileLike } from '../achievements/achievements'
+import { MOD_AVATAR_URL } from '../moderation/modShowcase'
 
 type Presence = 'online' | 'idle' | 'offline' | 'invisible'
 const PRESENCE_COLORS: Record<Presence, string> = {
@@ -73,6 +70,11 @@ export default function ModeratorProfile({ userId }: { userId: string }) {
   const [achievements, setAchievements] = useState<Achievement[]>([])
   const [showBadgesModal, setShowBadgesModal] = useState(false)
   const [shared, setShared] = useState(false)
+  const [followers, setFollowers] = useState(0)
+  const [following, setFollowing] = useState(0)
+  const [liked, setLiked] = useState(false)
+  const [likeCount, setLikeCount] = useState(0)
+  const [liking, setLiking] = useState(false)
   const { badges: playerBadges, defs: badgeDefs } = usePlayerBadges(userId)
 
   // Load core profile fields (bio, presence, member-since — no XP/level/streak).
@@ -111,6 +113,38 @@ export default function ModeratorProfile({ userId }: { userId: string }) {
       setAchievements(ordered)
     })
   }, [userId])
+
+  // Load follower/following counts.
+  useEffect(() => {
+    supabase.from('profile_follow_counts').select('followers_count, following_count')
+      .eq('id', userId).single()
+      .then(({ data }) => {
+        if (data) { setFollowers(Number(data.followers_count)); setFollowing(Number(data.following_count)) }
+      })
+  }, [userId])
+
+  // Load like count + whether I've already liked this profile.
+  useEffect(() => {
+    supabase.from('profile_likes').select('liker_id', { count: 'exact', head: true }).eq('profile_id', userId)
+      .then(({ count }) => setLikeCount(count ?? 0))
+    if (myId) {
+      supabase.from('profile_likes').select('liker_id').eq('profile_id', userId).eq('liker_id', myId).maybeSingle()
+        .then(({ data }) => setLiked(!!data))
+    }
+  }, [userId, myId])
+
+  async function handleLike() {
+    if (!myId || liking) return
+    setLiking(true)
+    if (liked) {
+      const { error } = await supabase.from('profile_likes').delete().eq('profile_id', userId).eq('liker_id', myId)
+      if (!error) { setLiked(false); setLikeCount(c => Math.max(0, c - 1)) }
+    } else {
+      const { error } = await supabase.from('profile_likes').insert({ profile_id: userId, liker_id: myId })
+      if (!error) { setLiked(true); setLikeCount(c => c + 1); notifyProfileLike(myId, userId) }
+    }
+    setLiking(false)
+  }
 
   async function handleShare() {
     const url = `${window.location.origin}/profile/${userId}`
@@ -189,6 +223,30 @@ export default function ModeratorProfile({ userId }: { userId: string }) {
           <p style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 }}>{profile.bio}</p>
         </div>
       )}
+
+      {/* ── Likes + Followers/Following ── */}
+      <div style={{ padding: '0 20px', marginBottom: 20, display: 'flex', gap: 10 }}>
+        <button type="button" onClick={(e) => { ripple(e); handleLike() }} disabled={!myId || liking}
+          className="ripple-wrap"
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '13px 16px', borderRadius: 16, background: liked ? 'rgba(255,77,139,0.14)' : 'var(--surface)', border: `1px solid ${liked ? 'rgba(255,77,139,0.4)' : 'rgba(255,255,255,0.06)'}`, cursor: !myId || liking ? 'default' : 'pointer', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
+          <Heart size={15} color={liked ? '#ff4d8b' : 'var(--text-muted)'} style={{ fill: liked ? '#ff4d8b' : 'none' }} />
+          <span style={{ fontSize: 13, fontWeight: 800, color: liked ? '#ff4d8b' : 'var(--text-dim)' }}>{likeCount}</span>
+        </button>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '13px 16px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
+          <Users size={15} style={{ color: '#4f8ef7' }} />
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>{followers.toLocaleString()}</div>
+            <div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Followers</div>
+          </div>
+        </div>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '13px 16px', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)' }}>
+          <Users size={15} style={{ color: '#9b6dff' }} />
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>{following.toLocaleString()}</div>
+            <div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Following</div>
+          </div>
+        </div>
+      </div>
 
       {/* ── Member since ── */}
       <div style={{ padding: '0 20px', marginBottom: 20 }}>
