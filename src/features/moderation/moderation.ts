@@ -15,7 +15,7 @@ export interface UserModerationRow {
 
 export interface ContentReport {
   id: string
-  reporter_id: string
+  reporter_id: string | null
   target_type: 'user' | 'post' | 'comment' | 'message'
   target_id: string
   reason: string

@@ -9,7 +9,7 @@ import {
   fetchModerationLog,
   type ContentReport, type ModerationLogEntry, type StaffRole,
 } from './moderation'
-import { REPORT_REASON_LABELS } from '../safety/reports'
+import { REPORT_REASON_LABELS, SYSTEM_REPORT_REASON_LABEL } from '../safety/reports'
 import { getAllBadges, getPlayerBadges, grantManualBadge, revokeManualBadge, BADGE_RARITY_COLOR, type BadgeDef } from '../badges/badges'
 import { BadgeIcon } from '../badges/badgeIcons'
 
@@ -151,13 +151,13 @@ function ReportsTab() {
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>
-                {REPORT_REASON_LABELS[r.reason as keyof typeof REPORT_REASON_LABELS] ?? r.reason}
+                {r.reason === 'auto_flagged' ? SYSTEM_REPORT_REASON_LABEL : (REPORT_REASON_LABELS[r.reason as keyof typeof REPORT_REASON_LABELS] ?? r.reason)}
                 <span style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--text-muted)', marginLeft: 8 }}>
                   on a {r.target_type}
                 </span>
               </div>
               <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 3 }}>
-                Reported by {r.reporter?.username ?? 'unknown'} · {new Date(r.created_at).toLocaleString()}
+                Reported by {r.reporter?.username ?? (r.reason === 'auto_flagged' ? 'System (word filter)' : 'unknown')} · {new Date(r.created_at).toLocaleString()}
               </div>
               {r.details && <div style={{ fontSize: 12.5, color: 'var(--text-dim)', marginTop: 6 }}>{r.details}</div>}
             </div>
