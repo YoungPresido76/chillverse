@@ -14,6 +14,7 @@ import { getGlobalSessionInfo } from '../features/games/gameSession'
 import { checkSessionResetNotification, checkMoviesOpenNotification } from '../features/notifications/liveNotifications'
 import { getSessionLimits } from '../shared/lib/proPlans'
 import CallProvider from '../features/chat/calling/CallContext'
+import { ProfilePreviewProvider } from '../context/ProfilePreview'
 
 const ROUTE_TITLES: Record<string, string> = {
   '/dashboard':  'Dashboard',
@@ -85,6 +86,7 @@ export default function AppLayout() {
 
   return (
     <CallProvider myId={myId}>
+      <ProfilePreviewProvider>
       <div className="min-h-screen relative" style={{ background: 'var(--bg)' }}>
         {/* Ambient bubbles */}
         <div className="bubble-bg">
@@ -126,6 +128,7 @@ export default function AppLayout() {
           </div>
         </main>
       </div>
+      </ProfilePreviewProvider>
     </CallProvider>
   )
 }
