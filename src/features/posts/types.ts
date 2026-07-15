@@ -2,13 +2,6 @@
 
 export type PostAuthorType = 'user' | 'admin' | 'system'
 
-/** Distinguishes staff posts in the Announcements tab. Regular player
- *  posts (author_type 'user') are always 'general' and never surfaced
- *  with a kind badge. */
-export type PostKind = 'general' | 'announcement' | 'feature_update'
-
-export type PostMediaType = 'image'
-
 export type TagType =
   | 'achievement'
   | 'game_result'
@@ -47,15 +40,8 @@ export interface Post {
   influence: number
   commentable: boolean
   created_at: string
-  /** 'general' for every player post; staff posts (author_type admin/system)
-   *  set this to 'announcement' or 'feature_update' to badge and filter them. */
-  post_kind: PostKind
-  /** Public URL of an attached image, or null. Currently image-only — see
-   *  migration 0028. */
-  media_url: string | null
-  media_type: PostMediaType | null
-  /** Staff-only: pins a post to the top of the Announcements tab. */
-  pinned: boolean
+  hidden: boolean
+  hidden_reason: string | null
   // joined client-side, not a real column
   author?: PostAuthor
   liked_by_me?: boolean
@@ -67,7 +53,8 @@ export interface Comment {
   author_id: string
   body: string
   created_at: string
-  is_notice: boolean
+  hidden: boolean
+  hidden_reason: string | null
   author?: PostAuthor
 }
 
