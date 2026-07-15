@@ -21,6 +21,7 @@ import { usePlayerBadges } from '../badges/usePlayerBadges'
 import BadgeRow from '../badges/BadgeRow'
 import BadgesStatRow from '../badges/BadgesStatRow'
 import BadgesModal from '../badges/BadgesModal'
+import Avatar from '../../shared/components/Avatar'
 
 function getRank(xp: number): RankTier { return getUserRankTier(xp) }
 
@@ -426,13 +427,7 @@ export default function PlayerProfile() {
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14 }}>
           <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
             <div style={{ width: 80, height: 80, borderRadius: 20, padding: 3, background: `linear-gradient(135deg, ${rank.color}, #4f8ef7)`, boxShadow: `0 0 20px ${rank.color}55`, border: '3px solid var(--bg)' }}>
-              {player?.avatar && player.avatar.startsWith('http') ? (
-                <img src={player.avatar} alt={displayName} style={{ width: '100%', height: '100%', borderRadius: 16, objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
-              ) : (
-                <div style={{ width: '100%', height: '100%', borderRadius: 16, background: 'linear-gradient(135deg, var(--purple), var(--blue))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 800, color: '#fff' }}>
-                  {displayName.charAt(0).toUpperCase()}
-                </div>
-              )}
+              <Avatar src={player?.avatar} name={displayName} size={74} radius={16} disabled />
             </div>
           </div>
 

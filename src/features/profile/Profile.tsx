@@ -18,6 +18,7 @@ import { getAllPlayerRanks } from '../games/gameSession'
 import EditProfileModal, { type EditProfileSavedFields } from './EditProfileModal'
 import { AchIcon, RARITY_COLOR } from '../achievements/Achievements'
 import PageOnboarding from '../onboarding/PageOnboarding'
+import SharedAvatar from '../../shared/components/Avatar'
 import { usePlayerBadges } from '../badges/usePlayerBadges'
 import { checkAndAwardAutoBadges } from '../badges/badges'
 import BadgeRow from '../badges/BadgeRow'
@@ -78,16 +79,10 @@ interface FollowEntry {
 
 // ── Mini avatar ───────────────────────────────────────────────
 function MiniAvatar({ name, avatar, size = 38 }: { name: string; avatar?: string | null; size?: number }) {
-  const colors = ['#ff6b6b','#4f8ef7','#9b6dff','#3ecf8e','#f5c542','#ff4d8b','#ff9a3c']
-  const color = colors[(name.charCodeAt(0) || 0) % colors.length]
-  return (
-    <div style={{ width: size, height: size, borderRadius: Math.round(size * 0.3), background: color, color: '#fff', fontWeight: 700, fontSize: size * 0.36, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
-      {avatar && avatar.startsWith('http')
-        ? <img src={avatar} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-        : (name || '?').charAt(0).toUpperCase()
-      }
-    </div>
-  )
+  // Delegates to the shared Avatar component so a missing/broken image
+  // always falls back to a letter, instead of the old behaviour of
+  // hiding the <img> on error and leaving an empty box.
+  return <SharedAvatar src={avatar} name={name} size={size} radius={Math.round(size * 0.3)} disabled />
 }
 
 // ── Presence dot ──────────────────────────────────────────────
@@ -796,13 +791,7 @@ export default function Profile() {
           {/* Square profile pic — left aligned */}
           <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
             <div style={{ width: 80, height: 80, borderRadius: 20, padding: 3, background: `linear-gradient(135deg, ${rank.color}, #4f8ef7)`, boxShadow: `0 0 20px ${rank.color}55`, border: '3px solid var(--bg)' }}>
-              {profile?.avatar && profile.avatar.startsWith('http') ? (
-                <img src={profile.avatar} alt={displayName} style={{ width: '100%', height: '100%', borderRadius: 16, objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
-              ) : (
-                <div style={{ width: '100%', height: '100%', borderRadius: 16, background: 'linear-gradient(135deg, var(--purple), var(--blue))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 800, color: '#fff' }}>
-                  {displayName.charAt(0).toUpperCase()}
-                </div>
-              )}
+              <SharedAvatar src={profile?.avatar} name={displayName} size={74} radius={16} disabled />
             </div>
           </div>
 
