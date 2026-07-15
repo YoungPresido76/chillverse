@@ -4,6 +4,7 @@ import { Outlet, useLocation, useSearchParams, useNavigate } from 'react-router-
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import AchievementToast from '../features/achievements/AchievementToast'
+import BadgeEarnedModal from '../features/badges/BadgeEarnedModal'
 import NotificationToastRenderer from '../features/notifications/NotificationToastRenderer'
 import PromoOverlay from '../features/notifications/PromoOverlay'
 import { useReferralPromoAd } from '../features/referral/useReferralPromoAd'
@@ -111,6 +112,7 @@ export default function AppLayout() {
         />
 
         <AchievementToast />
+        <BadgeEarnedModal />
         <NotificationToastRenderer />
         {referralAd && <PromoOverlay notification={referralAd} onDismiss={dismissReferralAd} />}
 
