@@ -7,6 +7,7 @@ import { supabase } from '../../shared/lib/supabase'
 import { useAuth } from '../auth/useAuth'
 import { useProfile } from '../profile/useProfile'
 import { TIERS, PLAN_CODES, getYearlySavingsPct, type ProTier, type BillingInterval } from '../../shared/lib/proPlans'
+import { checkAndAwardAutoBadges } from '../badges/badges'
 
 declare global {
   interface Window {
@@ -88,6 +89,7 @@ export default function Pro() {
             })
             if (error) throw error
             refetch()
+            checkAndAwardAutoBadges(user.id)
             setModalTier(tier)
             setModal('success')
           } catch (err) {

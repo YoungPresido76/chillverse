@@ -6,6 +6,7 @@ import { ripple } from '../../shared/lib/ripple'
 import { supabase } from '../../shared/lib/supabase'
 import { useAuth } from '../auth/useAuth'
 import { useWallet } from './useWallet'
+import { checkAndAwardAutoBadges } from '../badges/badges'
 
 // ─── Types ────────────────────────────────────────────────────
 declare global {
@@ -594,6 +595,7 @@ export default function BuyDiamonds() {
             })
             if (error) throw error
             setActivePack(pack)
+            checkAndAwardAutoBadges(user.id)
             setModal('success')
           } catch (err) {
             console.error('credit-diamonds error:', err)
@@ -854,6 +856,7 @@ export default function BuyDiamonds() {
                               body: { reference: response.reference, user_id: user.id },
                             })
                             if (error) throw error
+                            checkAndAwardAutoBadges(user.id)
                             setModal('success')
                           } catch (err) {
                             console.error('flash credit error:', err)
