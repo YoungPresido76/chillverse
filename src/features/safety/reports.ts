@@ -22,6 +22,13 @@ export const REPORT_REASON_LABELS: Record<ReportReason, string> = {
   other: 'Something else',
 }
 
+// Not part of ReportReason / REPORT_REASON_LABELS on purpose — 'auto_flagged'
+// is a system-only reason written by the word-filter trigger (see migration
+// 0029) and must never appear as a selectable option in ReportModal's picker
+// (which iterates Object.keys(REPORT_REASON_LABELS)). This is a display-only
+// label for the moderation panel.
+export const SYSTEM_REPORT_REASON_LABEL = 'Automatically flagged'
+
 export async function submitReport(input: {
   reporterId: string
   targetType: ReportTargetType
@@ -39,6 +46,9 @@ export async function submitReport(input: {
 
   if (error) {
     console.error('submitReport error:', error)
+    if (error.message.includes('CV_REPORT_TARGET_LIMIT')) {
+      return { error: "You've already reported this today." }
+    }
     if (error.message.includes('CV_REPORT_LIMIT')) {
       return { error: "You've reached today's report limit. Please try again tomorrow." }
     }
