@@ -1,6 +1,7 @@
 import { useEffect, lazy, Suspense } from 'react'
 import { Routes, Route, useNavigate } from 'react-router-dom'
 import Landing from '../features/marketing/Landing'
+import About from '../features/marketing/About'
 import Login from '../features/auth/Login'
 import Signup from '../features/auth/Signup'
 import ForgotPassword from '../features/auth/ForgotPassword'
@@ -132,6 +133,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/"                element={<Landing />} />
+      <Route path="/about"           element={<About />} />
       <Route path="/login"           element={<Login />} />
       <Route path="/signup"          element={<Signup />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
