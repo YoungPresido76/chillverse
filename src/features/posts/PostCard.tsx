@@ -206,7 +206,7 @@ export default function PostCard({ post, onDeleted }: { post: Post; onDeleted?: 
         </div>
       </div>
 
-      {post.hidden ? <HiddenContentNotice reason={post.hidden_reason} /> : <PostBody body={post.body} />}
+      {post.hidden ? <HiddenContentNotice reason={post.hidden_reason} isOwner={isAuthor} /> : <PostBody body={post.body} />}
 
       {!post.hidden && post.media_type === 'image' && post.media_url && (
         <img
