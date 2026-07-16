@@ -4,6 +4,7 @@ import Wordmark from './Wordmark'
 import Logo from './Logo'
 
 const NAV_LINKS: Array<[href: string, label: string]> = [
+  ['/about', 'About'],
   ['/#features', 'Features'],
   ['/#leaderboard', 'Leaderboard'],
   ['/#community', 'Community'],
@@ -18,16 +19,27 @@ export default function Nav() {
       </Link>
 
       <ul className="hidden md:flex items-center gap-8 list-none m-0 p-0">
-        {NAV_LINKS.map(([href, label]) => (
-          <li key={label}>
-            <a
-              href={href}
-              className="text-sm font-medium text-chill-textSecondary hover:text-chill-text transition-colors no-underline"
-            >
-              {label}
-            </a>
-          </li>
-        ))}
+        {NAV_LINKS.map(([href, label]) =>
+          href.startsWith('/#') ? (
+            <li key={label}>
+              <a
+                href={href}
+                className="text-sm font-medium text-chill-textSecondary hover:text-chill-text transition-colors no-underline"
+              >
+                {label}
+              </a>
+            </li>
+          ) : (
+            <li key={label}>
+              <Link
+                to={href}
+                className="text-sm font-medium text-chill-textSecondary hover:text-chill-text transition-colors no-underline"
+              >
+                {label}
+              </Link>
+            </li>
+          )
+        )}
       </ul>
 
       <Link
