@@ -78,6 +78,82 @@ function breadcrumb(label, path) {
 // ── Route definitions ────────────────────────────────────────────────────
 const ROUTES = [
   {
+    path: '/about',
+    title: 'About Chillverse',
+    description:
+      'Chillverse is a free, mobile-first Nigerian social gaming platform. Learn about our mission, features, progression system, and community.',
+    jsonLd: [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'AboutPage',
+        name: 'About Chillverse',
+        url: `${SITE_URL}/about`,
+        mainEntity: {
+          '@type': 'Organization',
+          name: 'Chillverse',
+          url: SITE_URL,
+          foundingDate: '2026',
+          founder: { '@type': 'Person', name: 'Victor_vk' },
+          description:
+            'Chillverse is a free, mobile-first Nigerian social gaming platform combining casual multiplayer games with a progression system (XP, streaks, ranks) and social features (chat, profiles, crews).',
+        },
+      },
+      breadcrumb('About', '/about'),
+    ],
+    content: `
+      <main style="max-width:860px;margin:0 auto;padding:96px 24px 64px;font-family:Inter,sans-serif;color:#e8e8f0">
+        <h1 style="font-size:36px;font-weight:800;margin-bottom:16px">What is Chillverse?</h1>
+        <p style="color:#a8a8b8;line-height:1.7;font-size:17px;max-width:640px;margin-bottom:40px">
+          Chillverse is a free, mobile-first social gaming platform built in Nigeria. It combines
+          fast-paced multiplayer games with a full progression system — XP, daily streaks, and
+          competitive ranks — plus real-time chat so you can play and stay connected with your
+          crew in one place.
+        </p>
+
+        <h2 style="font-size:22px;font-weight:700;margin-bottom:12px">Our Mission</h2>
+        <p style="color:#a8a8b8;line-height:1.7;font-size:15px;margin-bottom:32px">
+          Chillverse exists to make casual gaming social again. Every session feeds into your XP,
+          your streak, your rank, and your standing with friends — free for anyone to join.
+        </p>
+
+        <h2 style="font-size:22px;font-weight:700;margin-bottom:12px">Features</h2>
+        <ul style="color:#a8a8b8;line-height:1.8;font-size:15px;margin-bottom:32px;padding-left:20px">
+          <li><strong>Games</strong> — Whot, Colour Block, Tac Zone, and more, solo or multiplayer.</li>
+          <li><strong>XP & Ranks</strong> — a 6-tier ladder from Rookie to Diamond, earned entirely through play.</li>
+          <li><strong>Daily Streaks</strong> — milestones from 1 to 365 days award bonus XP.</li>
+          <li><strong>Leaderboards</strong> — real-time global rankings.</li>
+          <li><strong>Profiles & Badges</strong> — followers, wishlist, achievements, avatars, badge collection.</li>
+          <li><strong>Chat & Crew</strong> — real-time messaging with friends.</li>
+          <li><strong>The Mall</strong> — optional cosmetic avatar skins bought with Diamonds.</li>
+          <li><strong>Kids Video Section</strong> — curated, family-friendly content, kept separate.</li>
+        </ul>
+
+        <h2 style="font-size:22px;font-weight:700;margin-bottom:12px">The Rank Ladder</h2>
+        <p style="color:#a8a8b8;line-height:1.7;font-size:15px;margin-bottom:32px">
+          Rookie → Bronze I–III → Silver I–III → Gold I–III → Platinum I–III → Diamond I–III.
+          Every player climbs the same public ladder — there's no way to buy rank progress.
+        </p>
+
+        <h2 style="font-size:22px;font-weight:700;margin-bottom:12px">History</h2>
+        <p style="color:#a8a8b8;line-height:1.7;font-size:15px;margin-bottom:32px">
+          Chillverse launched with its core experience — chat, social features, standard game
+          sessions, and a profile and wallet system — and has since shipped further Version
+          upgrades adding animation and visual polish. Chillverse was founded and built by
+          <strong> Victor_vk</strong>.
+        </p>
+
+        <h2 style="font-size:22px;font-weight:700;margin-bottom:12px">Community</h2>
+        <p style="color:#a8a8b8;line-height:1.7;font-size:15px">
+          Follow Chillverse on
+          <a href="https://x.com/joinchillverse" style="color:#9b6dff"> X/Twitter</a>,
+          <a href="https://www.instagram.com/chillverse001" style="color:#9b6dff"> Instagram</a>, and
+          <a href="https://www.youtube.com/@chillverse_com" style="color:#9b6dff"> YouTube</a>.
+          Or <a href="/signup" style="color:#ff6b00;font-weight:700">sign up free</a> and jump in.
+        </p>
+      </main>
+    `,
+  },
+  {
     path: '/login',
     title: 'Log In — Chillverse',
     description:
