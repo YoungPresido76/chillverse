@@ -5,12 +5,14 @@
 // Discord's profile popover: a small preview with the essentials and a
 // 3-dot menu, plus a way to jump to the full profile page.
 //
-// On phones/tablets it's a Discord-style bottom sheet: it slides up from
-// the trigger, its height tracks however much profile content there is
-// (no fixed height), and it stays open until you tap the dimmed backdrop,
-// hit Escape, or tap the close button. On desktop the same component
-// renders as a centered card instead. Locks page scroll while open, and
-// scrolls its own content internally if it overflows.
+// A Discord-style bottom sheet at every screen size — phone AND tablet.
+// It slides up and stays pinned to the bottom of the viewport until you
+// tap the dimmed backdrop, hit Escape, or tap the close button; it never
+// floats as a centered popover. It has a tall minimum height so it rises
+// well up the screen even for a sparse profile, and only grows past that
+// (up to a max, then scrolls internally) when there's a lot of content.
+// On wider viewports the sheet narrows into a centered card shape, but
+// stays bottom-anchored the whole time. Locks page scroll while open.
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
@@ -85,7 +87,11 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
   const [usernameCopied, setUsernameCopied] = useState(false)
   const [callStarting, setCallStarting] = useState(false)
   const { startCall, phase } = useCall()
-  const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 768)
+  // This no longer decides "sheet vs popover" — it ONLY decides how wide/
+  // narrow the sheet is. Every width is a bottom sheet, same as Discord's
+  // phone AND tablet apps; on a wide viewport the sheet is just narrower
+  // and card-shaped, it doesn't jump to floating in the vertical center.
+  const [isWide, setIsWide] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 640)
   const [closing, setClosing] = useState(false)
   const [entered, setEntered] = useState(false)
   const [isModerator, setIsModerator] = useState(false)
@@ -105,7 +111,7 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
   // Track viewport so the exact same modal switches between a bottom
   // sheet (mobile) and a centered card (desktop) without a page reload.
   useEffect(() => {
-    function onResize() { setIsDesktop(window.innerWidth >= 768) }
+    function onResize() { setIsWide(window.innerWidth >= 640) }
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
@@ -304,31 +310,27 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
     .sort((a, b) => (BADGE_RARITY_RANK[a.rarity] ?? 9) - (BADGE_RARITY_RANK[b.rarity] ?? 9))
     .slice(0, BADGE_PREVIEW_COUNT)
 
-  // Mobile/tablet: a true bottom sheet — no fixed height. It hugs however
-  // tall the profile content actually is (banner + bio + badges + achievements
-  // etc.) and only clips at maxHeight if there's a LOT of content, at which
-  // point its own body scrolls. It slides up from the bottom on open and
-  // slides back down on close, same as Discord.
-  // Desktop: unchanged centered card, fade + scale.
-  const sheetBase: React.CSSProperties = isDesktop
-    ? {
-      width: 'min(92vw, 420px)',
-      maxHeight: 'min(85vh, 640px)',
-      borderRadius: 16,
-      transform: entered && !closing ? 'scale(1)' : 'scale(0.95)',
-      opacity: entered && !closing ? 1 : 0,
-      // Quart-out: fast start, gentle settle — reads as responsive, not abrupt.
-      transition: 'transform 0.2s cubic-bezier(0.16,1,0.3,1), opacity 0.18s ease-out',
-    }
-    : {
-      width: '100%',
-      maxWidth: '100%',
-      maxHeight: '86vh',
-      borderRadius: '20px 20px 0 0',
-      marginTop: 'auto',
-      transform: entered && !closing ? 'translateY(0)' : 'translateY(100%)',
-      transition: 'transform 0.28s cubic-bezier(0.32,0.72,0,1)',
-    }
+  // ALWAYS a bottom sheet — phone and tablet alike, no separate centered
+  // "desktop popover" mode. It slides up from the bottom and stays pinned
+  // there until dismissed.
+  //
+  // Height: minHeight keeps it rising well up the screen even for a
+  // sparse profile (this is what was missing before — it was hugging
+  // short content and sitting low). maxHeight is the only thing content
+  // can push past, and only then does the body start scrolling.
+  //
+  // Width: full-bleed edge-to-edge on phones; on wider viewports (tablet
+  // and up) it narrows into a centered card shape, but it's still bottom-
+  // anchored the whole time — it never jumps to floating in the middle.
+  const sheetBase: React.CSSProperties = {
+    width: isWide ? 'min(92vw, 460px)' : '100%',
+    minHeight: 'min(74vh, 640px)',
+    maxHeight: '92vh',
+    borderRadius: '20px 20px 0 0',
+    marginTop: 'auto',
+    transform: entered && !closing ? 'translateY(0)' : 'translateY(100%)',
+    transition: 'transform 0.32s cubic-bezier(0.32,0.72,0,1)',
+  }
 
   return createPortal(
     <div
@@ -336,8 +338,7 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
       style={{
         position: 'fixed', inset: 0, zIndex: 20000,
         background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-        display: 'flex', alignItems: isDesktop ? 'center' : 'flex-end', justifyContent: 'center',
-        padding: isDesktop ? 16 : 0,
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
         opacity: entered && !closing ? 1 : 0, transition: 'opacity 0.2s ease-out',
       }}
     >
@@ -346,12 +347,10 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
         style={{
           ...sheetBase,
           background: 'var(--bg)', overflowY: 'auto', overscrollBehavior: 'contain', position: 'relative',
-          boxShadow: isDesktop ? '0 20px 60px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.3)' : '0 -8px 40px rgba(0,0,0,0.5)',
+          boxShadow: '0 -8px 40px rgba(0,0,0,0.5)',
         }}
       >
-        {!isDesktop && (
-          <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.22)', margin: '10px auto 0' }} />
-        )}
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.22)', margin: '10px auto 0' }} />
 
         {/* Banner */}
         <div style={{ position: 'relative', height: 74, background: profile?.banner_url ? 'transparent' : 'linear-gradient(120deg, var(--accent), var(--accent2))', overflow: 'hidden' }}>
