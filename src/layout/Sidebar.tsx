@@ -28,7 +28,6 @@ const NAV_ITEMS: NavItem[] = [
     badge: null,
     children: [
       { label: 'Play Games',    to: '/games',        icon: GamepadIcon },
-      { label: 'Leaderboards',  to: '/leaderboards', icon: Trophy      },
       { label: 'Exploration',   to: '/exploration',  icon: Compass     },
     ],
   },
