@@ -35,6 +35,15 @@ import ReportModal from '../safety/ReportModal'
 import { useCall } from '../chat/calling/CallContext'
 import { MOD_AVATAR_URL } from '../moderation/modShowcase'
 
+// ── Sheet height — its own dedicated setting ────────────────────────────
+// This is the ONE number that controls how tall the profile preview sheet
+// is, on every device. It's a percentage of the screen, so it always
+// looks the same proportionally whether someone's zoomed in or out — it's
+// not reacting to zoom as a side effect, it's just deliberately set here.
+// Turn this number up or down to make the sheet taller or shorter; nothing
+// else in this file needs to change.
+const SHEET_HEIGHT_VH = 95
+
 type Presence = 'online' | 'idle' | 'offline' | 'invisible'
 const PRESENCE_COLORS: Record<Presence, string> = {
   online: '#3ecf8e', idle: '#f5c542', offline: '#888899', invisible: '#555566',
@@ -326,13 +335,7 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
   // one thing that was still wrong. However stacked a profile is, the
   // sheet stops at this exact point and its own body scrolls past it;
   // it never grows taller, and it never sits shorter for a sparse profile.
-  //   The marked line puts tab at essentially the same magnitude as
-  //   phone — not a smaller card, just narrower. Unifying the height so
-  //   width is genuinely the only thing that changes between them, and
-  //   this is a hard fixed height either way: a sparser or denser profile
-  //   (more badges, achievements, whatever gets added later) never moves
-  //   it — content only ever scrolls inside this fixed frame.
-  const sheetHeight = 'min(93vh, 960px)'
+  const sheetHeight = `${SHEET_HEIGHT_VH}vh`
   const sheetBase: React.CSSProperties = {
     width: isWide ? 'min(92vw, 460px)' : '100%',
     height: sheetHeight,
