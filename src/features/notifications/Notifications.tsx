@@ -7,7 +7,7 @@ import {
   CheckCircle, Sword, Rocket, Gem, Users, Heart, Mail, Sprout,
   User, Moon, Calendar, Activity, Flag, Plus, ArrowRight, Grid,
   Search, Gamepad2, Home, Lock, BarChart2, Layers, Brain, Eye,
-  Trash2, Spade, Image, Wifi, CirclePlay, Camera,
+  Trash2, Spade, Image, Wifi, CirclePlay, Camera, Compass,
 } from 'lucide-react'
 import { supabase } from '../../shared/lib/supabase'
 import { useAuth } from '../auth/useAuth'
@@ -29,6 +29,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   'gamepad-2': Gamepad2, 'home': Home, 'lock': Lock, 'bar-chart': BarChart2,
   'layers': Layers, 'brain': Brain, 'eye': Eye, 'settings': Sparkles,
   'spade': Spade, 'image': Image, 'wifi': Wifi, 'circle-play': CirclePlay, 'camera': Camera,
+  'compass': Compass,
 }
 
 function NotifIcon({ iconKey, size = 16 }: { iconKey: string; size?: number }) {
@@ -54,6 +55,11 @@ const TYPE_COLOR: Record<string, string> = {
   level_up:    '#9b6dff',
   rank_up:     '#ff6b00',
   streak:      '#ff4d8b',
+  session_reset: '#4f8ef7',
+  movies_open:   '#ff9a3c',
+  come_back:     '#9b6dff',
+  streak_warning: '#ff4d8b',
+  exploration_complete: '#3ecf8e',
 }
 
 const TYPE_ICON: Record<string, string> = {
@@ -63,6 +69,11 @@ const TYPE_ICON: Record<string, string> = {
   level_up:    'trending-up',
   rank_up:     'zap',
   streak:      'flame',
+  session_reset: 'wifi',
+  movies_open:   'circle-play',
+  come_back:     'sparkles',
+  streak_warning: 'flame',
+  exploration_complete: 'compass',
 }
 
 const TYPE_LABEL: Record<string, string> = {

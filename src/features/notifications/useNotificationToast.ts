@@ -25,6 +25,9 @@ const TYPE_COLOR: Record<string, string> = {
   artifact:         '#9b6dff',
   session_reset:    '#4f8ef7',
   movies_open:      '#ff9a3c',
+  come_back:        '#9b6dff',
+  streak_warning:   '#ff4d8b',
+  exploration_complete: '#3ecf8e',
 }
 
 export function useNotificationToast() {

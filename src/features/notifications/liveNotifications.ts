@@ -48,8 +48,8 @@ export async function checkSessionResetNotification(userId: string, username: st
       await supabase.rpc('insert_notification', {
         p_user_id: userId,
         p_type:    'session_reset',
-        p_title:   `${username}, your limit has been reset`,
-        p_body:    'Your session limit just reset — jump back in and keep playing.',
+        p_title:   `Hey ${username}`,
+        p_body:    'Your session limit has been reset, jump back in and grind.',
         p_icon:    'wifi',
         p_meta:    {},
       })
@@ -61,7 +61,7 @@ export async function checkSessionResetNotification(userId: string, username: st
 
 // ── Movies (Watch) reopening ────────────────────────────────────
 // Fires once when Movies transitions from closed to open (5:00 AM daily).
-export async function checkMoviesOpenNotification(userId: string): Promise<void> {
+export async function checkMoviesOpenNotification(userId: string, username: string): Promise<void> {
   try {
     const isOpen = new Date().getHours() >= MOVIES_OPEN_HOUR
     const key = moviesStateKey(userId)
@@ -78,7 +78,7 @@ export async function checkMoviesOpenNotification(userId: string): Promise<void>
       await supabase.rpc('insert_notification', {
         p_user_id: userId,
         p_type:    'movies_open',
-        p_title:   'Movies is now open',
+        p_title:   `Hey ${username}`,
         p_body:    "Movies is now open, let's watch series together.",
         p_icon:    'circle-play',
         p_meta:    {},
