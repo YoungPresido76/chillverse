@@ -224,7 +224,13 @@ const MessageLine = memo(function MessageLine({
       onDoubleClick={() => onDoubleClick(msg)}
       style={{
         position:'relative', cursor:'context-menu', userSelect:'none',
-        display:'inline-block', maxWidth:'100%',
+        // `width: fit-content` (rather than plain `inline-block`, which falls
+        // back to filling all available space once the text needs to wrap)
+        // is what keeps this box — and therefore its border — sized to
+        // whatever the longest actual rendered line is, instead of
+        // stretching out to the full bubble column width for any message
+        // that happens to wrap onto more than one line.
+        display:'inline-block', width:'fit-content', maxWidth:'100%',
         marginBottom:8,
         paddingBottom: msg.reactions.length > 0 ? 16 : 6,
         borderBottom:`1.5px solid ${lineColor}`,
@@ -372,6 +378,13 @@ const MessageBurst = memo(function MessageBurst({
       )}
 
       <div style={{ display:'flex', flexDirection:'column', alignItems: isMine ? 'flex-end' : 'flex-start', maxWidth:'78%' }}>
+        {/* Sender name — Global Chat only, and only for other players' messages;
+            your own messages never get one, since you already know who sent them. */}
+        {isGroupChat && !isMine && (
+          <span style={{ fontSize:11.5, fontWeight:700, color:'#4f8ef7', marginBottom:3, marginLeft:2 }}>
+            {senderLabel}
+          </span>
+        )}
         {burst.map(msg => (
           <MessageLine
             key={msg.id}
