@@ -6,7 +6,7 @@ import {
   ArrowLeft, UserPlus, UserCheck, ShieldOff, X, Flag,
   MessageCircle, Zap, Heart, Star, Package,
   Gamepad2, Trophy, Users, ImageIcon, Film,
-  Sparkles, Sunrise, Moon as MoonIcon, Globe2,
+  Sparkles, Sunrise, Moon as MoonIcon, Globe2, Ban,
 } from 'lucide-react'
 import { supabase } from '../../shared/lib/supabase'
 import { useAuth } from '../auth/useAuth'
@@ -120,7 +120,85 @@ interface PlayerData {
 }
 interface AlbumPic { id: string; label: string; imageUrl: string; equippedAsBanner?: boolean }
 
+// Thin wrapper: checks whether the viewed account is currently banned BEFORE
+// mounting the full stats-heavy profile below, so none of PlayerProfileInner's
+// data-fetching effects (XP, streak, ranks, wishlist, album, etc.) run for
+// banned accounts that don't display any of that.
 export default function PlayerProfile() {
+  const { userId } = useParams<{ userId: string }>()
+  const [banned, setBanned] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    if (!userId) return
+    setBanned(null)
+    supabase.from('user_moderation').select('is_banned, banned_until').eq('user_id', userId).maybeSingle()
+      .then(({ data }) => {
+        const currentlyBanned = !!data?.is_banned && (!data.banned_until || new Date(data.banned_until) > new Date())
+        setBanned(currentlyBanned)
+      })
+  }, [userId])
+
+  if (!userId || banned === null) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
+        <span style={{ display: 'block', width: 36, height: 36, borderRadius: '50%', border: '2px solid var(--surface3)', borderTopColor: 'var(--accent)', animation: 'spin 0.8s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    )
+  }
+
+  return banned ? <BannedProfileView userId={userId} /> : <PlayerProfileInner />
+}
+
+// Shown instead of the normal layout when the viewed account is currently
+// banned. Deliberately bare: only the avatar + username carry over, with a
+// small 🚫 badge on the avatar — everything else (bio, stats, follow/message/
+// block buttons, album, etc.) is intentionally left out.
+function BannedProfileView({ userId }: { userId: string }) {
+  const navigate = useNavigate()
+  const [player, setPlayer] = useState<{ username: string; display_name: string | null; avatar: string | null } | null>(null)
+
+  useEffect(() => {
+    supabase.from('profiles').select('username, display_name, avatar').eq('id', userId).maybeSingle()
+      .then(({ data }) => setPlayer(data))
+  }, [userId])
+
+  const displayName = player?.display_name || player?.username || ''
+
+  return (
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '12px 20px', display: 'flex', alignItems: 'center' }}>
+        <button type="button" onClick={() => navigate(-1)}
+          style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          <ArrowLeft size={14} />
+        </button>
+      </div>
+
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 }}>
+        <div style={{ position: 'relative', width: 84, height: 84 }}>
+          <Avatar src={player?.avatar} name={displayName || '?'} size={84} radius={20} disabled style={{ filter: 'grayscale(1)', opacity: 0.7 }} />
+          <div style={{
+            position: 'absolute', bottom: -4, right: -4, width: 30, height: 30, borderRadius: '50%',
+            background: '#ff4d4d', border: '3px solid var(--bg)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Ban size={15} color="#fff" strokeWidth={2.5} />
+          </div>
+        </div>
+
+        {displayName && (
+          <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>{displayName}</span>
+        )}
+
+        <p style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-muted)', textAlign: 'center' }}>
+          This account has been banned
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function PlayerProfileInner() {
   const { userId } = useParams<{ userId: string }>()
   const navigate = useNavigate()
   const { session } = useAuth()
