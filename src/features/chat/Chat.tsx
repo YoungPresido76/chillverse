@@ -51,6 +51,9 @@ interface Message {
   hidden_reason: string | null
   reply_to_id: string | null
   replyPreview?: string
+  /** Display name of whoever sent the message being replied to — shown stacked
+   *  above the reply, since names are otherwise hidden outside of reply context. */
+  replyPreviewName?: string
   reactions: { emoji: string; user_id: string }[]
   senderName?: string
   senderUsername?: string
@@ -188,8 +191,127 @@ function SkeletonRoomList() {
   )
 }
 
-interface MessageRowProps {
+interface MessageLineProps {
   msg: GroupedMessage
+  isMine: boolean
+  emojiForMsg: string | null
+  onContextMenu: (msg: Message, x: number, y: number) => void
+  onDoubleClick: (msg: Message) => void
+  onToggleEmojiPicker: (msgId: string) => void
+  onAddReaction: (msgId: string, emoji: string) => void
+  myId: string | null
+  formatTime: (iso: string) => string
+  readReceipt: ReadReceipt
+  isLastInBurst: boolean
+}
+
+/** One line of text inside a chat-line block. No bubble, no background — just the
+ *  content sitting flush above the block's shared underline. Only the last line in
+ *  a burst gets the underline (applied by the parent MessageBurst wrapper), so this
+ *  renders text + timestamp/ticks + its own reply header + reactions only. */
+const MessageLine = memo(function MessageLine({
+  msg, isMine, emojiForMsg, onContextMenu, onDoubleClick, onToggleEmojiPicker, onAddReaction, myId, formatTime, readReceipt, isLastInBurst,
+}: MessageLineProps) {
+  return (
+    <div
+      className="msg-bubble-col"
+      onContextMenu={e => { if (!msg.deleted) { e.preventDefault(); onContextMenu(msg, e.clientX, e.clientY) } }}
+      onDoubleClick={() => onDoubleClick(msg)}
+      style={{
+        position:'relative', cursor:'context-menu', userSelect:'none', wordBreak:'break-word',
+        paddingBottom: msg.reactions.length > 0 ? 14 : 0,
+        marginBottom: isLastInBurst ? 0 : 6,
+      }}>
+
+      {/* Reply header — target user's name + their quoted text, stacked directly above
+          this line. This is the ONLY place a name appears on a received message; own
+          messages never show a name at all. */}
+      {msg.replyPreview && !msg.deleted && (
+        <div style={{ marginBottom:3, display:'flex', flexDirection:'column', alignItems: isMine ? 'flex-end' : 'flex-start' }}>
+          <span style={{ fontSize:10.5, fontWeight:700, color:'#4f8ef7' }}>{msg.replyPreviewName || 'Unknown'}</span>
+          <span style={{ fontSize:11, color:'var(--text-dim)', maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+            {msg.replyPreview.length > 60 ? `${msg.replyPreview.slice(0, 60)}…` : msg.replyPreview}
+          </span>
+        </div>
+      )}
+
+      {/* Message content + inline trailing timestamp */}
+      <div style={{ display:'flex', alignItems:'flex-end', gap:6, fontSize:13.5, lineHeight:1.45, color:'var(--text)', fontStyle: msg.deleted ? 'italic' : 'normal', opacity: msg.deleted ? 0.6 : 1 }}>
+        <span style={{ minWidth:0 }}>
+          {msg.hidden ? (
+            <HiddenContentNotice reason={msg.hidden_reason} isOwner={isMine} inline />
+          ) : msg.deleted ? 'Message deleted' : msg.type === 'voice_note' ? (
+            msg.audio_path ? (
+              <VoiceNotePlayer audioPath={msg.audio_path} durationSeconds={msg.audio_duration_seconds ?? 0} tint={isMine ? 'light' : 'dark'} />
+            ) : (
+              <span style={{ fontStyle:'italic', opacity:0.75 }}>Uploading voice note…</span>
+            )
+          ) : msg.type === 'call_log' ? (
+            <span style={{ display:'inline-flex', alignItems:'center', gap:6 }}>
+              <Phone size={13} />
+              {msg.content}
+              {msg.audio_duration_seconds ? ` · ${Math.floor(msg.audio_duration_seconds / 60)}:${String(msg.audio_duration_seconds % 60).padStart(2, '0')}` : ''}
+            </span>
+          ) : msg.content}
+        </span>
+        <span style={{ display:'flex', alignItems:'center', gap:3, flexShrink:0, paddingBottom:1 }}>
+          <span style={{ fontSize:10, color:'var(--text-muted)', whiteSpace:'nowrap' }}>{formatTime(msg.created_at)}</span>
+          {isMine && !msg.deleted && readReceipt === 'read' && <CheckCheck size={12} style={{ color:'var(--accent)' }} />}
+          {isMine && !msg.deleted && readReceipt === 'sent' && <Check size={12} style={{ color:'var(--text-muted)' }} />}
+        </span>
+      </div>
+
+      {/* Reaction badge — sits flush below this line */}
+      {msg.reactions.length > 0 && (
+        <div style={{
+          position:'absolute', bottom:0, zIndex:2,
+          display:'flex', gap:4, flexWrap:'nowrap',
+          ...(isMine ? { right:0 } : { left:0 }),
+        }}>
+          {Object.entries(
+            msg.reactions.reduce<Record<string, { count: number; mine: boolean }>>((acc, r) => {
+              if (!acc[r.emoji]) acc[r.emoji] = { count:0, mine:false }
+              acc[r.emoji].count++
+              if (r.user_id === myId) acc[r.emoji].mine = true
+              return acc
+            }, {})
+          ).map(([emoji, { count, mine }]) => (
+            <button key={emoji} type="button" onClick={() => onAddReaction(msg.id, emoji)}
+              style={{ display:'flex', alignItems:'center', gap:3, padding:'2px 6px', borderRadius:20, fontSize:12, cursor:'pointer', background: mine ? 'rgba(255,107,0,0.15)' : 'var(--surface2)', border:'2px solid var(--bg)', boxShadow:'0 2px 6px rgba(0,0,0,0.3)' }}>
+              {emoji} {count > 1 && <span style={{ fontSize:11, color:'var(--text-dim)' }}>{count}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Hover-revealed reaction trigger */}
+      {!msg.deleted && (
+        <button
+          type="button"
+          onClick={() => onToggleEmojiPicker(msg.id)}
+          className="msg-react-trigger"
+          style={{
+            position:'absolute', top:0, transform:'none',
+            ...(isMine ? { right:'100%', marginRight:6 } : { left:'100%', marginLeft:6 }),
+            background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)', padding:2, opacity:0, transition:'opacity 0.15s',
+          }}>
+          <Smile size={12} />
+        </button>
+      )}
+
+      {emojiForMsg === msg.id && (
+        <div style={{ display:'flex', gap:4, flexWrap:'wrap', padding:8, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:14, boxShadow:'0 12px 40px rgba(0,0,0,0.5)', marginTop:4, maxWidth:220, zIndex:3, position:'relative' }}>
+          {EMOJIS.map(em => (
+            <button key={em} type="button" onClick={() => onAddReaction(msg.id, em)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:18, padding:2 }}>{em}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+})
+
+interface MessageBurstProps {
+  burst: GroupedMessage[]
   isMine: boolean
   senderLabel: string
   avatarUrl: string | null
@@ -202,165 +324,72 @@ interface MessageRowProps {
   onAddReaction: (msgId: string, emoji: string) => void
   myId: string | null
   formatTime: (iso: string) => string
-  readReceipt: ReadReceipt
-  /** Avatars and per-message sender-name labels only make sense where more than
-   *  two people share the thread (Global Chat). In a DM, which side of the
-   *  screen a bubble sits on already tells you who sent it — showing a
-   *  redundant name/avatar per bubble is not how WhatsApp/iMessage/Telegram
-   *  render 1:1 conversations, and it was eating extra vertical space. */
+  readReceiptFor: (msg: Message) => ReadReceipt
+  /** Avatars only make sense where more than two people share the thread (Global
+   *  Chat) — a DM never shows one, since which side of the screen a message sits
+   *  on already identifies the sender. */
   isGroupChat: boolean
 }
 
-const MessageRow = memo(function MessageRow({
-  msg, isMine, senderLabel, avatarUrl, myProfile, emojiForMsg,
-  onOpenProfile, onContextMenu, onDoubleClick, onToggleEmojiPicker, onAddReaction, myId, formatTime, readReceipt, isGroupChat,
-}: MessageRowProps) {
-  const AVATAR_COL = 38 // avatar width (30) + gap (8) — used as spacer for grouped bubbles
+/** A consecutive run of messages from one sender, rendered as flat text with no
+ *  bubble background — replacing the old per-message bubble. The avatar (Global
+ *  Chat only) appears once per burst, and every message in the burst shares a
+ *  single hairline "chat line" underline that hooks in toward the avatar's side,
+ *  sized to the widest line rather than stretching the full screen width. */
+const MessageBurst = memo(function MessageBurst({
+  burst, isMine, senderLabel, avatarUrl, myProfile, emojiForMsg,
+  onOpenProfile, onContextMenu, onDoubleClick, onToggleEmojiPicker, onAddReaction, myId, formatTime, readReceiptFor, isGroupChat,
+}: MessageBurstProps) {
+  const first = burst[0]
+  const lineColor = 'rgba(255,255,255,0.28)'
 
   return (
-    <div style={{
-      display:'flex', flexDirection: isMine ? 'row-reverse' : 'row', alignItems:'flex-start', gap:8,
-      marginBottom: msg.isGroupLast ? 6 : 0,
-    }}>
-      {/* Avatar — only in group chats (Global Chat), and only on the first bubble of a
-          consecutive group there; a DM never shows one, since which side of the screen
-          a bubble is on already identifies the sender. */}
+    <div style={{ display:'flex', flexDirection: isMine ? 'row-reverse' : 'row', alignItems:'flex-end', gap:8, marginBottom:14 }}>
       {isGroupChat && (
-        msg.isGroupFirst ? (
-          <button
-            type="button"
-            onClick={() => onOpenProfile(msg)}
-            style={{ background:'none', border:'none', padding:0, cursor:'pointer', flexShrink:0, alignSelf:'flex-start', marginTop:2 }}
-            title={senderLabel}>
-            <Avatar name={isMine ? (myProfile?.display_name || myProfile?.username || 'Me') : senderLabel} avatarUrl={avatarUrl} size={30} radius={10} />
-          </button>
-        ) : (
-          <div style={{ width:AVATAR_COL, flexShrink:0 }} />
-        )
+        <button
+          type="button"
+          onClick={() => onOpenProfile(first)}
+          style={{ background:'none', border:'none', padding:0, cursor:'pointer', flexShrink:0, marginBottom:6 }}
+          title={senderLabel}>
+          <Avatar name={isMine ? (myProfile?.display_name || myProfile?.username || 'Me') : senderLabel} avatarUrl={avatarUrl} size={30} radius={10} />
+        </button>
       )}
 
-      {/* Bubble column */}
-      <div className="msg-bubble-col" style={{ display:'flex', flexDirection:'column', alignItems: isMine ? 'flex-end' : 'flex-start', maxWidth:'75%', position:'relative' }}>
-        <div style={{ position:'relative', maxWidth:'100%', paddingBottom: msg.reactions.length > 0 ? 14 : 0 }}>
-          <div
-            onContextMenu={e => { if (!msg.deleted) { e.preventDefault(); onContextMenu(msg, e.clientX, e.clientY) } }}
-            onDoubleClick={() => onDoubleClick(msg)}
-            style={{
-              padding:'8px 12px 6px', borderRadius:16,
-              background:'var(--surface)', color:'var(--text)',
-              // Suppress the top border on non-first bubbles in a burst so two stacked
-              // bubbles share a single hairline at their join instead of a doubled seam.
-              borderLeft:'1px solid rgba(255,255,255,0.06)',
-              borderRight:'1px solid rgba(255,255,255,0.06)',
-              borderBottom:'1px solid rgba(255,255,255,0.06)',
-              borderTop: msg.isGroupFirst ? '1px solid rgba(255,255,255,0.06)' : 'none',
-              // Sharp tail point sits on the TOP corner nearest the avatar, and only on the
-              // first bubble of a burst — subsequent bubbles in the same group are uniformly
-              // rounded since there's no avatar/name for them to point at.
-              borderTopRightRadius: isMine && msg.isGroupFirst ? 2 : 16,
-              borderTopLeftRadius: !isMine && msg.isGroupFirst ? 2 : 16,
-              fontSize:13.5, lineHeight:1.45,
-              fontStyle: msg.deleted ? 'italic' : 'normal',
-              opacity: msg.deleted ? 0.6 : 1,
-              cursor:'context-menu', userSelect:'none', wordBreak:'break-word',
-              maxWidth:'100%',
-            }}>
-
-            {/* Reply preview — inlaid inside the bubble's top section, truncated to a single line */}
-            {msg.replyPreview && !msg.deleted && (
-              <div style={{ fontSize:11, color:'var(--text-dim)', borderLeft:'2px solid #4f8ef7', paddingLeft:8, marginBottom:4, maxWidth:220, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                {msg.replyPreview.length > 60 ? `${msg.replyPreview.slice(0, 60)}…` : msg.replyPreview}
-              </div>
-            )}
-
-            {/* Sender name — only in group chats, and only on the first bubble of a consecutive group */}
-            {isGroupChat && !msg.deleted && msg.isGroupFirst && (
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onOpenProfile(msg) }}
-                style={{ background:'none', border:'none', cursor:'pointer', padding:0, display:'block', marginBottom:1 }}>
-                <span style={{ fontSize:10.5, fontWeight:700, color:'#4f8ef7' }}>
-                  {senderLabel}
-                </span>
-              </button>
-            )}
-
-            {/* Message content + inline trailing timestamp (bottom-right, inside the bubble) */}
-            <div style={{ display:'flex', alignItems:'flex-end', gap:6 }}>
-              <span style={{ flex:1, minWidth:0 }}>
-                {msg.hidden ? (
-                  <HiddenContentNotice reason={msg.hidden_reason} isOwner={isMine} inline />
-                ) : msg.deleted ? 'Message deleted' : msg.type === 'voice_note' ? (
-                  msg.audio_path ? (
-                    <VoiceNotePlayer audioPath={msg.audio_path} durationSeconds={msg.audio_duration_seconds ?? 0} tint={isMine ? 'light' : 'dark'} />
-                  ) : (
-                    <span style={{ fontStyle:'italic', opacity:0.75 }}>Uploading voice note…</span>
-                  )
-                ) : msg.type === 'call_log' ? (
-                  <span style={{ display:'inline-flex', alignItems:'center', gap:6 }}>
-                    <Phone size={13} />
-                    {msg.content}
-                    {msg.audio_duration_seconds ? ` · ${Math.floor(msg.audio_duration_seconds / 60)}:${String(msg.audio_duration_seconds % 60).padStart(2, '0')}` : ''}
-                  </span>
-                ) : msg.content}
-              </span>
-              <span style={{ display:'flex', alignItems:'center', gap:3, flexShrink:0, alignSelf:'flex-end', paddingBottom:1 }}>
-                <span style={{ fontSize:10, color:'rgba(255,255,255,0.55)', whiteSpace:'nowrap' }}>{formatTime(msg.created_at)}</span>
-                {isMine && !msg.deleted && readReceipt === 'read' && <CheckCheck size={12} style={{ color:'var(--accent)' }} />}
-                {isMine && !msg.deleted && readReceipt === 'sent' && <Check size={12} style={{ color:'rgba(255,255,255,0.55)' }} />}
-              </span>
-            </div>
-          </div>
-
-          {/* Reaction badge — sits flush below the bubble's bottom edge, not overlapping it */}
-          {msg.reactions.length > 0 && (
-            <div style={{
-              position:'absolute', bottom:0, zIndex:2,
-              display:'flex', gap:4, flexWrap:'nowrap',
-              ...(isMine ? { right:8 } : { left:8 }),
-            }}>
-              {Object.entries(
-                msg.reactions.reduce<Record<string, { count: number; mine: boolean }>>((acc, r) => {
-                  if (!acc[r.emoji]) acc[r.emoji] = { count:0, mine:false }
-                  acc[r.emoji].count++
-                  if (r.user_id === myId) acc[r.emoji].mine = true
-                  return acc
-                }, {})
-              ).map(([emoji, { count, mine }]) => (
-                <button key={emoji} type="button" onClick={() => onAddReaction(msg.id, emoji)}
-                  style={{ display:'flex', alignItems:'center', gap:3, padding:'2px 6px', borderRadius:20, fontSize:12, cursor:'pointer', background: mine ? 'rgba(255,107,0,0.15)' : 'var(--surface2)', border:'2px solid var(--bg)', boxShadow:'0 2px 6px rgba(0,0,0,0.3)' }}>
-                  {emoji} {count > 1 && <span style={{ fontSize:11, color:'var(--text-dim)' }}>{count}</span>}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Hover-revealed reaction trigger — absolutely positioned beside the bubble so it
-              never affects layout height. Touch devices don't get a persistent visible copy
-              of this (there's no hover state to reveal it on tap-and-hold anyway); long-press
-              already opens the context menu's "React" option, so nothing is lost. */}
-          {!msg.deleted && (
-            <button
-              type="button"
-              onClick={() => onToggleEmojiPicker(msg.id)}
-              className="msg-react-trigger"
-              style={{
-                position:'absolute', top:'50%', transform:'translateY(-50%)',
-                ...(isMine ? { right:'100%', marginRight:6 } : { left:'100%', marginLeft:6 }),
-                background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)', padding:2, opacity:0, transition:'opacity 0.15s',
-              }}>
-              <Smile size={12} />
-            </button>
-          )}
+      <div style={{ display:'flex', flexDirection:'column', alignItems: isMine ? 'flex-end' : 'flex-start', maxWidth:'78%' }}>
+        {/* Chat-line block: dynamic width (fits its widest line, never the full
+            screen), with one shared underline at the bottom that hooks toward the
+            avatar's side to visually frame it — per the wireframe. */}
+        <div style={{
+          display:'inline-flex', flexDirection:'column', alignItems: isMine ? 'flex-end' : 'flex-start',
+          maxWidth:'100%', width:'fit-content',
+          borderBottom:`1.5px solid ${lineColor}`,
+          borderLeft: !isMine ? `1.5px solid ${lineColor}` : 'none',
+          borderRight: isMine ? `1.5px solid ${lineColor}` : 'none',
+          borderBottomLeftRadius: !isMine ? 9 : 0,
+          borderBottomRightRadius: isMine ? 9 : 0,
+          paddingLeft: !isMine ? 8 : 0,
+          paddingRight: isMine ? 8 : 0,
+          paddingBottom:6,
+          marginLeft: isGroupChat && !isMine ? -8 : 0,
+          marginRight: isGroupChat && isMine ? -8 : 0,
+        }}>
+          {burst.map((msg, i) => (
+            <MessageLine
+              key={msg.id}
+              msg={msg}
+              isMine={isMine}
+              emojiForMsg={emojiForMsg}
+              onContextMenu={onContextMenu}
+              onDoubleClick={onDoubleClick}
+              onToggleEmojiPicker={onToggleEmojiPicker}
+              onAddReaction={onAddReaction}
+              myId={myId}
+              formatTime={formatTime}
+              readReceipt={readReceiptFor(msg)}
+              isLastInBurst={i === burst.length - 1}
+            />
+          ))}
         </div>
-
-        {emojiForMsg === msg.id && (
-          <div style={{ display:'flex', gap:4, flexWrap:'wrap', padding:8, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:14, boxShadow:'0 12px 40px rgba(0,0,0,0.5)', marginTop:4, maxWidth:220, zIndex:3, position:'relative' }}>
-            {EMOJIS.map(em => (
-              <button key={em} type="button" onClick={() => onAddReaction(msg.id, em)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:18, padding:2 }}>{em}</button>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   )
@@ -586,6 +615,12 @@ export default function Chat() {
   const [roomMenuOpenFor, setRoomMenuOpenFor] = useState<string | null>(null)
   const [roomMenuPos, setRoomMenuPos] = useState({ x: 0, y: 0 })
   const [convMenuPos, setConvMenuPos] = useState({ x: 0, y: 0 })
+  // Retractable action drawer in the conversation header — collapsed by default,
+  // slides open horizontally to reveal call/search/menu icons, slides back in on toggle.
+  const [headerDrawerOpen, setHeaderDrawerOpen] = useState(false)
+  // In-conversation message search, opened from the header drawer's search icon.
+  const [msgSearchOpen, setMsgSearchOpen] = useState(false)
+  const [msgSearchQuery, setMsgSearchQuery] = useState('')
 
   const msgEnd = useRef<HTMLDivElement>(null)
   const subRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
@@ -900,6 +935,9 @@ export default function Chat() {
     setHasMoreOlder(false)
     setOtherLastReadAt(null)
     setDmBlockState('none')
+    setHeaderDrawerOpen(false)
+    setMsgSearchOpen(false)
+    setMsgSearchQuery('')
     isNearBottomRef.current = true
 
     // Most recent page only — newest-first query, then reversed for display.
@@ -957,8 +995,8 @@ export default function Chat() {
         ? supabase.from('message_reactions').select('message_id, emoji, user_id').in('message_id', msgIds)
         : Promise.resolve({ data: [] as { message_id: string; emoji: string; user_id: string }[] }),
       replyIds.length
-        ? supabase.from('messages').select('id, content, deleted').in('id', replyIds)
-        : Promise.resolve({ data: [] as { id: string; content: string; deleted: boolean }[] }),
+        ? supabase.from('messages').select('id, sender_id, content, deleted').in('id', replyIds)
+        : Promise.resolve({ data: [] as { id: string; sender_id: string | null; content: string; deleted: boolean }[] }),
     ])
 
     const reactionsByMsg = new Map<string, { emoji: string; user_id: string }[]>()
@@ -968,7 +1006,16 @@ export default function Chat() {
       reactionsByMsg.set(r.message_id, list)
     }
     const replyContentById = new Map<string, string>()
-    for (const r of allReplySources ?? []) replyContentById.set(r.id, r.deleted ? 'Message deleted' : r.content)
+    const replySenderById = new Map<string, string | null>()
+    for (const r of allReplySources ?? []) {
+      replyContentById.set(r.id, r.deleted ? 'Message deleted' : r.content)
+      replySenderById.set(r.id, r.sender_id)
+    }
+    const nameForSender = (id: string | null | undefined) => {
+      if (!id) return 'Unknown'
+      const member = allMembers.find(mb => mb.user_id === id)
+      return member ? (member.profile.display_name || member.profile.username) : 'Unknown'
+    }
 
     const enriched: Message[] = page.map(m => {
       const senderMember = allMembers.find(mb => mb.user_id === m.sender_id)
@@ -982,6 +1029,7 @@ export default function Chat() {
         senderName,
         senderUsername,
         replyPreview: m.reply_to_id ? replyContentById.get(m.reply_to_id) : undefined,
+        replyPreviewName: m.reply_to_id ? nameForSender(replySenderById.get(m.reply_to_id)) : undefined,
       }
     })
 
@@ -1163,8 +1211,8 @@ export default function Chat() {
         ? supabase.from('message_reactions').select('message_id, emoji, user_id').in('message_id', msgIds)
         : Promise.resolve({ data: [] as { message_id: string; emoji: string; user_id: string }[] }),
       replyIds.length
-        ? supabase.from('messages').select('id, content, deleted').in('id', replyIds)
-        : Promise.resolve({ data: [] as { id: string; content: string; deleted: boolean }[] }),
+        ? supabase.from('messages').select('id, sender_id, content, deleted').in('id', replyIds)
+        : Promise.resolve({ data: [] as { id: string; sender_id: string | null; content: string; deleted: boolean }[] }),
     ])
 
     const reactionsByMsg = new Map<string, { emoji: string; user_id: string }[]>()
@@ -1174,7 +1222,16 @@ export default function Chat() {
       reactionsByMsg.set(r.message_id, list)
     }
     const replyContentById = new Map<string, string>()
-    for (const r of olderReplySources ?? []) replyContentById.set(r.id, r.deleted ? 'Message deleted' : r.content)
+    const replySenderById = new Map<string, string | null>()
+    for (const r of olderReplySources ?? []) {
+      replyContentById.set(r.id, r.deleted ? 'Message deleted' : r.content)
+      replySenderById.set(r.id, r.sender_id)
+    }
+    const nameForSender = (id: string | null | undefined) => {
+      if (!id) return 'Unknown'
+      const member = allMembers.find(mb => mb.user_id === id)
+      return member ? (member.profile.display_name || member.profile.username) : 'Unknown'
+    }
 
     const enrichedOlder: Message[] = olderPage.map(m => {
       const senderMember = allMembers.find(mb => mb.user_id === m.sender_id)
@@ -1188,6 +1245,7 @@ export default function Chat() {
         senderName,
         senderUsername,
         replyPreview: m.reply_to_id ? replyContentById.get(m.reply_to_id) : undefined,
+        replyPreviewName: m.reply_to_id ? nameForSender(replySenderById.get(m.reply_to_id)) : undefined,
       }
     })
 
@@ -1378,7 +1436,7 @@ export default function Chat() {
       scrollModeRef.current = 'bottom'
       setMessages(ms => {
         if (ms.find(m => m.id === inserted.id)) return ms
-        return [...ms, { ...inserted, deleted: false, reactions: [], senderName, senderUsername, replyPreview: replyTo?.content }]
+        return [...ms, { ...inserted, deleted: false, reactions: [], senderName, senderUsername, replyPreview: replyTo?.content, replyPreviewName: replyTo?.senderName }]
       })
       setText(''); setReplyTo(null)
     } else if (!error) {
@@ -1432,7 +1490,7 @@ export default function Chat() {
     scrollModeRef.current = 'bottom'
     setMessages(ms => {
       if (ms.find(m => m.id === inserted.id)) return ms
-      return [...ms, { ...inserted, deleted: false, reactions: [], senderName, senderUsername, replyPreview: replyTo?.content }]
+      return [...ms, { ...inserted, deleted: false, reactions: [], senderName, senderUsername, replyPreview: replyTo?.content, replyPreviewName: replyTo?.senderName }]
     })
     setReplyTo(null)
     setSending(false)
@@ -1770,11 +1828,11 @@ export default function Chat() {
         <div style={{ flex:1, display:'flex', flexDirection:'column', background:'var(--bg)', minWidth:0, position:'relative' }}>
           {activeRoom ? (
             <>
-              {/* Conv topbar — NO phone/video buttons */}
-              <div style={{ display:'flex', alignItems:'center', gap:10, padding:'0 16px', height:56, flexShrink:0, background:'rgba(17,17,19,0.90)', backdropFilter:'blur(14px)', borderBottom:'1px solid rgba(255,255,255,0.05)' }}>
-                <IBtn onClick={() => { setShowConv(false); if (!isMobile) setActiveRoom(null) }}>
-                  <ArrowLeft size={15} />
-                </IBtn>
+              {/* Conv topbar — single full-width header block: title on the left, back
+                  arrow + retractable action drawer on the right. The drawer is a small
+                  rectangle that slides open horizontally to reveal icons, then retracts
+                  cleanly back into the header on toggle. */}
+              <div style={{ display:'flex', alignItems:'center', gap:10, padding:'0 12px 0 16px', height:56, flexShrink:0, background:'rgba(17,17,19,0.90)', backdropFilter:'blur(14px)', borderBottom:'1px solid rgba(255,255,255,0.05)', position:'relative' }}>
                 <div style={{ display:'flex', alignItems:'center', gap:10, flex:1, minWidth:0,
                   cursor: activeRoom.type === 'dm' ? 'pointer' : 'default' }}
                   onClick={() => { if (activeRoom.type === 'dm') setDmOptionsOpen(true) }}>
@@ -1805,19 +1863,63 @@ export default function Chat() {
                     })()}
                   </div>
                 </div>
-                {activeRoom.type === 'dm' && dmBlockState === 'none' && (() => {
-                  const other = activeRoom.members.find(m => m.user_id !== myId)
-                  if (!other) return null
-                  return <StartCallButton roomId={activeRoom.id} callee={{ id: other.user_id, username: other.profile.username, display_name: other.profile.display_name, avatar: other.profile.avatar }} size={34} />
-                })()}
-                {activeRoom.type === 'dm' && (
-                  <IBtn onClick={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect()
-                    setConvMenuPos({ x: rect.right, y: rect.bottom + 4 })
-                    setConvMenuOpen(o => !o)
-                  }}><MoreVertical size={15} /></IBtn>
-                )}
+
+                {/* Retractable action drawer + back arrow, grouped on the right */}
+                <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+                  <div style={{
+                    display:'flex', alignItems:'center', gap:6, overflow:'hidden',
+                    maxWidth: headerDrawerOpen ? 132 : 0,
+                    opacity: headerDrawerOpen ? 1 : 0,
+                    background: headerDrawerOpen ? 'var(--surface2)' : 'transparent',
+                    border: headerDrawerOpen ? '1px solid rgba(255,255,255,0.08)' : '1px solid transparent',
+                    borderRadius:10,
+                    padding: headerDrawerOpen ? '2px 4px' : '2px 0',
+                    transition:'max-width 0.28s ease, opacity 0.2s ease, padding 0.28s ease, background 0.2s ease',
+                  }}>
+                    {activeRoom.type === 'dm' && dmBlockState === 'none' && (() => {
+                      const other = activeRoom.members.find(m => m.user_id !== myId)
+                      if (!other) return null
+                      return <StartCallButton roomId={activeRoom.id} callee={{ id: other.user_id, username: other.profile.username, display_name: other.profile.display_name, avatar: other.profile.avatar }} size={32} />
+                    })()}
+                    <IBtn onClick={() => { setMsgSearchOpen(o => !o); if (msgSearchOpen) setMsgSearchQuery('') }} style={{ width:32, height:32 }}>
+                      <Search size={14} />
+                    </IBtn>
+                    {activeRoom.type === 'dm' && (
+                      <IBtn onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect()
+                        setConvMenuPos({ x: rect.right, y: rect.bottom + 4 })
+                        setConvMenuOpen(o => !o)
+                      }} style={{ width:32, height:32 }}><MoreVertical size={14} /></IBtn>
+                    )}
+                  </div>
+                  <IBtn onClick={() => setHeaderDrawerOpen(o => !o)} style={{ background: headerDrawerOpen ? 'var(--surface2)' : 'var(--surface)' }}>
+                    {headerDrawerOpen ? <X size={15} /> : <MoreVertical size={15} />}
+                  </IBtn>
+                  <IBtn onClick={() => { setShowConv(false); if (!isMobile) setActiveRoom(null) }}>
+                    <ArrowLeft size={15} />
+                  </IBtn>
+                </div>
               </div>
+
+              {/* Message search bar — slides in below the header when the drawer's search icon is toggled */}
+              {msgSearchOpen && (
+                <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'var(--surface2)', borderBottom:'1px solid rgba(255,255,255,0.05)', flexShrink:0 }}>
+                  <Search size={13} style={{ color:'var(--text-muted)', flexShrink:0 }} />
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="Search in this chat…"
+                    value={msgSearchQuery}
+                    onChange={e => setMsgSearchQuery(e.target.value)}
+                    style={{ flex:1, background:'transparent', border:'none', outline:'none', fontSize:13, color:'var(--text)' }}
+                  />
+                  {msgSearchQuery && (
+                    <button type="button" onClick={() => setMsgSearchQuery('')} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)', padding:0, display:'flex' }}>
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Pinned message banner */}
               {pinnedMsgPreview && (
@@ -1857,48 +1959,76 @@ export default function Chat() {
                         <span style={{ width:18, height:18, border:'2px solid var(--surface3)', borderTopColor:'var(--accent)', borderRadius:'50%', display:'block', animation:'spin 0.8s linear infinite' }} />
                       </div>
                     )}
-                    {groupedMessages.filter(m => !m.sender_id || !myBlockedIds.has(m.sender_id)).map(msg => {
-                      const isMine = msg.sender_id === myId
-                      const senderLabel = isMine ? 'You' : (msg.senderName || 'Unknown')
+                    {(() => {
+                      const notBlocked = groupedMessages.filter(m => !m.sender_id || !myBlockedIds.has(m.sender_id))
+                      const query = msgSearchQuery.trim().toLowerCase()
+                      const visible = query
+                        ? notBlocked.filter(m => !m.deleted && !m.hidden && m.content.toLowerCase().includes(query))
+                        : notBlocked
 
-                      // Resolve avatar: own messages use myProfile, others look up in room members
-                      let avatarUrl: string | null = null
-                      if (isMine) {
-                        avatarUrl = myProfile?.avatar ?? null
-                      } else {
+                      // Fold the flat, filtered list into consecutive-sender bursts — one
+                      // chat-line block per burst, sharing a single avatar and underline.
+                      // While searching, every match stands alone as its own block so it
+                      // keeps its own avatar/context regardless of the original grouping.
+                      const bursts: GroupedMessage[][] = []
+                      for (const m of visible) {
+                        const last = bursts[bursts.length - 1]
+                        if (!query && last && !m.isGroupFirst) last.push(m)
+                        else bursts.push([m])
+                      }
+
+                      // Resolve avatar for a sender: own messages use myProfile, others look up in room members
+                      const avatarFor = (msg: Message, isMine: boolean): string | null => {
+                        if (isMine) return myProfile?.avatar ?? null
                         const member = activeRoom?.members.find(mb => mb.user_id === msg.sender_id)
-                        avatarUrl = member?.profile?.avatar ?? null
+                        return member?.profile?.avatar ?? null
                       }
 
                       // Read receipt only means something for a DM — with a single
                       // other member, "read" is unambiguous. Global chat skips this.
-                      const readReceipt: ReadReceipt = !isMine || msg.deleted
-                        ? null
-                        : activeRoom.type === 'dm' && otherLastReadAt && new Date(msg.created_at) <= new Date(otherLastReadAt)
+                      const readReceiptFor = (msg: Message): ReadReceipt => {
+                        const isMine = msg.sender_id === myId
+                        if (!isMine || msg.deleted) return null
+                        return activeRoom.type === 'dm' && otherLastReadAt && new Date(msg.created_at) <= new Date(otherLastReadAt)
                           ? 'read'
                           : 'sent'
+                      }
 
-                      return (
-                        <MessageRow
-                          key={msg.id}
-                          msg={msg}
-                          isMine={isMine}
-                          senderLabel={senderLabel}
-                          avatarUrl={avatarUrl}
-                          myProfile={myProfile}
-                          emojiForMsg={emojiForMsg}
-                          onOpenProfile={openSenderProfile}
-                          onContextMenu={(m, x, y) => { setCtxMsg(m); setCtxPos({ x, y }) }}
-                          onDoubleClick={m => setReplyTo(m)}
-                          onToggleEmojiPicker={id => setEmojiForMsg(emojiForMsg === id ? null : id)}
-                          onAddReaction={addReaction}
-                          myId={myId}
-                          formatTime={formatTime}
-                          readReceipt={readReceipt}
-                          isGroupChat={activeRoom.type === 'global'}
-                        />
-                      )
-                    })}
+                      if (query && bursts.length === 0) {
+                        return (
+                          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', flex:1, gap:8, padding:'40px 0' }}>
+                            <Search size={26} style={{ color:'var(--text-muted)' }} />
+                            <p style={{ fontSize:12.5, color:'var(--text-muted)' }}>No messages match "{msgSearchQuery.trim()}"</p>
+                          </div>
+                        )
+                      }
+
+                      return bursts.map(burst => {
+                        const first = burst[0]
+                        const isMine = first.sender_id === myId
+                        const senderLabel = isMine ? 'You' : (first.senderName || 'Unknown')
+                        return (
+                          <MessageBurst
+                            key={first.id}
+                            burst={burst}
+                            isMine={isMine}
+                            senderLabel={senderLabel}
+                            avatarUrl={avatarFor(first, isMine)}
+                            myProfile={myProfile}
+                            emojiForMsg={emojiForMsg}
+                            onOpenProfile={openSenderProfile}
+                            onContextMenu={(m, x, y) => { setCtxMsg(m); setCtxPos({ x, y }) }}
+                            onDoubleClick={m => setReplyTo(m)}
+                            onToggleEmojiPicker={id => setEmojiForMsg(emojiForMsg === id ? null : id)}
+                            onAddReaction={addReaction}
+                            myId={myId}
+                            formatTime={formatTime}
+                            readReceiptFor={readReceiptFor}
+                            isGroupChat={activeRoom.type === 'global'}
+                          />
+                        )
+                      })
+                    })()}
                   </>
                 )}
                 <div ref={msgEnd} />
@@ -1927,7 +2057,7 @@ export default function Chat() {
                 <div style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 14px', background:'var(--surface2)', borderTop:'1px solid rgba(255,255,255,0.04)' }}>
                   <Reply size={14} style={{ color:'var(--accent)', flexShrink:0 }} />
                   <div style={{ flex:1, fontSize:12, color:'var(--text-dim)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                    <span style={{ color:'var(--accent)', fontWeight:600 }}>Replying: </span>{replyTo.content}
+                    <span style={{ color:'var(--accent)', fontWeight:600 }}>Replying to {replyTo.sender_id === myId ? 'yourself' : (replyTo.senderName || 'Unknown')}: </span>{replyTo.content}
                   </div>
                   <button type="button" onClick={() => setReplyTo(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)' }}><X size={14} /></button>
                 </div>
