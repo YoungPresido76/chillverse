@@ -327,11 +327,10 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
   // sheet stops at this exact point and its own body scrolls past it;
   // it never grows taller, and it never sits shorter for a sparse profile.
   //   Phone: near full-screen, matching the Discord reference.
-  //   Tab (and up): this was capping too low before — 760px was clipping
-  //   the percentage on ordinary laptop/tablet viewport heights, so it
-  //   never got close to the line drawn in the screenshot. Loosened the
-  //   cap so 85vh actually applies.
-  const sheetHeight = isWide ? 'min(85vh, 900px)' : 'min(94vh, 860px)'
+  //   Tab (and up): still landing short in the last screenshots even
+  //   after loosening the cap, so pushing this further up toward the
+  //   same near-full-screen magnitude as phone, just narrower in width.
+  const sheetHeight = isWide ? 'min(90vh, 960px)' : 'min(94vh, 860px)'
   const sheetBase: React.CSSProperties = {
     width: isWide ? 'min(92vw, 460px)' : '100%',
     height: sheetHeight,
