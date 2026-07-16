@@ -48,7 +48,7 @@ export default function CommentThread({ postId }: { postId: string }) {
               <strong style={{ color: 'var(--text-dim)' }}>
                 {c.author?.display_name || c.author?.username || 'User'}:
               </strong>{' '}
-              {c.hidden ? <HiddenContentNotice reason={c.hidden_reason} inline /> : c.body}
+              {c.hidden ? <HiddenContentNotice reason={c.hidden_reason} isOwner={user?.id === c.author_id} inline /> : c.body}
             </div>
           ))}
         </div>
