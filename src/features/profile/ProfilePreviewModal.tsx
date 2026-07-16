@@ -5,9 +5,12 @@
 // Discord's profile popover: a small preview with the essentials and a
 // 3-dot menu, plus a way to jump to the full profile page.
 //
-// Centered over a dimmed, blurred backdrop — fades and scales in/out
-// (~200ms), closes on backdrop click or Escape, locks page scroll while
-// open, and scrolls its own content internally if it overflows.
+// On phones/tablets it's a Discord-style bottom sheet: it slides up from
+// the trigger, its height tracks however much profile content there is
+// (no fixed height), and it stays open until you tap the dimmed backdrop,
+// hit Escape, or tap the close button. On desktop the same component
+// renders as a centered card instead. Locks page scroll while open, and
+// scrolls its own content internally if it overflows.
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
@@ -82,6 +85,7 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
   const [usernameCopied, setUsernameCopied] = useState(false)
   const [callStarting, setCallStarting] = useState(false)
   const { startCall, phase } = useCall()
+  const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 768)
   const [closing, setClosing] = useState(false)
   const [entered, setEntered] = useState(false)
   const [isModerator, setIsModerator] = useState(false)
@@ -96,6 +100,14 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
   useEffect(() => {
     const raf = requestAnimationFrame(() => setEntered(true))
     return () => cancelAnimationFrame(raf)
+  }, [])
+
+  // Track viewport so the exact same modal switches between a bottom
+  // sheet (mobile) and a centered card (desktop) without a page reload.
+  useEffect(() => {
+    function onResize() { setIsDesktop(window.innerWidth >= 768) }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
   }, [])
 
   // Lock the page behind the modal — Discord's popover never lets the
@@ -292,18 +304,31 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
     .sort((a, b) => (BADGE_RARITY_RANK[a.rarity] ?? 9) - (BADGE_RARITY_RANK[b.rarity] ?? 9))
     .slice(0, BADGE_PREVIEW_COUNT)
 
-  // Centered fade + scale, like Discord's popover — no bottom-sheet mode.
-  // Width scales from "nearly full width with margins" on phones up to a
-  // fixed, Discord-proportioned card on desktop, via min().
-  const sheetBase: React.CSSProperties = {
-    width: 'min(92vw, 420px)',
-    maxHeight: 'min(85vh, 640px)',
-    borderRadius: 16,
-    transform: entered && !closing ? 'scale(1)' : 'scale(0.95)',
-    opacity: entered && !closing ? 1 : 0,
-    // Quart-out: fast start, gentle settle — reads as responsive, not abrupt.
-    transition: 'transform 0.2s cubic-bezier(0.16,1,0.3,1), opacity 0.18s ease-out',
-  }
+  // Mobile/tablet: a true bottom sheet — no fixed height. It hugs however
+  // tall the profile content actually is (banner + bio + badges + achievements
+  // etc.) and only clips at maxHeight if there's a LOT of content, at which
+  // point its own body scrolls. It slides up from the bottom on open and
+  // slides back down on close, same as Discord.
+  // Desktop: unchanged centered card, fade + scale.
+  const sheetBase: React.CSSProperties = isDesktop
+    ? {
+      width: 'min(92vw, 420px)',
+      maxHeight: 'min(85vh, 640px)',
+      borderRadius: 16,
+      transform: entered && !closing ? 'scale(1)' : 'scale(0.95)',
+      opacity: entered && !closing ? 1 : 0,
+      // Quart-out: fast start, gentle settle — reads as responsive, not abrupt.
+      transition: 'transform 0.2s cubic-bezier(0.16,1,0.3,1), opacity 0.18s ease-out',
+    }
+    : {
+      width: '100%',
+      maxWidth: '100%',
+      maxHeight: '86vh',
+      borderRadius: '20px 20px 0 0',
+      marginTop: 'auto',
+      transform: entered && !closing ? 'translateY(0)' : 'translateY(100%)',
+      transition: 'transform 0.28s cubic-bezier(0.32,0.72,0,1)',
+    }
 
   return createPortal(
     <div
@@ -311,8 +336,8 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
       style={{
         position: 'fixed', inset: 0, zIndex: 20000,
         background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 16,
+        display: 'flex', alignItems: isDesktop ? 'center' : 'flex-end', justifyContent: 'center',
+        padding: isDesktop ? 16 : 0,
         opacity: entered && !closing ? 1 : 0, transition: 'opacity 0.2s ease-out',
       }}
     >
@@ -321,9 +346,13 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
         style={{
           ...sheetBase,
           background: 'var(--bg)', overflowY: 'auto', overscrollBehavior: 'contain', position: 'relative',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.3)',
+          boxShadow: isDesktop ? '0 20px 60px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.3)' : '0 -8px 40px rgba(0,0,0,0.5)',
         }}
       >
+        {!isDesktop && (
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.22)', margin: '10px auto 0' }} />
+        )}
+
         {/* Banner */}
         <div style={{ position: 'relative', height: 74, background: profile?.banner_url ? 'transparent' : 'linear-gradient(120deg, var(--accent), var(--accent2))', overflow: 'hidden' }}>
           {profile?.banner_url && (
