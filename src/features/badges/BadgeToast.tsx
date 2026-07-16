@@ -9,8 +9,19 @@ import { BADGE_RARITY_COLOR } from './badges'
 // mount, auto-dismisses after ~2.6s, and can be swiped up to dismiss
 // early. Shows only the badge icon + name — nothing else.
 export default function BadgeToast({
-  title, icon, rarity, onDone,
-}: { title: string; icon: string; rarity: string; onDone: () => void }) {
+  title, icon, rarity, onDone, colorOverride, customIcon,
+}: {
+  title: string
+  // icon/rarity stay required for every existing (real badge) caller.
+  // colorOverride/customIcon are optional escape hatches so the rank
+  // tap can reuse this exact same toast — its own tier color and emoji
+  // — without touching how any badge toast looks or behaves.
+  icon: string
+  rarity: string
+  onDone: () => void
+  colorOverride?: string
+  customIcon?: React.ReactNode
+}) {
   const [dragY, setDragY] = useState(0)
   const [dismissing, setDismissing] = useState(false)
   const [entered, setEntered] = useState(false)
@@ -45,7 +56,7 @@ export default function BadgeToast({
     timerRef.current = setTimeout(() => close(), 1600)
   }
 
-  const color = BADGE_RARITY_COLOR[rarity] ?? '#888899'
+  const color = colorOverride ?? BADGE_RARITY_COLOR[rarity] ?? '#888899'
   const translateY = dismissing ? -120 : entered ? dragY : -120
 
   return createPortal(
@@ -65,7 +76,7 @@ export default function BadgeToast({
       }}
     >
       <div style={{ width: 26, height: 26, borderRadius: 8, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: color + '20' }}>
-        <BadgeIcon iconKey={icon} size={14} color={color} />
+        {customIcon ?? <BadgeIcon iconKey={icon} size={14} color={color} />}
       </div>
       <span style={{ fontSize: 12.5, fontWeight: 700, color: '#fff' }}>{title}</span>
     </div>,
