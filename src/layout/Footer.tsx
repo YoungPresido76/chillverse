@@ -4,7 +4,7 @@ import Logo from './Logo'
 
 const FOOTER_LINKS: Array<[href: string, label: string]> = [
   ['https://cvwtplatform.vercel.app/', 'Platform'],
-  ['/#features', 'About'],
+  ['/about', 'About'],
   ['/privacy', 'Privacy'],
   ['/terms', 'Terms'],
   ['mailto:chillverserelationoffice@gmail.com', 'Contact'],
