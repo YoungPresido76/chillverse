@@ -234,8 +234,6 @@ const MessageLine = memo(function MessageLine({
         marginBottom:8,
         paddingBottom: msg.reactions.length > 0 ? 16 : 6,
         borderBottom:`1.5px solid ${lineColor}`,
-        borderLeft: !isMine ? `1.5px solid ${lineColor}` : 'none',
-        borderRight: isMine ? `1.5px solid ${lineColor}` : 'none',
         borderBottomLeftRadius: !isMine ? 9 : 0,
         borderBottomRightRadius: isMine ? 9 : 0,
         paddingLeft: !isMine ? 8 : 0,
@@ -244,8 +242,22 @@ const MessageLine = memo(function MessageLine({
         marginRight: isGroupChat && isMine ? -8 : 0,
       }}>
 
+      {/* Short accent "hook" that joins the underline into the corner — fixed
+          height so it stays a small hook next to the last line regardless of
+          how many lines the message wraps onto, instead of a full-height
+          border that used to run all the way up to the first line. */}
+      <div style={{
+        position:'absolute', bottom:0, height:20, width:0,
+        pointerEvents:'none',
+        left: !isMine ? 0 : undefined,
+        right: isMine ? 0 : undefined,
+        borderLeft: !isMine ? `1.5px solid ${lineColor}` : undefined,
+        borderRight: isMine ? `1.5px solid ${lineColor}` : undefined,
+      }} />
+
       {/* Reply header — target user's name + their quoted text, stacked directly above
           this line. This is the ONLY place a name appears on a received message; own
+
           messages never show a name at all. */}
       {msg.replyPreview && !msg.deleted && (
         <div style={{ marginBottom:3, display:'flex', flexDirection:'column', alignItems: isMine ? 'flex-end' : 'flex-start' }}>
