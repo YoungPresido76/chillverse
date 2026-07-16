@@ -7,6 +7,7 @@ import { interestIcons } from '../../shared/lib/icons'
 import { stashReferralCode, consumePendingReferralCode, applyReferralCode } from '../referral/referral'
 import Wordmark from '../../layout/Wordmark'
 import Logo from '../../layout/Logo'
+import Seo from '../../shared/components/Seo'
 
 const INTERESTS = ['Strategy', 'Action', 'Puzzle', 'Compete', 'Social', 'Casual']
 const COUNTRIES = [
@@ -234,6 +235,11 @@ export default function Signup() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden" style={{ background: 'var(--bg)' }}>
+      <Seo
+        title="Sign Up Free"
+        description="Create your free Chillverse account in seconds. Start earning XP, building your streak, and climbing the leaderboard today."
+        path="/signup"
+      />
       <div style={{ position: 'fixed', width: 400, height: 400, borderRadius: '50%', background: 'rgba(155,109,255,0.09)', filter: 'blur(100px)', top: '-6rem', right: '-6rem', pointerEvents: 'none' }} />
       <div style={{ position: 'fixed', width: 300, height: 300, borderRadius: '50%', background: 'rgba(79,142,247,0.06)', filter: 'blur(100px)', bottom: '-5rem', left: '-5rem', pointerEvents: 'none' }} />
 

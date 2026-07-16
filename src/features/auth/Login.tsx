@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { signInWithEmail, signInWithGoogle, signInWithDiscord, resendConfirmationEmail } from './auth'
 import Wordmark from '../../layout/Wordmark'
 import Logo from '../../layout/Logo'
+import Seo from '../../shared/components/Seo'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -74,6 +75,11 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden" style={{ background: 'var(--bg)' }}>
+      <Seo
+        title="Log In"
+        description="Log in to Chillverse to keep your streak alive, jump into a game, and check your rank on the leaderboard."
+        path="/login"
+      />
       <div className="fixed w-[400px] h-[400px] rounded-full blur-[100px] -top-20 -left-24 pointer-events-none" style={{ background: 'rgba(155,109,255,0.10)' }} />
       <div className="fixed w-[350px] h-[350px] rounded-full blur-[100px] -bottom-24 -right-20 pointer-events-none" style={{ background: 'rgba(255,77,139,0.06)' }} />
 
