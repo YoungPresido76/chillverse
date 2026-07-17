@@ -5,7 +5,7 @@
 // without importing the full game lobby page and its game components.
 import {
   Move, Brain, Drama, BookOpen, Grid3X3,
-  Eye, Calculator, LayoutGrid, Hash, Target, Sparkles, Spade, Blocks,
+  Eye, Calculator, LayoutGrid, Hash, Target, Sparkles, Spade, Blocks, Layers,
   type LucideIcon,
 } from 'lucide-react'
 import type { GameKey } from './gameSession'
@@ -19,6 +19,7 @@ export type GameId =
   | 'pattern-king'
   | 'uno'
   | 'colour-block'
+  | 'tile-merge'
 
 export interface GameMeta {
   id: GameId
@@ -51,6 +52,7 @@ const PREMIUM_GAMES: GameMeta[] = [
   { id: 'pattern-king',   dbKey: 'pattern_king',   name: 'Pattern King',          tagline: 'Memorize the grid. Clear every pattern before time runs out.', accent: '#00e5ff', icon: Sparkles, sessionCost: 3 },
   { id: 'uno',            dbKey: 'uno',            name: 'Chillverse_Uno',        tagline: 'Classic UNO against Halo — a smart AI that remembers your weaknesses.', accent: '#9b6dff', icon: Spade, sessionCost: 4, requiresPro: true },
   { id: 'colour-block',   dbKey: 'colour_block',   name: 'Colour Block',          tagline: "Memorize the safe tile, survive the shuffle, don't get caught out.", accent: '#ff5fa2', icon: Blocks, sessionCost: 3, requiresPro: true },
+  { id: 'tile-merge',     dbKey: 'tile_merge',     name: 'Chill Merge',           tagline: 'Place tiles, chain the merges, chase the high score.',           accent: '#38bdf8', icon: Layers, sessionCost: 2 },
 ]
 
 export const GAMES: GameMeta[] = [...STANDARD_GAMES, ...PREMIUM_GAMES]
