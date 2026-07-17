@@ -1,9 +1,11 @@
 // src/features/profile/ProfilePreviewModal.tsx
 //
-// The "quick profile" card that pops up when you tap someone's avatar
-// anywhere in the app (feed, chat, search, comments, etc). Mirrors
-// Discord's profile popover: a small preview with the essentials and a
-// 3-dot menu, plus a way to jump to the full profile page.
+// The profile popup — this IS the profile now, there's no separate full
+// page anymore. Mirrors Discord's profile popover: tap any avatar
+// anywhere in the app (feed, chat, search, comments, sidebar) and this
+// slides up with everything — Main / Wishlist / Stats tabs, and (when
+// it's your own profile) Edit Profile + Refer & Earn instead of the
+// follow/message/call row.
 //
 // A Discord-style bottom sheet at every screen size — phone AND tablet.
 // It slides up and stays pinned to the bottom of the viewport until you
@@ -18,7 +20,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import {
   X, MoreVertical, UserPlus, UserCheck, MessageCircle, ShieldOff, Copy, Flag, Check, Phone,
-  Image as ImageIcon,
+  Image as ImageIcon, Edit3, Gift, Zap, Trophy, Star, Sparkles, Package,
 } from 'lucide-react'
 import { supabase } from '../../shared/lib/supabase'
 import { useAuth } from '../auth/useAuth'
@@ -31,10 +33,17 @@ import { BADGE_RARITY_COLOR, BADGE_RARITY_RANK, badgeDisplayTitle, type BadgeDef
 import BadgeToast from '../badges/BadgeToast'
 import { AchIcon, RARITY_COLOR as ACH_RARITY_COLOR } from '../achievements/Achievements'
 import AchievementMiniToast from '../achievements/AchievementMiniToast'
-import { getGameById } from '../games/games'
+import { getGameById, getGameMeta } from '../games/games'
+import { getAllPlayerRanks } from '../games/gameSession'
 import ReportModal from '../safety/ReportModal'
 import { useCall } from '../chat/calling/CallContext'
 import { MOD_AVATAR_URL } from '../moderation/modShowcase'
+import EditProfileModal from './EditProfileModal'
+import type { Profile } from '../../shared/types'
+
+const GAME_RANK_STARS: Record<string, number> = {
+  beginner: 1, intermediate: 3, advanced: 4, master: 5,
+}
 
 // ── Sheet height — its own dedicated setting ────────────────────────────
 // This is the ONE number that controls how tall the profile preview sheet
@@ -63,6 +72,9 @@ interface PreviewProfile {
   original_username: string
   staff_member_since: string | null
   banner_url: string | null
+  favorite_game: string | null
+  grid_cards: string[] | null
+  equipped_avatar: string | null
 }
 
 // Total icon slots in the badge row, RANK INCLUDED — the rank tier now
@@ -96,7 +108,7 @@ interface LiveActivity {
   exploring: boolean
 }
 
-type PreviewTab = 'main' | 'wishlist'
+type PreviewTab = 'main' | 'wishlist' | 'stats'
 
 export default function ProfilePreviewModal({ userId, onClose }: { userId: string; onClose: () => void }) {
   const { user } = useAuth()
@@ -126,6 +138,12 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
   const [activeTab, setActiveTab] = useState<PreviewTab>('main')
   const [wishlist, setWishlist] = useState<PreviewWishlistItem[]>([])
   const [wishlistLoading, setWishlistLoading] = useState(true)
+  const [lbPosition, setLbPosition] = useState<number | null>(null)
+  const [equippedArtifact, setEquippedArtifact] = useState<string | null>(null)
+  const [equippedArtifactImage, setEquippedArtifactImage] = useState<string | null>(null)
+  const [favoriteGameRank, setFavoriteGameRank] = useState<string | null>(null)
+  const [showEdit, setShowEdit] = useState(false)
+  const [editAlbumPics, setEditAlbumPics] = useState<{ id: string; label: string; imageUrl: string }[]>([])
   const menuRef = useRef<HTMLDivElement>(null)
 
   const isMe = user?.id === userId
@@ -265,6 +283,61 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
     return () => { supabase.removeChannel(channel) }
   }, [userId])
 
+  // Leaderboard position — only worth fetching (all-profiles scan) if the
+  // player actually opted into showing it via their grid card picks.
+  useEffect(() => {
+    if (!profile?.grid_cards?.includes('leaderboard')) { setLbPosition(null); return }
+    let active = true
+    supabase.from('profiles').select('id, xp').order('xp', { ascending: false })
+      .then(({ data }) => {
+        if (!active) return
+        const pos = (data ?? []).findIndex((p: { id: string }) => p.id === userId)
+        setLbPosition(pos >= 0 ? pos + 1 : null)
+      })
+    return () => { active = false }
+  }, [userId, profile?.grid_cards])
+
+  // Equipped artifact — shown alongside equipped avatar in the Stats tab.
+  useEffect(() => {
+    let active = true
+    supabase.from('user_items').select('item_name, item_image').eq('user_id', userId)
+      .eq('item_type', 'artifact').eq('is_equipped', true).maybeSingle()
+      .then(({ data }) => {
+        if (!active) return
+        setEquippedArtifact((data?.item_name as string) ?? null)
+        setEquippedArtifactImage((data?.item_image as string) ?? null)
+      })
+    return () => { active = false }
+  }, [userId])
+
+  // Star rating for the favorite-game card.
+  useEffect(() => {
+    if (!profile?.favorite_game) { setFavoriteGameRank(null); return }
+    let active = true
+    getAllPlayerRanks(userId).then(ranks => {
+      if (!active) return
+      const row = ranks[profile.favorite_game as keyof typeof ranks]
+      setFavoriteGameRank(row?.rank ?? null)
+    })
+    return () => { active = false }
+  }, [userId, profile?.favorite_game])
+
+  // Album pics — no longer shown in the popup itself, but Edit Profile's
+  // banner picker still needs the list of pics owned.
+  useEffect(() => {
+    if (!isMe) return
+    let active = true
+    supabase.from('user_items').select('item_id, item_name, item_image')
+      .eq('user_id', userId).eq('item_type', 'album_pic')
+      .then(({ data }) => {
+        if (!active) return
+        setEditAlbumPics((data ?? []).map((d: Record<string, unknown>) => ({
+          id: d.item_id as string, label: d.item_name as string, imageUrl: d.item_image as string,
+        })))
+      })
+    return () => { active = false }
+  }, [userId, isMe])
+
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
@@ -311,11 +384,6 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
       setUsernameCopied(true)
       setTimeout(() => { setUsernameCopied(false); setMenuOpen(false) }, 1000)
     }).catch(() => setMenuOpen(false))
-  }
-
-  function viewFullProfile() {
-    close()
-    navigate(isMe ? '/profile' : `/profile/${userId}`)
   }
 
   function goToChat() {
@@ -447,7 +515,7 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
               border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 6,
               boxShadow: '0 10px 32px rgba(0,0,0,0.5)', zIndex: 1,
             }}>
-              <MenuItem icon={<UserCheck size={14} />} label="View full profile" onClick={() => { setMenuOpen(false); viewFullProfile() }} />
+              <MenuItem icon={usernameCopied ? <Check size={14} /> : <Copy size={14} />} label={usernameCopied ? 'Copied!' : 'Copy username'} onClick={handleCopyUsername} />
               {!isMe && (
                 <MenuItem
                   icon={<ShieldOff size={14} />}
@@ -456,7 +524,6 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
                   onClick={handleBlock}
                 />
               )}
-              <MenuItem icon={usernameCopied ? <Check size={14} /> : <Copy size={14} />} label={usernameCopied ? 'Copied!' : 'Copy username'} onClick={handleCopyUsername} />
               {!isMe && (
                 <MenuItem icon={<Flag size={14} />} label="Report" danger onClick={() => { setMenuOpen(false); setReportOpen(true) }} />
               )}
@@ -563,6 +630,32 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
                 </div>
               )}
 
+              {!isModerator && isMe && (
+                <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                  <button
+                    type="button" onClick={(e) => { ripple(e); setShowEdit(true) }}
+                    className="ripple-wrap pv-btn btn-primary"
+                    style={{
+                      flex: 1, padding: '11px 8px', borderRadius: 13, fontSize: 12.5, fontWeight: 700,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, border: 'none', cursor: 'pointer',
+                    }}
+                  >
+                    <Edit3 size={14} /> Edit Profile
+                  </button>
+                  <button
+                    type="button" onClick={(e) => { ripple(e); close(); navigate('/referral') }}
+                    className="ripple-wrap pv-btn"
+                    style={{
+                      flex: 1, padding: '11px 8px', borderRadius: 13, fontSize: 12.5, fontWeight: 700,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, border: 'none',
+                      background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer',
+                    }}
+                  >
+                    <Gift size={14} /> Refer & Earn
+                  </button>
+                </div>
+              )}
+
               {activity.movie && (
                 <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 12, background: 'rgba(255,107,0,0.1)', border: '1px solid rgba(255,107,0,0.28)', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#ff6b00', boxShadow: '0 0 8px #ff6b00', animation: 'pulse 1.5s ease-in-out infinite', flexShrink: 0 }} />
@@ -591,10 +684,10 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
                 </div>
               )}
 
-              {/* Main / Wishlist tabs — wishlist can't be hidden, so the
-                  tab is always shown even for a profile with nothing in it. */}
+              {/* Main / Wishlist / Stats tabs — wishlist can't be hidden, so
+                  the tab is always shown even for a profile with nothing in it. */}
               <div style={{ display: 'flex', marginTop: 16, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                {(['main', 'wishlist'] as const).map(tab => (
+                {(['main', 'wishlist', 'stats'] as const).map(tab => (
                   <button
                     key={tab}
                     type="button"
@@ -653,7 +746,7 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
                     </div>
                   )}
                 </div>
-              ) : (
+              ) : activeTab === 'wishlist' ? (
                 <div style={{ marginTop: 12 }}>
                   {wishlistLoading ? (
                     <div className="pv-skel" style={{ height: 44, width: '100%', borderRadius: 12 }} />
@@ -672,19 +765,99 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
                     </div>
                   )}
                 </div>
-              )}
+              ) : (
+                <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {/* XP — always shown */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderRadius: 13, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                      <Zap size={14} style={{ color: '#f5c542' }} />
+                      <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)' }}>Current XP</span>
+                    </div>
+                    <span style={{ fontSize: 12.5, fontWeight: 800, color: rank?.color ?? 'var(--text)' }}>{profile.xp.toLocaleString()}</span>
+                  </div>
 
-              <button
-                type="button" onClick={viewFullProfile}
-                className="pv-btn"
-                style={{ width: '100%', marginTop: 12, padding: '10px 8px', borderRadius: 13, fontSize: 12, fontWeight: 700, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--text-dim)', cursor: 'pointer' }}
-              >
-                View full profile
-              </button>
+                  {/* Leaderboard — only if the player opted in via grid cards */}
+                  {profile.grid_cards?.includes('leaderboard') && (
+                    <button
+                      type="button" className="pv-btn"
+                      onClick={() => { close(); navigate('/ranks') }}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderRadius: 13, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer' }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                        <Trophy size={14} style={{ color: '#4f8ef7' }} />
+                        <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)' }}>Leaderboard</span>
+                      </div>
+                      <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--text-dim)' }}>{lbPosition ? `#${lbPosition}` : '—'}</span>
+                    </button>
+                  )}
+
+                  {/* Favorite game, with star score */}
+                  {profile.favorite_game && (() => {
+                    const meta = getGameMeta(profile.favorite_game)
+                    if (!meta) return null
+                    const stars = GAME_RANK_STARS[favoriteGameRank ?? ''] ?? 0
+                    return (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 13, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div style={{ width: 34, height: 34, borderRadius: 9, background: `${meta.accent}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <meta.icon size={16} style={{ color: meta.accent }} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--text)', marginBottom: 2 }}>{meta.name}</div>
+                          <div style={{ display: 'flex', gap: 2 }}>
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <Star key={i} size={10} style={{ color: i < stars ? '#f5c542' : 'var(--surface3)' }} fill={i < stars ? '#f5c542' : 'none'} />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+                  {/* Equipped avatar + artifact */}
+                  <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '12px 8px', borderRadius: 13, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 11, background: profile.equipped_avatar ? `${rank?.color ?? '#888899'}18` : 'var(--surface2)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: profile.equipped_avatar ? `1px solid ${rank?.color ?? '#888899'}33` : '1px solid rgba(255,255,255,0.06)' }}>
+                        {profile.equipped_avatar && profile.equipped_avatar.startsWith('http')
+                          ? <img src={profile.equipped_avatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                          : <Sparkles size={14} style={{ color: profile.equipped_avatar ? (rank?.color ?? 'var(--text)') : 'var(--text-muted)' }} />
+                        }
+                      </div>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: profile.equipped_avatar ? 'var(--text)' : 'var(--text-muted)', textAlign: 'center' }}>
+                        {profile.equipped_avatar ? 'Avatar' : 'No avatar'}
+                      </span>
+                    </div>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '12px 8px', borderRadius: 13, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 11, background: equippedArtifact ? `${rank?.color ?? '#888899'}18` : 'var(--surface2)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: equippedArtifact ? `1px solid ${rank?.color ?? '#888899'}33` : '1px solid rgba(255,255,255,0.06)' }}>
+                        {equippedArtifactImage && equippedArtifactImage.startsWith('http')
+                          ? <img src={equippedArtifactImage} alt="artifact" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : <Package size={14} style={{ color: equippedArtifact ? (rank?.color ?? 'var(--text)') : 'var(--text-muted)' }} />
+                        }
+                      </div>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: equippedArtifact ? 'var(--text)' : 'var(--text-muted)', textAlign: 'center' }}>
+                        {equippedArtifact || 'No artifact'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
       </div>
+
+      {showEdit && profile && isMe && (
+        <EditProfileModal
+          profile={profile as unknown as Profile}
+          albumPics={editAlbumPics}
+          bannerUrl={profile.banner_url}
+          presence={presence}
+          onClose={() => setShowEdit(false)}
+          onSaved={(updates) => {
+            setProfile(prev => (prev ? { ...prev, ...updates } as PreviewProfile : prev))
+          }}
+          onToast={() => {}}
+        />
+      )}
 
       {reportOpen && user && profile && (
         <ReportModal
