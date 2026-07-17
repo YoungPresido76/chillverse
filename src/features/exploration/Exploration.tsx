@@ -4,6 +4,9 @@ import { Battery, Lock, Zap, MapPin, ChevronLeft, Crown, Star, Trophy, GamepadIc
 import { supabase } from '../../shared/lib/supabase'
 import { useAuth } from '../auth/useAuth'
 import { useProfile } from '../profile/useProfile'
+import StoryCheckpointOverlay from './story/StoryCheckpointOverlay'
+import { STORY_CONTENT } from './story/content/map1'
+import type { CheckpointStage, StoryChoiceOption } from './story/types'
 
 // ── Types ─────────────────────────────────────────────────────
 interface Chamber {
@@ -25,12 +28,17 @@ interface ExplorationMap {
   chambers: Chamber[]
 }
 
+// Which start/mid/claim checkpoints this run has already resolved.
+// Absent key == not yet seen. Populated from exploration_chamber_runs.story_state.
+type StorySeenMap = Partial<Record<CheckpointStage, boolean>>
+
 interface ChamberState {
-  status: 'idle' | 'running' | 'done'
+  status: 'idle' | 'running' | 'awaiting_story' | 'done'
   startedAt?: number      // ms timestamp
   durationMs?: number     // total ms for this run
   progress?: number       // 0–100
   artifactFound?: boolean // only true if the artifact roll actually hit
+  storySeen?: StorySeenMap
 }
 
 const MAX_ENERGY = 200
@@ -577,6 +585,14 @@ function MapView({
   const [toast, setToast] = useState<{ msg: string; color: string } | null>(null)
   const claimingRef = useRef<Set<number>>(new Set())
 
+  // Story checkpoint currently on screen (at most one at a time). Only
+  // chambers with content in STORY_CONTENT[map.id] ever set this.
+  const [activeCheckpoint, setActiveCheckpoint] = useState<{
+    chamber: Chamber
+    stage: CheckpointStage
+    onResolved: (oddsDelta: number) => void | Promise<void>
+  } | null>(null)
+
   const tierColors: Record<string, string> = {
     'I': '#3ecf8e', 'II': '#4f8ef7', 'III': '#9b6dff', 'IV': '#f5c542',
   }
@@ -587,12 +603,17 @@ function MapView({
     setTimeout(() => setToast(null), 4000)
   }
 
-  // 15% drop — picks a random artifact from this map's location the player doesn't own.
+  // Base 15% drop, adjusted by any claim-checkpoint story choice for this run
+  // (oddsDelta, 0 if the chamber has no story content or the player never
+  // saw a claim checkpoint). Story-exclusive artifacts are never part of
+  // this random pool — those are only ever granted directly by
+  // apply_story_checkpoint's grant_artifact effect.
   // Returns true only if an artifact was actually granted, so the UI never claims
   // "Artifact found" unless something was really added to the player's inventory.
-  async function tryArtifactDrop(): Promise<boolean> {
+  async function tryArtifactDrop(oddsDelta = 0): Promise<boolean> {
     if (!userId) return false
-    if (Math.random() > 0.15) return false  // 85% chance of no drop
+    const chance = Math.min(0.6, Math.max(0.05, 0.15 + oddsDelta))
+    if (Math.random() > chance) return false
 
     // Fetch all artifacts in this location that the player doesn't own yet
     const { data: owned } = await supabase
@@ -606,6 +627,7 @@ function MapView({
       .from('artifacts')
       .select('id, name')
       .eq('location', map.artifactLocation)
+      .eq('story_exclusive', false)
 
     const eligible = (available ?? []).filter((a: { id: string; name: string }) => !ownedIds.has(a.id))
     if (!eligible.length) return false  // player owns them all from this location
@@ -624,6 +646,36 @@ function MapView({
     return false
   }
 
+  // Looks up this chamber's checkpoint content for the given stage, if any.
+  // Maps/chambers with no authored story (everything but Greenfields today)
+  // simply return undefined and every story trigger below no-ops.
+  function getCheckpoint(chamberId: number, stage: CheckpointStage) {
+    return STORY_CONTENT[map.id]?.[chamberId]?.[stage]
+  }
+
+  // Calls apply_story_checkpoint for the picked option, applies the flag/
+  // XP/artifact-grant effects server-side, marks the stage seen locally so
+  // it can't retrigger, and resolves with the odds_delta the RPC computed
+  // (0 for anything but a claim-stage pick with artifact_odds_delta effects).
+  async function resolveCheckpoint(chamber: Chamber, stage: CheckpointStage, option: StoryChoiceOption): Promise<number> {
+    setChamberStates(s => ({
+      ...s,
+      [chamber.id]: { ...s[chamber.id], storySeen: { ...s[chamber.id]?.storySeen, [stage]: true } },
+    }))
+
+    if (!userId) return 0
+    const { data, error } = await supabase.rpc('apply_story_checkpoint', {
+      p_user_id: userId,
+      p_map_id: map.id,
+      p_chamber_id: chamber.id,
+      p_stage: stage,
+      p_choice_id: option.id,
+      p_effects: option.effects,
+    })
+    if (error) return 0
+    return typeof data?.odds_delta === 'number' ? data.odds_delta : 0
+  }
+
   // Load this map's chamber runs from the DB — this is what makes the
   // timer survive navigation/refresh/closing the tab, since started_at
   // and ends_at are server timestamps, not a JS setTimeout.
@@ -631,7 +683,7 @@ function MapView({
     if (!userId) { setLoadingRuns(false); return }
     const { data, error } = await supabase
       .from('exploration_chamber_runs')
-      .select('chamber_id, started_at, ends_at, claimed, artifact_awarded')
+      .select('chamber_id, started_at, ends_at, claimed, artifact_awarded, story_state')
       .eq('user_id', userId)
       .eq('map_id', map.id)
 
@@ -641,11 +693,17 @@ function MapView({
     for (const row of data ?? []) {
       const startedAt = new Date(row.started_at).getTime()
       const endsAt = new Date(row.ends_at).getTime()
+      const storyState = (row.story_state ?? {}) as Record<string, { seen?: boolean }>
       next[row.chamber_id] = {
         status: row.claimed ? 'done' : 'running',
         startedAt,
         durationMs: endsAt - startedAt,
         artifactFound: !!row.artifact_awarded,
+        storySeen: {
+          start: !!storyState.start?.seen,
+          mid: !!storyState.mid?.seen,
+          claim: !!storyState.claim?.seen,
+        },
       }
     }
     setChamberStates(next)
@@ -654,63 +712,102 @@ function MapView({
 
   useEffect(() => { loadRuns() }, [userId, map.id])
 
-  // Every 15s, check for any running chamber whose ends_at has passed and
-  // claim its reward (XP + artifact roll) exactly once. claimingRef guards
-  // against double-claims if this fires twice before the DB update lands.
+  // Shared by checkCompletions (no story, or claim checkpoint already
+  // resolved) and by the claim-checkpoint overlay's onResolved callback
+  // (story checkpoint just resolved, oddsDelta comes from its effects).
+  // claimingRef guards against double-claims if this fires twice before
+  // the DB update lands.
+  async function finalizeClaim(chamber: Chamber, oddsDelta: number) {
+    if (!userId) return
+    if (claimingRef.current.has(chamber.id)) return
+    claimingRef.current.add(chamber.id)
+
+    // Flip claimed=true only if it's still false — the WHERE clause
+    // makes this safe even if two tabs race each other.
+    const { data: claimedRow, error } = await supabase
+      .from('exploration_chamber_runs')
+      .update({ claimed: true })
+      .eq('user_id', userId)
+      .eq('map_id', map.id)
+      .eq('chamber_id', chamber.id)
+      .eq('claimed', false)
+      .select('chamber_id')
+      .maybeSingle()
+
+    if (!error && claimedRow) {
+      await supabase.rpc('award_xp', { p_user_id: userId, p_xp: chamber.xpReward })
+      setTotalXP(x => x + chamber.xpReward)
+      showToast(`+${chamber.xpReward} XP earned from ${chamber.name}!`, '#3ecf8e')
+
+      let artifactFound = false
+      if (chamber.artifact) {
+        artifactFound = await tryArtifactDrop(oddsDelta)
+        // Persist the real outcome so the "Artifact found" label survives
+        // navigation/refresh and never shows unless something was granted.
+        await supabase
+          .from('exploration_chamber_runs')
+          .update({ artifact_awarded: artifactFound })
+          .eq('user_id', userId)
+          .eq('map_id', map.id)
+          .eq('chamber_id', chamber.id)
+      }
+
+      setChamberStates(s => ({ ...s, [chamber.id]: { ...s[chamber.id], status: 'done', artifactFound } }))
+    }
+
+    claimingRef.current.delete(chamber.id)
+  }
+
+  // Every 15s, check for any running chamber that has crossed a story
+  // checkpoint (mid at 50% elapsed, claim at completion) or whose ends_at
+  // has passed with no story content, and handle it exactly once.
   useEffect(() => {
     async function checkCompletions() {
-      if (!userId) return
+      if (!userId || activeCheckpoint) return
       const now = Date.now()
 
       for (const chamber of map.chambers) {
         const st = chamberStates[chamber.id]
         if (!st || st.status !== 'running' || !st.startedAt || !st.durationMs) continue
+
+        // Mid checkpoint — fires once, at 50% elapsed. Checked before the
+        // completion guard below so it still surfaces even if the chamber
+        // finished entirely while nobody had the map open.
+        const midCheckpoint = getCheckpoint(chamber.id, 'mid')
+        if (midCheckpoint && !st.storySeen?.mid && now >= st.startedAt + st.durationMs * 0.5) {
+          setActiveCheckpoint({ chamber, stage: 'mid', onResolved: () => {} })
+          return
+        }
+
         if (now < st.startedAt + st.durationMs) continue
         if (claimingRef.current.has(chamber.id)) continue
 
-        claimingRef.current.add(chamber.id)
-
-        // Flip claimed=true only if it's still false — the WHERE clause
-        // makes this safe even if two tabs race each other.
-        const { data: claimedRow, error } = await supabase
-          .from('exploration_chamber_runs')
-          .update({ claimed: true })
-          .eq('user_id', userId)
-          .eq('map_id', map.id)
-          .eq('chamber_id', chamber.id)
-          .eq('claimed', false)
-          .select('chamber_id')
-          .maybeSingle()
-
-        if (!error && claimedRow) {
-          await supabase.rpc('award_xp', { p_user_id: userId, p_xp: chamber.xpReward })
-          setTotalXP(x => x + chamber.xpReward)
-          showToast(`+${chamber.xpReward} XP earned from ${chamber.name}!`, '#3ecf8e')
-
-          let artifactFound = false
-          if (chamber.artifact) {
-            artifactFound = await tryArtifactDrop()
-            // Persist the real outcome so the "Artifact found" label survives
-            // navigation/refresh and never shows unless something was granted.
-            await supabase
-              .from('exploration_chamber_runs')
-              .update({ artifact_awarded: artifactFound })
-              .eq('user_id', userId)
-              .eq('map_id', map.id)
-              .eq('chamber_id', chamber.id)
-          }
-
-          setChamberStates(s => ({ ...s, [chamber.id]: { ...s[chamber.id], status: 'done', artifactFound } }))
+        const claimCheckpoint = getCheckpoint(chamber.id, 'claim')
+        if (claimCheckpoint && !st.storySeen?.claim) {
+          setChamberStates(s => ({ ...s, [chamber.id]: { ...s[chamber.id], status: 'awaiting_story' } }))
+          setActiveCheckpoint({
+            chamber, stage: 'claim',
+            onResolved: oddsDelta => finalizeClaim(chamber, oddsDelta),
+          })
+          return
         }
 
-        claimingRef.current.delete(chamber.id)
+        await finalizeClaim(chamber, 0)
       }
     }
 
     const iv = setInterval(checkCompletions, 15000)
     checkCompletions()
     return () => clearInterval(iv)
-  }, [chamberStates, userId, map.id])
+  }, [chamberStates, userId, map.id, activeCheckpoint])
+
+  async function handleCheckpointComplete(option: StoryChoiceOption) {
+    if (!activeCheckpoint) return
+    const { chamber, stage, onResolved } = activeCheckpoint
+    const oddsDelta = await resolveCheckpoint(chamber, stage, option)
+    setActiveCheckpoint(null)
+    await onResolved(oddsDelta)
+  }
 
   async function handleExplore(chamber: Chamber) {
     const ok = await spendEnergy(map.energyCost)
@@ -743,6 +840,11 @@ function MapView({
       ...s,
       [chamber.id]: { status: 'running', startedAt: startedAt.getTime(), durationMs, progress: 0 },
     }))
+
+    const startCheckpoint = getCheckpoint(chamber.id, 'start')
+    if (startCheckpoint) {
+      setActiveCheckpoint({ chamber, stage: 'start', onResolved: () => {} })
+    }
   }
 
   const doneCount = Object.values(chamberStates).filter(s => s.status === 'done').length
@@ -921,6 +1023,14 @@ function MapView({
           {toast.msg}
         </div>
       )}
+
+      {/* Story checkpoint */}
+      {activeCheckpoint && (() => {
+        const checkpoint = getCheckpoint(activeCheckpoint.chamber.id, activeCheckpoint.stage)
+        return checkpoint ? (
+          <StoryCheckpointOverlay checkpoint={checkpoint} onComplete={handleCheckpointComplete} />
+        ) : null
+      })()}
     </div>
   )
 }
