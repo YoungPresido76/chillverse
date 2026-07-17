@@ -127,5 +127,14 @@ export async function resendConfirmationEmail(email: string) {
  */
 export async function updateStreak(userId: string): Promise<void> {
   const { error } = await supabase.rpc('update_streak', { p_user_id: userId })
-  if (error) console.error('[updateStreak] RPC error:', error.message)
+  if (error) { console.error('[updateStreak] RPC error:', error.message); return }
+
+  // update_streak returns void by design (see comment above), so re-read the
+  // fresh value to check it against the streak-milestone ladder. Cheap and
+  // safe to skip on failure — this is a highlight, not core streak logic.
+  const { data: profile } = await supabase.from('profiles').select('streak').eq('id', userId).maybeSingle<{ streak: number | null }>()
+  if (typeof profile?.streak === 'number') {
+    const { checkStreakMilestoneHighlight } = await import('../highlights/highlightTriggers')
+    checkStreakMilestoneHighlight(userId, profile.streak).catch(console.error)
+  }
 }
