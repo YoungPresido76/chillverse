@@ -1,6 +1,11 @@
 // src/lib/gameSession.ts
 import { supabase } from '../../shared/lib/supabase'
 import { updateMissionProgress } from '../missions/weeklyMissions'
+import {
+  checkXpMilestoneHighlight,
+  checkPersonalBestHighlight,
+  checkLeaderboardRankHighlight,
+} from '../highlights/highlightTriggers'
 import type { GameRank } from './play/types'
 
 export type GameKey =
@@ -106,6 +111,20 @@ export async function incrementGlobalSession(
 }
 
 export async function saveGameSession(userId: string, input: SessionInput) {
+  // Captured BEFORE the insert below, so it reflects the best score set by
+  // every session prior to this one — needed to detect a genuine personal
+  // best (see checkPersonalBestHighlight) rather than comparing a score
+  // against itself.
+  const { data: bestBeforeRow } = await supabase
+    .from('game_sessions')
+    .select('score')
+    .eq('user_id', userId)
+    .eq('game', input.game)
+    .order('score', { ascending: false })
+    .limit(1)
+    .maybeSingle<{ score: number | null }>()
+  const previousBest = Number(bestBeforeRow?.score) || 0
+
   const { error: sessionError } = await supabase
     .from('game_sessions')
     .insert({
@@ -128,6 +147,12 @@ export async function saveGameSession(userId: string, input: SessionInput) {
     .rpc('award_xp', { p_user_id: userId, p_xp: input.xpEarned })
 
   if (xpError) console.error('award_xp error:', xpError)
+
+  // ── Highlight checks (Duolingo-style) — fire-and-forget, never block ──
+  // the session save on these. All three re-verify from the DB themselves.
+  checkPersonalBestHighlight(userId, input.game, input.score, previousBest).catch(console.error)
+  checkXpMilestoneHighlight(userId, input.game).catch(console.error)
+  checkLeaderboardRankHighlight(userId, input.game).catch(console.error)
 
   // ── Weekly mission hooks ─────────────────────────────────────
   // xp_days: track days where XP was earned (1 per calendar day, de-duped by absolute mode)
