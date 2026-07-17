@@ -145,6 +145,7 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
   const [showEdit, setShowEdit] = useState(false)
   const [editAlbumPics, setEditAlbumPics] = useState<{ id: string; label: string; imageUrl: string }[]>([])
   const menuRef = useRef<HTMLDivElement>(null)
+  const justSavedRef = useRef(false)
 
   const isMe = user?.id === userId
 
@@ -851,9 +852,20 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
           albumPics={editAlbumPics}
           bannerUrl={profile.banner_url}
           presence={presence}
-          onClose={() => setShowEdit(false)}
+          onClose={() => {
+            setShowEdit(false)
+            // Only bounce to the dashboard when the edit page closed because
+            // changes were saved — cancelling/discarding should just drop
+            // back to this profile popup, not leave it.
+            if (justSavedRef.current) {
+              justSavedRef.current = false
+              onClose()
+              navigate('/dashboard')
+            }
+          }}
           onSaved={(updates) => {
             setProfile(prev => (prev ? { ...prev, ...updates } as PreviewProfile : prev))
+            justSavedRef.current = true
           }}
           onToast={() => {}}
         />
