@@ -356,7 +356,7 @@ export default function Hangman({ rank: _rank, onEnd, onBack, sessionsLeft = 99,
   function endSession() {
     const dur         = Math.floor((Date.now() - startRef.current) / 1000)
     const totalPlayed = totalWins + totalLosses
-    const xpEarned    = Math.min(200, Math.max(0, totalXP))
+    const xpEarned    = Math.max(0, totalXP)
     const payload: GameEndPayload = {
       gameId:      'hangman' as any,
       gameName:    'Hangman',

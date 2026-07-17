@@ -61,7 +61,6 @@ const RANK_XP: Record<GameRank, number> = {
   master:       31,
 }
 
-const SESSION_XP_CAP = 300
 
 interface Props {
   rank: GameRank
@@ -113,7 +112,7 @@ export default function TacZone({ rank: initialRank, onEnd, onBack, sessionsLeft
       if (res.winner === 'X') {
         // Player wins — flat XP based on current game rank, no multiplier
         const earnedXP = RANK_XP[rankState.rank]
-        sessionXpRef.current = Math.min(sessionXpRef.current + earnedXP, SESSION_XP_CAP)
+        sessionXpRef.current = sessionXpRef.current + earnedXP
         setTotalXP(sessionXpRef.current)
         setSessionScores(s => ({ ...s, W: s.W + 1 }))
       } else if (res.winner === 'O') {

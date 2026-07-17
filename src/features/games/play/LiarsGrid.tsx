@@ -46,7 +46,6 @@ const RANK_XP: Record<GameRank, number> = {
 
 const STREAK_THRESHOLD = 10
 const STREAK_MULTIPLIER = 1.5
-const SESSION_XP_CAP = 300
 
 interface Equation {
   a: number
@@ -252,7 +251,7 @@ export default function LiarsGrid({ rank: initialRank, onEnd, onBack, sessionsLe
     clearTimers()
     const cfg = getRankCfg()
     const dur = Math.floor((Date.now() - startRef.current) / 1000)
-    const xp = Math.min(sessionXpRef.current, SESSION_XP_CAP)
+    const xp = sessionXpRef.current
     const payload: GameEndPayload = {
       gameId: GAME_ID,
       gameName: "Liar's Grid",

@@ -56,7 +56,6 @@ const XP_WIN_WASTED     = 70
 const XP_LOSE_PARTIAL   = 35
 const XP_LOSE_WEAK      = 15
 const WASTE_THRESHOLD   = 0.65 // used more than 65% of allotted time = "wasted time"
-const SESSION_XP_CAP    = 300  // total XP cap per session, same ceiling used across the app
 
 function shuffleArr<T>(arr: T[]): T[] {
   const a = [...arr]
@@ -297,7 +296,7 @@ export default function PatternKing({ rank: initialRank, onEnd, onBack, sessions
       roundXp = requiredCount > 0 && matchedCount / requiredCount >= 0.5 ? XP_LOSE_PARTIAL : XP_LOSE_WEAK
     }
 
-    sessionXpRef.current = Math.min(sessionXpRef.current + roundXp, SESSION_XP_CAP)
+    sessionXpRef.current = sessionXpRef.current + roundXp
     setSessionXP(sessionXpRef.current)
     matchedAggRef.current += matchedCount
     requiredAggRef.current += requiredCount

@@ -48,7 +48,6 @@ const RANK_XP: Record<GameRank, number> = {
 
 const STREAK_THRESHOLD = 5
 const STREAK_MULTIPLIER = 1.5
-const SESSION_XP_CAP = 300
 
 const LEVELS = 5
 const ROUNDS_PER_LEVEL = 3
@@ -211,7 +210,7 @@ export default function PatternMemory({ rank: initialRank, onEnd, onBack, sessio
 
   function endGame(dur: number) {
     clearFlashTimer()
-    const xp = Math.min(sessionXpRef.current, SESSION_XP_CAP)
+    const xp = sessionXpRef.current
     const payload: GameEndPayload = {
       gameId: GAME_ID,
       gameName: 'Pattern Memory',
