@@ -16,6 +16,7 @@ import { supabase, supabaseConfigError } from '../shared/lib/supabase'
 import { updateStreak } from '../features/auth/auth'
 import { triggerAchievementCheck } from '../features/achievements/triggerAchievements'
 import { subscribeToPush } from '../features/notifications/push'
+import OfflineOverlay from '../shared/components/OfflineOverlay'
 
 const Games               = lazy(() => import('../features/games/Games'))
 const Profile            = lazy(() => import('../features/profile/Profile'))
@@ -122,68 +123,74 @@ export default function App() {
 
   if (supabaseConfigError) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', padding: 24, textAlign: 'center', fontFamily: 'sans-serif' }}>
-        <div>
-          <h1 style={{ fontSize: 20, marginBottom: 8 }}>Chillverse is misconfigured</h1>
-          <p style={{ color: '#888' }}>{supabaseConfigError}</p>
+      <>
+        <OfflineOverlay />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', padding: 24, textAlign: 'center', fontFamily: 'sans-serif' }}>
+          <div>
+            <h1 style={{ fontSize: 20, marginBottom: 8 }}>Chillverse is misconfigured</h1>
+            <p style={{ color: '#888' }}>{supabaseConfigError}</p>
+          </div>
         </div>
-      </div>
+      </>
     )
   }
 
   return (
-    <Routes>
-      <Route path="/"                element={<Landing />} />
-      <Route path="/about"           element={<About />} />
-      <Route path="/faq"             element={<FAQ />} />
-      <Route path="/login"           element={<Login />} />
-      <Route path="/signup"          element={<Signup />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/privacy"         element={<Privacy />} />
-      <Route path="/terms"           element={<Terms />} />
+    <>
+      <OfflineOverlay />
+      <Routes>
+        <Route path="/"                element={<Landing />} />
+        <Route path="/about"           element={<About />} />
+        <Route path="/faq"             element={<FAQ />} />
+        <Route path="/login"           element={<Login />} />
+        <Route path="/signup"          element={<Signup />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/privacy"         element={<Privacy />} />
+        <Route path="/terms"           element={<Terms />} />
 
-      <Route path="/watch" element={<ProtectedRoute><Suspense fallback={<Fallback />}><Watch /></Suspense></ProtectedRoute>} />
+        <Route path="/watch" element={<ProtectedRoute><Suspense fallback={<Fallback />}><Watch /></Suspense></ProtectedRoute>} />
 
-      <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-        <Route path="/dashboard"        element={<Dashboard />} />
-        <Route path="/coming-soon"      element={<ComingSoon />} />
-        <Route path="/games"            element={<Suspense fallback={<Fallback />}><Games /></Suspense>} />
-        <Route path="/leaderboards"     element={<Suspense fallback={<Fallback />}><Leaderboards /></Suspense>} />
-        <Route path="/exploration"      element={<Suspense fallback={<Fallback />}><Exploration /></Suspense>} />
-        <Route path="/mall"             element={<Suspense fallback={<Fallback />}><Mall /></Suspense>} />
-        <Route path="/gift"             element={<Suspense fallback={<Fallback />}><GiftPage /></Suspense>} />
-        <Route path="/buy-diamonds"     element={<Suspense fallback={<Fallback />}><BuyDiamonds /></Suspense>} />
-        <Route path="/profile"          element={<Suspense fallback={<Fallback />}><Profile /></Suspense>} />
-        <Route path="/profile/:userId"  element={<Suspense fallback={<Fallback />}><PlayerProfile /></Suspense>} />
-        <Route path="/chat"             element={<Suspense fallback={<Fallback />}><Chat /></Suspense>} />
-        <Route path="/streak"           element={<Suspense fallback={<Fallback />}><Streak /></Suspense>} />
-        <Route path="/settings"         element={<Suspense fallback={<Fallback />}><Settings /></Suspense>} />
-        <Route path="/ranks"            element={<Suspense fallback={<Fallback />}><Ranks /></Suspense>} />
-        <Route path="/achievements"     element={<Suspense fallback={<Fallback />}><Achievements /></Suspense>} />
-        <Route path="/artifacts"        element={<Suspense fallback={<Fallback />}><Artifacts /></Suspense>} />
-        <Route path="/notifications"    element={<Suspense fallback={<Fallback />}><Notifications /></Suspense>} />
-        <Route path="/inventory"        element={<Suspense fallback={<Fallback />}><Inventory /></Suspense>} />
-        <Route path="/wallet"           element={<Suspense fallback={<Fallback />}><Wallet /></Suspense>} />
-        <Route path="/weekly-missions"  element={<Suspense fallback={<Fallback />}><WeeklyMissions /></Suspense>} />
-        <Route path="/version"          element={<Suspense fallback={<Fallback />}><Version /></Suspense>} />
-        <Route path="/halo"             element={<Suspense fallback={<Fallback />}><HaloAI /></Suspense>} />
-        <Route path="/pro"              element={<Suspense fallback={<Fallback />}><Pro /></Suspense>} />
-        <Route path="/multiplayer"      element={<Suspense fallback={<Fallback />}><Multiplayer /></Suspense>} />
-        <Route path="/rooms"            element={<Suspense fallback={<Fallback />}><Rooms /></Suspense>} />
-        <Route path="/rooms/:roomId"    element={<Suspense fallback={<Fallback />}><Room /></Suspense>} />
-        <Route path="/feed"             element={<Suspense fallback={<Fallback />}><FeedPage /></Suspense>} />
-        <Route path="/feed/highlights"  element={<Suspense fallback={<Fallback />}><HighlightsPage /></Suspense>} />
-        <Route path="/feed/:postId"     element={<Suspense fallback={<Fallback />}><SinglePostPage /></Suspense>} />
-        <Route path="/referral"         element={<Suspense fallback={<Fallback />}><ReferralPage /></Suspense>} />
-        <Route path="/search"           element={<Suspense fallback={<Fallback />}><SearchPage /></Suspense>} />
-        <Route path="/support"                          element={<Suspense fallback={<Fallback />}><Support /></Suspense>} />
-        <Route path="/support/tickets"                  element={<Suspense fallback={<Fallback />}><MyTickets /></Suspense>} />
-        <Route path="/support/tickets/new"               element={<Suspense fallback={<Fallback />}><NewTicket /></Suspense>} />
-        <Route path="/support/:categorySlug"             element={<Suspense fallback={<Fallback />}><SupportCategory /></Suspense>} />
-        <Route path="/support/:categorySlug/:articleSlug" element={<Suspense fallback={<Fallback />}><SupportArticle /></Suspense>} />
-        <Route path="/moderation"       element={<Suspense fallback={<Fallback />}><ModerationPanel /></Suspense>} />
-        <Route path="/admin"            element={<Suspense fallback={<Fallback />}><AdminDashboard /></Suspense>} />
-      </Route>
-    </Routes>
+        <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+          <Route path="/dashboard"        element={<Dashboard />} />
+          <Route path="/coming-soon"      element={<ComingSoon />} />
+          <Route path="/games"            element={<Suspense fallback={<Fallback />}><Games /></Suspense>} />
+          <Route path="/leaderboards"     element={<Suspense fallback={<Fallback />}><Leaderboards /></Suspense>} />
+          <Route path="/exploration"      element={<Suspense fallback={<Fallback />}><Exploration /></Suspense>} />
+          <Route path="/mall"             element={<Suspense fallback={<Fallback />}><Mall /></Suspense>} />
+          <Route path="/gift"             element={<Suspense fallback={<Fallback />}><GiftPage /></Suspense>} />
+          <Route path="/buy-diamonds"     element={<Suspense fallback={<Fallback />}><BuyDiamonds /></Suspense>} />
+          <Route path="/profile"          element={<Suspense fallback={<Fallback />}><Profile /></Suspense>} />
+          <Route path="/profile/:userId"  element={<Suspense fallback={<Fallback />}><PlayerProfile /></Suspense>} />
+          <Route path="/chat"             element={<Suspense fallback={<Fallback />}><Chat /></Suspense>} />
+          <Route path="/streak"           element={<Suspense fallback={<Fallback />}><Streak /></Suspense>} />
+          <Route path="/settings"         element={<Suspense fallback={<Fallback />}><Settings /></Suspense>} />
+          <Route path="/ranks"            element={<Suspense fallback={<Fallback />}><Ranks /></Suspense>} />
+          <Route path="/achievements"     element={<Suspense fallback={<Fallback />}><Achievements /></Suspense>} />
+          <Route path="/artifacts"        element={<Suspense fallback={<Fallback />}><Artifacts /></Suspense>} />
+          <Route path="/notifications"    element={<Suspense fallback={<Fallback />}><Notifications /></Suspense>} />
+          <Route path="/inventory"        element={<Suspense fallback={<Fallback />}><Inventory /></Suspense>} />
+          <Route path="/wallet"           element={<Suspense fallback={<Fallback />}><Wallet /></Suspense>} />
+          <Route path="/weekly-missions"  element={<Suspense fallback={<Fallback />}><WeeklyMissions /></Suspense>} />
+          <Route path="/version"          element={<Suspense fallback={<Fallback />}><Version /></Suspense>} />
+          <Route path="/halo"             element={<Suspense fallback={<Fallback />}><HaloAI /></Suspense>} />
+          <Route path="/pro"              element={<Suspense fallback={<Fallback />}><Pro /></Suspense>} />
+          <Route path="/multiplayer"      element={<Suspense fallback={<Fallback />}><Multiplayer /></Suspense>} />
+          <Route path="/rooms"            element={<Suspense fallback={<Fallback />}><Rooms /></Suspense>} />
+          <Route path="/rooms/:roomId"    element={<Suspense fallback={<Fallback />}><Room /></Suspense>} />
+          <Route path="/feed"             element={<Suspense fallback={<Fallback />}><FeedPage /></Suspense>} />
+          <Route path="/feed/highlights"  element={<Suspense fallback={<Fallback />}><HighlightsPage /></Suspense>} />
+          <Route path="/feed/:postId"     element={<Suspense fallback={<Fallback />}><SinglePostPage /></Suspense>} />
+          <Route path="/referral"         element={<Suspense fallback={<Fallback />}><ReferralPage /></Suspense>} />
+          <Route path="/search"           element={<Suspense fallback={<Fallback />}><SearchPage /></Suspense>} />
+          <Route path="/support"                          element={<Suspense fallback={<Fallback />}><Support /></Suspense>} />
+          <Route path="/support/tickets"                  element={<Suspense fallback={<Fallback />}><MyTickets /></Suspense>} />
+          <Route path="/support/tickets/new"               element={<Suspense fallback={<Fallback />}><NewTicket /></Suspense>} />
+          <Route path="/support/:categorySlug"             element={<Suspense fallback={<Fallback />}><SupportCategory /></Suspense>} />
+          <Route path="/support/:categorySlug/:articleSlug" element={<Suspense fallback={<Fallback />}><SupportArticle /></Suspense>} />
+          <Route path="/moderation"       element={<Suspense fallback={<Fallback />}><ModerationPanel /></Suspense>} />
+          <Route path="/admin"            element={<Suspense fallback={<Fallback />}><AdminDashboard /></Suspense>} />
+        </Route>
+      </Routes>
+    </>
   )
-      }
+}
