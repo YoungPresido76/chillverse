@@ -76,7 +76,53 @@ function breadcrumb(label, path) {
 }
 
 // ── Route definitions ────────────────────────────────────────────────────
+const FAQ_ITEMS = [
+  ['What is Chillverse?', 'Chillverse is a Nigerian mobile-first social gaming platform where you play fast-paced games, build XP and daily streaks, climb live leaderboards, chat with friends, and customise your profile with unlockable avatar skins from the in-app Mall.'],
+  ['Is Chillverse free to use?', 'Yes — Chillverse is completely free to join and play. Core features like games, streaks, leaderboards, chat, and profiles cost nothing. The Mall lets you optionally spend in-app diamonds on cosmetic avatar skins.'],
+  ['What games can I play on Chillverse?', 'Chillverse has a growing library of quick-fire mini games, including Whot (the classic Nigerian card game) and Colour Block, with more titles being added regularly. Games support solo play and live multiplayer sessions.'],
+  ['How does XP and the streak system work?', 'Every game you play earns XP, which levels up your account and moves you up the global leaderboard. Logging in and playing daily builds your streak — miss a day and your streak resets, so consistency matters.'],
+  ['Can I chat with friends on Chillverse?', 'Yes. Chillverse has real-time chat and crew features so you can message friends, trash talk during matches, and stay connected with your community directly in the app.'],
+  ['Does Chillverse have content for kids?', 'Yes — Chillverse includes a dedicated kids video section with curated, family-friendly content, separate from the main gaming and social features.'],
+  ['How do I get started on Chillverse?', 'Sign up for free at chillverse.com.ng, set up your profile, and jump straight into a game. You start earning XP and building your streak from your very first session.'],
+  ['What are Diamonds and what can I spend them on?', "Diamonds are Chillverse's in-app currency, purchasable with real money. You can spend them in the Mall on cosmetic avatar skins and profile items, or use them to unlock optional Version upgrades — none of it affects gameplay or your rank."],
+  ['What is Chillverse Pro?', 'Chillverse Pro is an optional recurring subscription with two tiers, Orbit and Void, that unlock extra perks on top of the free experience. It auto-renews until cancelled, and any price change is notified in advance of your next renewal.'],
+  ['Can I refer friends to Chillverse?', "Yes — Chillverse has a built-in referral program. You'll find your referral link from the Refer & Earn option on your profile."],
+  ['How do I delete my Chillverse account?', 'You can request account deletion at any time. Some records may be retained briefly for legal or safety purposes, but they are no longer linked to your identity. See the Privacy Policy for full details.'],
+  ['What is Halo AI?', "Halo AI is Chillverse's built-in assistant — ask it questions about the platform or your own account activity. It's automated, so treat its answers as general information rather than professional advice, and usage has a daily limit that can vary by Version tier."],
+]
+
 const ROUTES = [
+  {
+    path: '/faq',
+    title: 'Frequently Asked Questions',
+    description:
+      'Answers to common Chillverse questions — games, XP and streaks, Diamonds, Chillverse Pro, referrals, privacy, and Halo AI.',
+    jsonLd: [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: FAQ_ITEMS.map(([q, a]) => ({
+          '@type': 'Question',
+          name: q,
+          acceptedAnswer: { '@type': 'Answer', text: a },
+        })),
+      },
+      breadcrumb('FAQ', '/faq'),
+    ],
+    content: `
+      <main style="max-width:760px;margin:0 auto;padding:96px 24px 64px;font-family:Inter,sans-serif;color:#e8e8f0">
+        <h1 style="font-size:36px;font-weight:800;margin-bottom:16px">Frequently asked questions</h1>
+        <p style="color:#a8a8b8;line-height:1.7;font-size:15px;margin-bottom:32px">Everything you need to know about playing Chillverse.</p>
+        ${FAQ_ITEMS.map(
+          ([q, a]) => `
+        <section style="margin-bottom:24px">
+          <h2 style="font-size:17px;font-weight:700;margin-bottom:8px">${q}</h2>
+          <p style="color:#a8a8b8;line-height:1.7;font-size:15px">${a}</p>
+        </section>`
+        ).join('')}
+      </main>
+    `,
+  },
   {
     path: '/about',
     title: 'About Chillverse',
