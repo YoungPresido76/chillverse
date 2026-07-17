@@ -8,6 +8,7 @@ const NAV_LINKS: Array<[href: string, label: string]> = [
   ['/#features', 'Features'],
   ['/#leaderboard', 'Leaderboard'],
   ['/#community', 'Community'],
+  ['/faq', 'FAQ'],
 ]
 
 export default function Nav() {
