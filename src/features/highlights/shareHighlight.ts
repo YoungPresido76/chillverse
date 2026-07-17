@@ -70,7 +70,15 @@ async function renderHighlightCanvas(highlight: Highlight, authorName: string): 
     const logo = await loadImage('/logo.png')
     const logoH = 64
     const logoW = (logo.width / logo.height) * logoH
-    ctx.drawImage(logo, 60, 50, logoW, logoH)
+    const logoY = 50
+    ctx.drawImage(logo, 60, logoY, logoW, logoH)
+
+    ctx.fillStyle = '#ffffff'
+    ctx.font = '700 40px system-ui, -apple-system, sans-serif'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('Chillverse', 60 + logoW + 16, logoY + logoH / 2)
+    ctx.textBaseline = 'alphabetic' // restore default for the sections below
   } catch {
     // Logo failed to load (offline/network hiccup) — fall back to the text mark.
     ctx.fillStyle = '#ff6b00'
