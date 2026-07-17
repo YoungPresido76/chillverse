@@ -46,7 +46,7 @@ export default function HighlightsPage() {
         </div>
       </div>
 
-      <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column' }}>
         {loading && (
           <p style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0' }}>Loading…</p>
         )}

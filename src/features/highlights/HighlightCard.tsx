@@ -50,54 +50,64 @@ export default function HighlightCard({ highlight }: { highlight: Highlight }) {
 
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 16,
-      background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)',
-      boxShadow: '2px 2px 8px var(--neu-dark),-1px -1px 5px var(--neu-light)',
+      display: 'flex', flexDirection: 'column', gap: 10, padding: '18px 4px',
+      borderBottom: '1px solid rgba(255,255,255,0.08)',
     }}>
-      {/* -- Left: name, caption, actions -- */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div onClick={goToAuthor} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 4 }}>
-          <Avatar src={author?.avatar} name={authorName} size={20} />
-          <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)' }}>{authorName}</span>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+        {/* -- Left: name, caption -- */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div onClick={goToAuthor} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 6 }}>
+            <Avatar src={author?.avatar} name={authorName} size={26} />
+            <span style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--text)' }}>{authorName}</span>
+          </div>
+
+          <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-dim)', margin: 0, lineHeight: 1.35 }}>
+            {highlight.body}
+          </p>
         </div>
 
-        <p style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-dim)', margin: '0 0 8px', lineHeight: 1.35 }}>
-          {highlight.body}
-        </p>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <button
-            type="button"
-            onClick={handleLike}
-            disabled={!user}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none',
-              cursor: user ? 'pointer' : 'default', padding: 0, color: liked ? 'var(--red, #ff4f4f)' : 'var(--text-muted)',
-            }}
-          >
-            <Heart size={14} fill={liked ? 'currentColor' : 'none'} />
-            <span style={{ fontSize: 12, fontWeight: 700 }}>{likesCount}</span>
-          </button>
-
-          {/* Sharing is only available on your OWN highlight -- you can like anyone's, but not re-share it. */}
-          {isOwn && (
-            <button
-              type="button"
-              onClick={handleShare}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none',
-                cursor: 'pointer', padding: 0, color: shared ? 'var(--gold, #f5c542)' : 'var(--text-muted)',
-              }}
-            >
-              {shared ? <Check size={13} /> : <Share2 size={13} />}
-              <span style={{ fontSize: 12, fontWeight: 700 }}>{shared ? 'Shared' : 'Share'}</span>
-            </button>
-          )}
-        </div>
+        {/* -- Right: the art -- illustration / badge icon / profile pic -- */}
+        <HighlightArt highlight={highlight} authorName={authorName} />
       </div>
 
-      {/* -- Right: the art -- illustration / badge icon / profile pic -- */}
-      <HighlightArt highlight={highlight} authorName={authorName} />
+      {/* -- Actions row: pill-style like/share buttons, Duolingo-feed style -- */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <button
+          type="button"
+          onClick={handleLike}
+          disabled={!user}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: 'none',
+            border: `1.5px solid ${liked ? 'var(--green, #58cc02)' : 'rgba(255,255,255,0.14)'}`,
+            borderRadius: 999, padding: '6px 14px',
+            cursor: user ? 'pointer' : 'default',
+            color: liked ? 'var(--green, #58cc02)' : 'var(--text-muted)',
+          }}
+        >
+          <Heart size={14} fill={liked ? 'currentColor' : 'none'} />
+          <span style={{ fontSize: 12.5, fontWeight: 800 }}>{likesCount}</span>
+        </button>
+
+        {/* Sharing is only available on your OWN highlight -- you can like anyone's, but not re-share it. */}
+        {isOwn && (
+          <button
+            type="button"
+            onClick={handleShare}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: 'none',
+              border: `1.5px solid ${shared ? 'var(--gold, #f5c542)' : 'rgba(255,255,255,0.14)'}`,
+              borderRadius: 999, padding: '6px 14px',
+              cursor: 'pointer',
+              color: shared ? 'var(--gold, #f5c542)' : 'var(--text-muted)',
+            }}
+          >
+            {shared ? <Check size={13} /> : <Share2 size={13} />}
+            <span style={{ fontSize: 12.5, fontWeight: 800 }}>{shared ? 'Shared' : 'Share'}</span>
+          </button>
+        )}
+      </div>
     </div>
   )
 }
@@ -117,7 +127,7 @@ function HighlightArt({ highlight, authorName }: { highlight: Highlight; authorN
     const accent = highlight.badge_id === 'leaderboard_legend' ? '#f5c542' : '#9b6dff'
     return (
       <div style={{
-        width: size, height: size, borderRadius: '50%', flexShrink: 0, display: 'flex',
+        width: size, height: size, borderRadius: size * 0.3, flexShrink: 0, display: 'flex',
         alignItems: 'center', justifyContent: 'center', background: `${accent}1f`,
       }}>
         <BadgeIcon iconKey={highlight.badge?.icon ?? 'hand-metal'} size={size * 0.5} color={accent} />
@@ -145,7 +155,7 @@ function HighlightArt({ highlight, authorName }: { highlight: Highlight; authorN
     const GameIcon = game?.icon
     return (
       <div style={{
-        width: size, height: size, borderRadius: '50%', flexShrink: 0, display: 'flex',
+        width: size, height: size, borderRadius: size * 0.3, flexShrink: 0, display: 'flex',
         alignItems: 'center', justifyContent: 'center', background: `${accent}1f`,
       }}>
         {GameIcon && <GameIcon size={size * 0.46} color={accent} />}
@@ -154,10 +164,10 @@ function HighlightArt({ highlight, authorName }: { highlight: Highlight; authorN
   }
 
   // achievement (legacy kind) -- no custom art assigned yet, so fall back
-  // to a soft brand-colour circle rather than showing nothing.
+  // to a soft brand-colour squircle rather than showing nothing.
   return (
     <div style={{
-      width: size, height: size, borderRadius: '50%', flexShrink: 0,
+      width: size, height: size, borderRadius: size * 0.3, flexShrink: 0,
       background: 'rgba(255,107,0,0.12)',
     }} />
   )
