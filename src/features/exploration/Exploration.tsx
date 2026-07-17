@@ -850,6 +850,17 @@ function MapView({
   const doneCount = Object.values(chamberStates).filter(s => s.status === 'done').length
   const progressPct = (doneCount / map.chambers.length) * 100
 
+  // Fires the "fully explored a map" highlight — this is the whole map (all
+  // chambers), not a single chamber. checkMapCompleteHighlight is itself
+  // deduped (dedup_key `map:{id}`, unique per author), so it's safe even if
+  // this effect re-runs on every chamberStates change.
+  useEffect(() => {
+    if (loadingRuns || doneCount === 0 || doneCount < map.chambers.length || !userId) return
+    import('../highlights/highlightTriggers').then(({ checkMapCompleteHighlight }) => {
+      checkMapCompleteHighlight(userId, map.id, map.name).catch(console.error)
+    })
+  }, [doneCount, loadingRuns, map.chambers.length, map.id, map.name, userId])
+
   return (
     <div style={{ paddingBottom: 100 }}>
       {/* Back */}
