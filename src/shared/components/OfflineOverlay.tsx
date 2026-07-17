@@ -96,7 +96,18 @@ export default function OfflineOverlay() {
           marginBottom: 28, fontSize: 21, fontWeight: 800,
           color: '#ff6b00', letterSpacing: '-0.5px',
         }}>
-          Chillverse
+          {'Chillverse'.split('').map((letter, i) => (
+            <span
+              key={i}
+              style={{
+                display: 'inline-block',
+                animation: 'wordmarkWave 1.4s ease-in-out infinite',
+                animationDelay: `${i * 0.08}s`,
+              }}
+            >
+              {letter}
+            </span>
+          ))}
         </div>
 
         <div
@@ -141,6 +152,13 @@ export default function OfflineOverlay() {
           {retrying ? 'Checking…' : 'Try Again'}
         </button>
       </div>
+
+      <style>{`
+        @keyframes wordmarkWave {
+          0%, 100% { transform: translateY(0); }
+          50%      { transform: translateY(-6px); }
+        }
+      `}</style>
     </div>
   )
 }
