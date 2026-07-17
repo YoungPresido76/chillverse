@@ -66,10 +66,18 @@ async function renderHighlightCanvas(highlight: Highlight, authorName: string): 
   ctx.fillRect(0, 0, CARD_W, CARD_H)
 
   // ── Wordmark ────────────────────────────────────────────────
-  ctx.fillStyle = '#ff6b00'
-  ctx.font = '700 40px system-ui, -apple-system, sans-serif'
-  ctx.textAlign = 'left'
-  ctx.fillText('Chillverse', 60, 100)
+  try {
+    const logo = await loadImage('/logo.png')
+    const logoH = 64
+    const logoW = (logo.width / logo.height) * logoH
+    ctx.drawImage(logo, 60, 50, logoW, logoH)
+  } catch {
+    // Logo failed to load (offline/network hiccup) — fall back to the text mark.
+    ctx.fillStyle = '#ff6b00'
+    ctx.font = '700 40px system-ui, -apple-system, sans-serif'
+    ctx.textAlign = 'left'
+    ctx.fillText('Chillverse', 60, 100)
+  }
 
   // ── Centerpiece (illustration / badge emoji / profile pic) ───
   const centerX = CARD_W / 2
