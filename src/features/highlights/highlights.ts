@@ -47,9 +47,22 @@ export async function fetchHighlights(userId: string | null, limit = 40): Promis
     likedIds = new Set((likes ?? []).map(l => l.highlight_id))
   }
 
+  // leaderboard_badge highlights render the badge's real icon/title, so pull
+  // the badge defs for whichever badge_ids show up in this batch.
+  const badgeIds = [...new Set(rows.map(r => r.badge_id).filter(Boolean))] as string[]
+  const badgesById = new Map<string, { id: string; title: string; description: string; icon: string }>()
+  if (badgeIds.length > 0) {
+    const { data: badges } = await supabase
+      .from('badges')
+      .select('id, title, description, icon')
+      .in('id', badgeIds)
+    for (const b of badges ?? []) badgesById.set(b.id, b)
+  }
+
   return rows.map(r => ({
     ...r,
     author: r.author_id ? authorsById.get(r.author_id) : undefined,
+    badge: r.badge_id ? badgesById.get(r.badge_id) : undefined,
     liked_by_me: likedIds.has(r.id),
   })) as Highlight[]
 }
@@ -65,6 +78,18 @@ export async function createHighlight(input: {
   kind: HighlightKind
   gameKey: string | null
   body: string
+  /** Accumulated XP total / streak day count / leaderboard rank — kind-dependent. */
+  value?: number | null
+  mapId?: number | null
+  badgeId?: string | null
+  /**
+   * Set only for "fires once ever" milestones (xp_milestone, streak_milestone,
+   * map_complete, leaderboard_badge). Backed by a unique (author_id, dedup_key)
+   * index (migration 0036), so a race — two tabs, a retried request — can't
+   * double-post the same milestone. personal_best/leaderboard_rank pass
+   * nothing here since those are allowed to repeat as the player improves.
+   */
+  dedupKey?: string | null
 }) {
   const { data, error } = await supabase
     .from('highlights')
@@ -73,11 +98,18 @@ export async function createHighlight(input: {
       kind: input.kind,
       game_key: input.gameKey,
       body: input.body,
+      value: input.value ?? null,
+      map_id: input.mapId ?? null,
+      badge_id: input.badgeId ?? null,
+      dedup_key: input.dedupKey ?? null,
     })
     .select()
     .single()
 
   if (error) {
+    // 23505 = unique_violation — someone/something already created this
+    // exact milestone highlight (dedup_key collision). Not a real error.
+    if (error.code === '23505') return { data: null, error: null }
     console.error('createHighlight error:', error)
     return { data, error }
   }
