@@ -1,9 +1,11 @@
 // src/pages/games/TileMerge.tsx
 // "Chill Merge" — a Tile-Up-style merge puzzle, reskinned for Chillverse.
-// Tap a cell to drop the current tile; same-level tiles merge on contact and
-// chain-react. XP is flat per merge (see MERGE_XP), score is level-weighted.
+// Tap a cell to drop the current tile. It merges with AT MOST ONE matching
+// neighbor per placement (no infinite cascades) — chains have to be built
+// deliberately across turns, and a full board is a loss that ends the
+// session immediately. XP is flat per merge (see MERGE_XP).
 import { useState, useRef, useMemo } from 'react'
-import { Layers, Sparkles, RotateCcw } from 'lucide-react'
+import { Layers, Sparkles } from 'lucide-react'
 import type { GameRank, GameEndPayload } from './types'
 import { PreGameModal, GameHUD, StatChip, ResultScreen, QuitModal, useRankStreak } from './GameShell'
 import { useGamePresence } from '../useGamePresence'
@@ -13,8 +15,13 @@ const GAME_ID = 'tile-merge' as const
 const GRID = 4
 const CELLS = GRID * GRID
 
-// Flat XP awarded per individual merge event (chains count each step).
+// Flat XP awarded per individual merge event.
 const MERGE_XP = 8
+
+// At most this many chained merges resolve from a single placement. Capped
+// at 1 so merging takes deliberate multi-turn setup instead of one tap
+// wiping out a whole cluster — this is the main difficulty lever.
+const MAX_CHAIN = 1
 
 // Cycles through Chillverse's existing accent palette so every level reads
 // as an on-brand color, not an arbitrary gradient.
@@ -42,11 +49,14 @@ function neighborsOf(idx: number): number[] {
   return out
 }
 
+// Tuned to be "somewhat hard": mostly plain level-1 tiles, a modest chunk
+// of level-2s, and wild tiles are rare — so a matching neighbor isn't
+// guaranteed every turn, and building up a merge takes real placement.
 function rollTile(): Tile {
   const r = Math.random()
   const bornAt = Date.now()
-  if (r < 0.06) return { level: 1, wild: true, bornAt }
-  if (r < 0.32) return { level: 2, bornAt }
+  if (r < 0.03) return { level: 1, wild: true, bornAt }
+  if (r < 0.18) return { level: 2, bornAt }
   return { level: 1, bornAt }
 }
 
@@ -59,7 +69,7 @@ interface Props {
 }
 
 export default function TileMerge({ rank: initialRank, onEnd, onBack, sessionsLeft = 99, sessionCost = 2 }: Props) {
-  const [phase, setPhase] = useState<'info' | 'play' | 'round-end' | 'result' | 'quit'>('info')
+  const [phase, setPhase] = useState<'info' | 'play' | 'result' | 'quit'>('info')
   useGamePresence(GAME_ID)
   const { rankState } = useRankStreak(GAME_ID, initialRank)
 
@@ -69,32 +79,44 @@ export default function TileMerge({ rank: initialRank, onEnd, onBack, sessionsLe
   const [score, setScore] = useState(0)
   const [mergeCount, setMergeCount] = useState(0)
   const [highestLevel, setHighestLevel] = useState(1)
-  const [tries, setTries] = useState(1)
   const [popIdx, setPopIdx] = useState<number | null>(null)
   const [result, setResult] = useState<GameEndPayload | null>(null)
 
   const startRef = useRef(Date.now())
-  const sessionScoreRef = useRef(0)
-  const sessionXpRef = useRef(0)
-  const sessionMergesRef = useRef(0)
 
-  function freshBoard() {
-    setBoard(Array(CELLS).fill(null))
-    setCurrent(rollTile())
-    setNext(rollTile())
-    setScore(0)
-    setMergeCount(0)
-    setHighestLevel(1)
+  function finish(finalBoard: (Tile | null)[], finalScore: number, finalMerges: number, finalTop: number) {
+    const dur = Math.floor((Date.now() - startRef.current) / 1000)
+    const boardFull = finalBoard.every(c => c !== null)
+    const payload: GameEndPayload = {
+      gameId: GAME_ID,
+      gameName: 'Chill Merge',
+      rank: 'beginner', // Chill Merge is exempt from the rank system, like Tac Zone
+      score: finalScore,
+      xpEarned: finalMerges * MERGE_XP,
+      durationSec: dur,
+      streak: finalTop,
+      correct: finalMerges,
+      total: finalMerges,
+      detail: {
+        'Merges': finalMerges,
+        'Top Tile': `Lv.${finalTop}`,
+        'Result': boardFull ? 'Board full — game over' : 'Ended early',
+      },
+    }
+    setResult(payload)
+    setPhase('result')
+    onEnd(payload)
   }
 
   function start() {
-    sessionScoreRef.current = 0
-    sessionXpRef.current = 0
-    sessionMergesRef.current = 0
-    setTries(1)
+    setScore(0)
+    setMergeCount(0)
+    setHighestLevel(1)
     setResult(null)
     startRef.current = Date.now()
-    freshBoard()
+    setBoard(Array(CELLS).fill(null))
+    setCurrent(rollTile())
+    setNext(rollTile())
     setPhase('play')
   }
 
@@ -106,10 +128,11 @@ export default function TileMerge({ rank: initialRank, onEnd, onBack, sessionsLe
     let localMerges = 0
     let localScore = 0
     let top = highestLevel
-
-    // Chain-resolve merges outward from the placed cell.
     let cursor = idx
-    for (;;) {
+
+    // Resolve at most MAX_CHAIN merges from the placed cell — deliberately
+    // capped so one tap can't cascade through the whole board.
+    while (localMerges < MAX_CHAIN) {
       const cell = nb[cursor]
       if (!cell) break
       const match = neighborsOf(cursor).find(n => {
@@ -125,22 +148,23 @@ export default function TileMerge({ rank: initialRank, onEnd, onBack, sessionsLe
       top = Math.max(top, mergedLevel)
     }
 
+    const newScore = score + localScore
+    const newMergeCount = mergeCount + localMerges
     setBoard(nb)
     setPopIdx(cursor)
     setTimeout(() => setPopIdx(null), 260)
 
     if (localMerges > 0) {
-      setMergeCount(m => m + localMerges)
-      setScore(s => s + localScore)
+      setScore(newScore)
+      setMergeCount(newMergeCount)
       setHighestLevel(top)
-      sessionMergesRef.current += localMerges
-      sessionScoreRef.current += localScore
-      sessionXpRef.current += localMerges * MERGE_XP
     }
 
+    // Game over: board full. This is a loss — the session ends right here,
+    // no free "new board" continue.
     const isFull = nb.every(c => c !== null)
     if (isFull) {
-      setPhase('round-end')
+      finish(nb, newScore, newMergeCount, top)
       return
     }
 
@@ -148,45 +172,30 @@ export default function TileMerge({ rank: initialRank, onEnd, onBack, sessionsLe
     setNext(rollTile())
   }
 
-  function playAgain() {
-    setTries(t => t + 1)
-    freshBoard()
-    setPhase('play')
-  }
-
-  function endSession() {
-    const dur = Math.floor((Date.now() - startRef.current) / 1000)
-    const payload: GameEndPayload = {
-      gameId: GAME_ID,
-      gameName: 'Chill Merge',
-      rank: 'beginner', // Chill Merge is exempt from the rank system, like Tac Zone
-      score: sessionScoreRef.current,
-      xpEarned: sessionXpRef.current,
-      durationSec: dur,
-      streak: highestLevel,
-      correct: sessionMergesRef.current,
-      total: sessionMergesRef.current,
-      detail: { 'Merges': sessionMergesRef.current, 'Tries': tries, 'Top Tile': `Lv.${highestLevel}` },
-    }
-    setResult(payload)
-    setPhase('result')
-    onEnd(payload)
+  function endSessionEarly() {
+    finish(board, score, mergeCount, highestLevel)
   }
 
   const filled = useMemo(() => board.filter(Boolean).length, [board])
+  const emptyCells = useMemo(() => board.map((c, i) => c ? -1 : i).filter(i => i >= 0), [board])
+  // No empty cell can accept the current tile without a legal outcome check
+  // needed here — placement is always legal on an empty cell; this just
+  // reflects how close the board is to a forced loss for the "cells left" UI.
+  const cellsLeft = CELLS - filled
 
   const rules = [
     { icon: '👆', text: 'Tap any empty cell to place the current tile' },
-    { icon: '🔗', text: 'Same-level tiles merge on contact — chains keep going' },
+    { icon: '🔗', text: 'Merges with at most one matching neighbor at a time — chains take setup' },
     { icon: '⚡', text: `+${MERGE_XP} XP per merge, added straight to your profile` },
-    { icon: '✨', text: 'Gold wild tiles merge with any level next to them' },
+    { icon: '✨', text: 'Rare gold wild tiles merge with any level next to them' },
+    { icon: '💀', text: 'Board fills up (16/16) with no room left → game over, session ends' },
     { icon: '🔒', text: `Costs ${sessionCost} sessions per play` },
   ]
 
   if (phase === 'info') return (
     <PreGameModal
       gameName="Chill Merge"
-      tagline="Place tiles, chain the merges, chase the high score."
+      tagline="Place tiles, chain the merges, don't run out of room."
       accent={ACCENT}
       icon={<Layers size={40} />}
       rules={rules}
@@ -223,11 +232,16 @@ export default function TileMerge({ rank: initialRank, onEnd, onBack, sessionsLe
 
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, alignItems: 'center', padding: '16px', gap: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: ACCENT, background: `${ACCENT}18`, border: `1px solid ${ACCENT}33`, borderRadius: 12, padding: '4px 10px' }}>
-            TRY {tries}
+          <span style={{
+            fontSize: 11, fontWeight: 700, borderRadius: 12, padding: '4px 10px',
+            color: cellsLeft <= 3 ? 'var(--red)' : ACCENT,
+            background: cellsLeft <= 3 ? 'rgba(255,79,79,0.12)' : `${ACCENT}18`,
+            border: `1px solid ${cellsLeft <= 3 ? 'rgba(255,79,79,0.4)' : ACCENT + '33'}`,
+          }}>
+            {cellsLeft <= 3 ? `⚠ ${cellsLeft} CELLS LEFT` : `${cellsLeft} CELLS LEFT`}
           </span>
           <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>
-            Session XP: <span style={{ color: 'var(--accent)', fontWeight: 700 }}>+{sessionXpRef.current}</span>
+            Session XP: <span style={{ color: 'var(--accent)', fontWeight: 700 }}>+{mergeCount * MERGE_XP}</span>
           </span>
         </div>
 
@@ -284,31 +298,10 @@ export default function TileMerge({ rank: initialRank, onEnd, onBack, sessionsLe
           </div>
         </div>
 
-        <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>{filled}/{CELLS} cells filled — tap an empty cell to drop</p>
+        <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>{filled}/{CELLS} cells filled — fill the board and it's game over</p>
 
-        {phase === 'round-end' && (
-          <div style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
-            background: 'var(--surface)', border: `1px solid ${ACCENT}33`, borderRadius: 18,
-            padding: '18px 22px', boxShadow: `0 0 24px ${ACCENT}18, 4px 4px 12px var(--neu-dark)`,
-          }}>
-            <p style={{ fontSize: 14, fontWeight: 700, color: ACCENT }}>Board's full! Round {tries} complete.</p>
-            <p style={{ fontSize: 12, color: 'var(--text-dim)' }}>Score {score} · {mergeCount} merges · Top Lv.{highestLevel}</p>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button type="button" onClick={playAgain}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '11px 20px', borderRadius: 13, background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT}bb)`, border: 'none', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
-                <RotateCcw size={14} /> New Board
-              </button>
-              <button type="button" onClick={endSession}
-                style={{ padding: '11px 20px', borderRadius: 13, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--text)', fontSize: 14, fontWeight: 700, cursor: 'pointer', boxShadow: '3px 3px 8px var(--neu-dark)' }}>
-                End Session
-              </button>
-            </div>
-          </div>
-        )}
-
-        {phase === 'play' && mergeCount > 0 && (
-          <button type="button" onClick={endSession}
+        {emptyCells.length > 0 && (
+          <button type="button" onClick={endSessionEarly}
             style={{ padding: '9px 18px', borderRadius: 12, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-dim)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
             End Session Early
           </button>
