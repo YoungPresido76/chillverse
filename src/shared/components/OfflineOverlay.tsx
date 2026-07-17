@@ -8,7 +8,6 @@
 // but only trust "online" once a real same-origin request has succeeded.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { WifiOff } from 'lucide-react'
-import Logo from '../../layout/Logo'
 
 // Same-origin, tiny, always present — avoids any CORS/third-party concerns.
 const CHECK_URL = '/favicon.ico'
@@ -93,8 +92,11 @@ export default function OfflineOverlay() {
       }}
     >
       <div style={{ maxWidth: 320 }}>
-        <div style={{ marginBottom: 28 }}>
-          <Logo size={30} />
+        <div style={{
+          marginBottom: 28, fontSize: 21, fontWeight: 800,
+          color: '#ff6b00', letterSpacing: '-0.5px',
+        }}>
+          Chillverse
         </div>
 
         <div
