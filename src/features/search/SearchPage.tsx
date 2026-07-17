@@ -4,7 +4,9 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Search as SearchIcon } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { searchPlayers, searchGames, searchMallItems, type PlayerResult } from './search'
+import FollowSuggestions from './FollowSuggestions'
 import Avatar from '../../shared/components/Avatar'
+import { useAuth } from '../auth/useAuth'
 import type { GameMeta } from '../games/games'
 import type { MallItem } from '../../shared/types'
 
@@ -18,6 +20,7 @@ const TABS: { id: Tab; label: string }[] = [
 
 export default function SearchPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [tab, setTab] = useState<Tab>('players')
   const [query, setQuery] = useState('')
   const [players, setPlayers] = useState<PlayerResult[]>([])
@@ -109,6 +112,10 @@ export default function SearchPage() {
 
         {/* Results */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {!query.trim() && tab === 'players' && user && (
+            <FollowSuggestions myId={user.id} />
+          )}
+
           {!query.trim() && (
             <p style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', padding: '32px 0' }}>
               Start typing to search {TABS.find(t => t.id === tab)?.label.toLowerCase()}
