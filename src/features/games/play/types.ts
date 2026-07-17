@@ -14,6 +14,7 @@ export type GameId =
   | 'hangman'
   | 'pattern-king'
   | 'uno'
+  | 'tile-merge'
 
 export type GameKey =
   | 'arrow_dash'
@@ -27,6 +28,7 @@ export type GameKey =
   | 'hangman'
   | 'pattern_king'
   | 'uno'
+  | 'tile_merge'
 
 export interface RankConfig {
   rank: GameRank
