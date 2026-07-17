@@ -11,9 +11,11 @@ import type { ChamberStory } from '../types'
 import { STORY_CONTENT as GREENFIELDS_STORY } from './map1'
 import { STORY_CONTENT as CRYSTAL_LAKE_STORY } from './map2'
 import { STORY_CONTENT as UNDER_WORLD_STORY } from './map3'
+import { STORY_CONTENT as THE_VOID_STORY } from './map4'
 
 export const STORY_CONTENT: Record<number, Record<number, ChamberStory>> = {
   ...GREENFIELDS_STORY,
   ...CRYSTAL_LAKE_STORY,
   ...UNDER_WORLD_STORY,
+  ...THE_VOID_STORY,
 }
