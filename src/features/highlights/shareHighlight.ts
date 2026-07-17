@@ -73,7 +73,7 @@ async function renderHighlightCanvas(highlight: Highlight, authorName: string): 
     const logoY = 50
     ctx.drawImage(logo, 60, logoY, logoW, logoH)
 
-    ctx.fillStyle = '#ffffff'
+    ctx.fillStyle = '#ff6b00'
     ctx.font = '700 40px system-ui, -apple-system, sans-serif'
     ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
