@@ -70,15 +70,25 @@ export default function ProfileEffectPreview({
   // capped, which is the one case that was forcing `cover` to zoom in so
   // far it cropped out the source clip's darker, see-through regions.
   const MAX_EFFECT_ASPECT = 1.8
+  // Gate the clamp on an actually-desktop-sized window, not the 640px
+  // breakpoint used above for the 460px card-width cap. Tablets cross that
+  // 640px line too but are nowhere near the "narrow capped card, tall PC
+  // monitor" shape this clamp exists for — gating on it made the video's
+  // own pixel height shrink below the sheet's 85vh container on tablets,
+  // leaving the bottom of the sheet with no effect over it at all. 1024px
+  // keeps this reserved for genuine desktop windows, where phones and
+  // tablets both fall through to the uncapped 100% branch.
+  const DESKTOP_CLAMP_MIN_WIDTH = 1024
   const [videoHeight, setVideoHeight] = useState<string>('100%')
   useEffect(() => {
     function recompute() {
       if (typeof window === 'undefined') return
       const wide = window.innerWidth >= 640
+      const isDesktop = window.innerWidth >= DESKTOP_CLAMP_MIN_WIDTH
       const boxWidthPx = wide ? Math.min(window.innerWidth * 0.92, 460) : window.innerWidth
       const boxHeightPx = window.innerHeight * (SHEET_HEIGHT_VH / 100)
       const maxVideoHeightPx = boxWidthPx * MAX_EFFECT_ASPECT
-      setVideoHeight(boxHeightPx > maxVideoHeightPx ? `${maxVideoHeightPx}px` : '100%')
+      setVideoHeight(isDesktop && boxHeightPx > maxVideoHeightPx ? `${maxVideoHeightPx}px` : '100%')
     }
     recompute()
     window.addEventListener('resize', recompute)
