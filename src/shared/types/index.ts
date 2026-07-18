@@ -34,6 +34,7 @@ export interface Profile {
   presence: string | null                // 'online' | 'away' | 'invisible' etc.; nullable, defaults to 'online'
   username_changed_at: string | null     // ISO timestamp of last username change, null if never changed
   original_username: string              // set once at signup, never changed again — powers the "Legacy Username" badge
+  banner_url: string | null              // equipped profile banner image, null if none equipped
 }
 
 export interface SignupProfileInput {
