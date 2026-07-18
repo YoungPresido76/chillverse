@@ -5,6 +5,7 @@ import { useAuth } from "../auth/useAuth";
 import { supabase } from "../../shared/lib/supabase";
 import { updateStreak } from "../auth/auth";
 import { updateMissionProgress } from "./weeklyMissions";
+import emberFlame from "../../assets/streak-ember.png";
 
 /* ═══════════════════════════════════════════════════
    MILESTONES
@@ -43,88 +44,25 @@ const MOOD_META: Record<string, { label: string; sub: string; color: string; glo
 };
 
 /* ═══════════════════════════════════════════════════
-   FACE
+   MASCOT — ember flame that dims or glows with the streak
 ═══════════════════════════════════════════════════ */
-function Face({ mood }: { mood: string }) {
-  const eyeBase: React.CSSProperties = { position:"absolute", top:34, left:"50%", transform:"translateX(-50%)", display:"flex", gap:14, zIndex:3 };
-  const mouthBase: React.CSSProperties = { position:"absolute", top:48, left:"50%", transform:"translateX(-50%)", width:18, height:9, zIndex:3 };
-
-  if (mood === "dead") return (
-    <>
-      <div style={eyeBase}>
-        <div style={{ width:7, height:2, borderRadius:2, background:"#1a1108", alignSelf:"center" }} />
-        <div style={{ width:7, height:2, borderRadius:2, background:"#1a1108", alignSelf:"center" }} />
-      </div>
-      <svg style={mouthBase} viewBox="0 0 18 9"><path d="M2,3 Q9,0 16,3" stroke="#1a1108" strokeWidth="1.6" fill="none" strokeLinecap="round" /></svg>
-    </>
-  );
-  if (mood === "spark") return (
-    <>
-      <div style={eyeBase}>
-        <div style={{ width:7, height:7, borderRadius:"50%", background:"#1a1108" }} />
-        <div style={{ width:7, height:7, borderRadius:"50%", background:"#1a1108" }} />
-      </div>
-      <svg style={mouthBase} viewBox="0 0 18 9"><line x1="3" y1="3" x2="15" y2="3" stroke="#1a1108" strokeWidth="1.6" strokeLinecap="round" /></svg>
-    </>
-  );
-  if (mood === "rising") return (
-    <>
-      <div style={eyeBase}>
-        <div style={{ width:7, height:7, borderRadius:"50%", background:"#1a1108" }} />
-        <div style={{ width:7, height:7, borderRadius:"50%", background:"#1a1108" }} />
-      </div>
-      <svg style={mouthBase} viewBox="0 0 18 9"><path d="M2,4 Q9,8 16,4" stroke="#1a1108" strokeWidth="1.6" fill="none" strokeLinecap="round" /></svg>
-    </>
-  );
-  if (mood === "neutral") return (
-    <>
-      <div style={eyeBase}>
-        <div style={{ width:7, height:7, borderRadius:"50%", background:"#1a1108" }} />
-        <div style={{ width:7, height:7, borderRadius:"50%", background:"#1a1108" }} />
-      </div>
-      <svg style={mouthBase} viewBox="0 0 18 9"><line x1="3" y1="3" x2="15" y2="3" stroke="#1a1108" strokeWidth="1.6" strokeLinecap="round" /></svg>
-    </>
-  );
-  if (mood === "good") return (
-    <>
-      <div style={eyeBase}>
-        <div style={{ width:7, height:7, borderRadius:"50%", background:"#1a1108" }} />
-        <div style={{ width:7, height:7, borderRadius:"50%", background:"#1a1108" }} />
-      </div>
-      <svg style={mouthBase} viewBox="0 0 18 9"><path d="M2,2 Q9,9 16,2" stroke="#1a1108" strokeWidth="1.8" fill="none" strokeLinecap="round" /></svg>
-    </>
-  );
-  return (
-    <>
-      <div style={eyeBase}>
-        <div style={{ width:6, height:6, borderRadius:"50%", background:"#1a1108" }} />
-        <div style={{ width:6, height:6, borderRadius:"50%", background:"#1a1108" }} />
-      </div>
-      <svg style={mouthBase} viewBox="0 0 18 9"><path d="M1,1 Q9,11 17,1" stroke="#1a1108" strokeWidth="2" fill="none" strokeLinecap="round" /></svg>
-    </>
-  );
-}
-
-/* ═══════════════════════════════════════════════════
-   MASCOT
-═══════════════════════════════════════════════════ */
-function Mascot({ mood }: { mood: string }) {
+function Mascot({ mood, streak }: { mood: string; streak: number }) {
   const meta = MOOD_META[mood];
-  const flameColors: Record<string, { outer: string; inner: string }> = {
-    dead:    { outer: "linear-gradient(180deg,#3a3a44,#26262e)", inner: "linear-gradient(180deg,#555566,#3a3a44)" },
-    spark:   { outer: "linear-gradient(180deg,#ff9a3c,#cc5500)", inner: "linear-gradient(180deg,#ffc87a,#ff7a1a)" },
-    rising:  { outer: "linear-gradient(180deg,#ff8a2a,#ff5500)", inner: "linear-gradient(180deg,#ffcc5a,#ff9a3c)" },
-    neutral: { outer: "linear-gradient(180deg,#ff9a3c,#ff6b00)", inner: "linear-gradient(180deg,#ffd27a,#ff9a3c)" },
-    good:    { outer: "linear-gradient(180deg,#ff8a1f,#ff6b00)", inner: "linear-gradient(180deg,#ffdd6b,#ffae3c)" },
-    blazing: { outer: "linear-gradient(180deg,#ffdd6b,#ff6b00)", inner: "linear-gradient(180deg,#fff3c2,#ffd24a)" },
-  };
-  const fc = flameColors[mood];
-  const scale = ({ dead:0.7, spark:0.88, rising:0.95, neutral:1, good:1.12, blazing:1.28 } as Record<string,number>)[mood];
-  const flameAnim = mood === "dead" ? undefined : (mood === "spark" || mood === "rising") ? "flameFlicker 3.2s ease-in-out infinite" : mood === "neutral" ? "flameFlicker 3.2s ease-in-out infinite" : "flameBounce 2.4s ease-in-out infinite";
+
+  // Glow ramps up gradually with the streak count itself (not just the mood
+  // bucket), so the flame reads as genuinely dull on day 1 and only really
+  // brightens as the streak climbs — capped at day 100 for full brightness.
+  const glowT = Math.max(0, Math.min(1, streak / 100));
+  const isDead = mood === "dead";
+  const glowBlur = 10 + glowT * 34;
+  const glowSpread = 0.18 + glowT * 0.5;
+  const brightness = 0.62 + glowT * 0.55;
+  const saturate = isDead ? 0.15 : 0.55 + glowT * 0.6;
+  const scale = 0.85 + glowT * 0.4;
+  const flameAnim = isDead ? undefined : "flameFlicker 3.2s ease-in-out infinite";
 
   return (
     <div style={{ position:"relative", width:200, height:200, display:"flex", alignItems:"center", justifyContent:"center" }}>
-      <div style={{ position:"absolute", width:170, height:170, borderRadius:"50%", background:meta.glow, filter:"blur(36px)" }} />
       {mood === "blazing" && (
         <>
           <div style={{ position:"absolute", top:6, width:54, height:54, borderRadius:"50%", border:"3px solid #f5c542", boxShadow:"0 0 16px #f5c542,0 0 30px rgba(245,197,66,0.5)", animation:"haloFloat 2.6s ease-in-out infinite" }} />
@@ -135,11 +73,21 @@ function Mascot({ mood }: { mood: string }) {
           ))}
         </>
       )}
-      <div style={{ position:"relative", width:88, height:106, zIndex:2, transform:`scale(${scale})`, animation: flameAnim }}>
-        <div style={{ position:"absolute", inset:0, borderRadius:"50% 50% 50% 50% / 60% 60% 40% 40%", clipPath:"path('M44,104 C16,96 6,72 10,50 C13,32 26,18 36,4 C40,16 46,18 46,30 C54,18 60,4 60,4 C68,16 80,34 80,54 C80,76 68,98 44,104 Z')", background: fc.outer }} />
-        <div style={{ position:"absolute", left:"50%", bottom:18, width:34, height:46, transform:"translateX(-50%)", borderRadius:"50% 50% 50% 50% / 60% 60% 40% 40%", opacity:0.85, background: fc.inner }} />
-        <Face mood={mood} />
-      </div>
+      <img
+        src={emberFlame}
+        alt={`${meta.label} — ${streak} day streak`}
+        style={{
+          position: "relative",
+          zIndex: 2,
+          width: 128,
+          height: 128,
+          objectFit: "contain",
+          transform: `scale(${scale})`,
+          animation: flameAnim,
+          filter: `drop-shadow(0 0 ${glowBlur}px rgba(232,73,26,${glowSpread})) brightness(${brightness}) saturate(${saturate})`,
+          transition: "filter 0.6s ease, transform 0.6s ease",
+        }}
+      />
     </div>
   );
 }
@@ -238,7 +186,7 @@ export default function Streak({ onBack }: StreakProps) {
 
         {/* Mascot stage */}
         <div style={{ display:"flex", flexDirection:"column", alignItems:"center", padding:"36px 20px 28px" }}>
-          <Mascot mood={mood} />
+          <Mascot mood={mood} streak={streak} />
           <div style={{ fontSize:46, fontWeight:800, letterSpacing:-1, background:`linear-gradient(135deg,${meta.color},#fff)`, WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", marginTop:6 }}>
             {streak}
           </div>
