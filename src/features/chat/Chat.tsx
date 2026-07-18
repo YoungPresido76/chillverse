@@ -6,11 +6,12 @@ import {
   Smile, Send, X, Trash2, Reply, Flag, Lock,
   MessageCircle, UserPlus, ShieldOff, UserCheck,
   ExternalLink, Check, CheckCheck, Pin, PinOff, Phone,
+  Megaphone, BarChart3, Timer, Zap, Eye, EyeOff, Star,
 } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { supabase } from '../../shared/lib/supabase'
 import { updateMissionProgress } from '../missions/weeklyMissions'
-import { notifyMessage } from '../achievements/achievements'
+import { notifyMessage, notifyRankTag } from '../achievements/achievements'
 import { useAuth } from '../auth/useAuth'
 import PageOnboarding from '../onboarding/PageOnboarding'
 import StartCallButton from './calling/StartCallButton'
@@ -22,6 +23,12 @@ import ReportModal from '../safety/ReportModal'
 import { containsProfanity, PROFANITY_BLOCKED_MESSAGE } from '../../shared/lib/profanityFilter'
 import { isProActive } from '../../shared/lib/proPlans'
 import HiddenContentNotice from '../moderation/HiddenContentNotice'
+import { useModRole } from '../moderation/useModRole'
+import { RANK_GROUPS, type RankGroupId } from '../profile/ranks'
+import PollMessage from './PollMessage'
+import PollComposerModal from './PollComposerModal'
+import StarredMessagesPanel from './StarredMessagesPanel'
+import { starMessage, unstarMessage, fetchMyStarredMessageIds } from './starredMessages'
 
 // ─── Types ──────────────────────────────────────────────────
 interface RoomMember {
@@ -40,6 +47,10 @@ interface ChatRoom {
   pinned: boolean
   clearedAt: string | null // messages at/before this timestamp are hidden for me (soft clear)
   pinnedMessageId: string | null // room-wide pinned message, visible to all members
+  spotlightMessageId: string | null // temporary pin (Staff/Mod/Admin, Global Chat only) — see migration 0040
+  spotlightExpiresAt: string | null
+  slowMode: boolean // Global Chat only
+  slowModeSeconds: number
 }
 interface Message {
   id: string
@@ -57,13 +68,17 @@ interface Message {
   reactions: { emoji: string; user_id: string }[]
   senderName?: string
   senderUsername?: string
-  /** 'text' (default) | 'voice_note' | 'call_log' — see migration 0009. */
+  /** 'text' (default) | 'voice_note' | 'call_log' | 'rank_tag' | 'poll' — see migrations 0009, 0038, 0039. */
   type: MessageType
   audio_path: string | null
   audio_duration_seconds: number | null
   call_id: string | null
+  /** Set only when type === 'rank_tag' — one of the 8 RANK_GROUP_IDS. */
+  rank_tag_group: string | null
+  /** Set only when type === 'poll'. */
+  poll_id: string | null
 }
-type MessageType = 'text' | 'voice_note' | 'call_log'
+type MessageType = 'text' | 'voice_note' | 'call_log' | 'rank_tag' | 'poll'
 interface SearchedProfile {
   id: string
   username: string
@@ -98,9 +113,10 @@ function groupMessages(messages: Message[]): GroupedMessage[] {
   return messages.map((m, i) => {
     const prev = messages[i - 1]
     const next = messages[i + 1]
-    const isGroupFirst = !prev || prev.sender_id !== m.sender_id ||
+    const isStandalone = (t: MessageType) => t === 'rank_tag' || t === 'poll'
+    const isGroupFirst = !prev || prev.sender_id !== m.sender_id || isStandalone(prev.type) || isStandalone(m.type) ||
       (new Date(m.created_at).getTime() - new Date(prev.created_at).getTime()) > GROUP_GAP_MS
-    const isGroupLast = !next || next.sender_id !== m.sender_id ||
+    const isGroupLast = !next || next.sender_id !== m.sender_id || isStandalone(next.type) || isStandalone(m.type) ||
       (new Date(next.created_at).getTime() - new Date(m.created_at).getTime()) > GROUP_GAP_MS
     return { ...m, isGroupFirst, isGroupLast }
   })
@@ -108,13 +124,14 @@ function groupMessages(messages: Message[]): GroupedMessage[] {
 
 const EMOJIS = ['😂','🔥','💀','👑','😍','🎮','💯','🙌','😅','🤯','❤️','👀','🫡','💪','🏆']
 
-function IBtn({ onClick, children, style }: {
+function IBtn({ onClick, children, style, title }: {
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void
   children: React.ReactNode
   style?: React.CSSProperties
+  title?: string
 }) {
   return (
-    <button type="button" onClick={onClick}
+    <button type="button" onClick={onClick} title={title}
       style={{ width:36, height:36, borderRadius:10, flexShrink:0, background:'var(--surface)', border:'1px solid rgba(255,255,255,0.06)', color:'var(--text-dim)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'color 0.15s', ...style }}
       onMouseEnter={e => { e.currentTarget.style.color = 'var(--text)' }}
       onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-dim)' }}>
@@ -345,6 +362,37 @@ const MessageLine = memo(function MessageLine({
   )
 })
 
+/** Distinct full-width "official" card for a Staff/Moderator/Admin rank tag —
+ *  deliberately not styled like MessageLine's underline chat bubbles, so it
+ *  reads as an announcement rather than a regular message. Global Chat only. */
+const RankTagAnnouncement = memo(function RankTagAnnouncement({
+  msg, senderLabel, formatTime, myId,
+}: {
+  msg: Message
+  senderLabel: string
+  formatTime: (iso: string) => string
+  myId: string | null
+}) {
+  const group = RANK_GROUPS.find(g => g.id === msg.rank_tag_group)
+  const color = group?.color ?? '#f5c542'
+  return (
+    <div style={{ margin: '10px 0', padding: '10px 14px', borderRadius: 14, background: `${color}14`, border: `1px solid ${color}55` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+        <Megaphone size={13} style={{ color, flexShrink: 0 }} />
+        <span style={{ fontSize: 11, fontWeight: 800, color, textTransform: 'uppercase', letterSpacing: 0.3 }}>
+          @{group?.label ?? 'Rank'} tagged — by {senderLabel}
+        </span>
+        <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 'auto', flexShrink: 0 }}>{formatTime(msg.created_at)}</span>
+      </div>
+      <div style={{ fontSize: 13.5, lineHeight: 1.45, color: 'var(--text)', fontStyle: msg.deleted ? 'italic' : 'normal', opacity: msg.deleted ? 0.6 : 1 }}>
+        {msg.hidden ? (
+          <HiddenContentNotice reason={msg.hidden_reason} isOwner={msg.sender_id === myId} />
+        ) : msg.deleted ? 'Message deleted' : msg.content}
+      </div>
+    </div>
+  )
+})
+
 interface MessageBurstProps {
   burst: GroupedMessage[]
   isMine: boolean
@@ -545,6 +593,7 @@ function PlayerProfileModal({ profile, myId, onClose, onStartChat, onBlockChange
 export default function Chat() {
   const { session } = useAuth()
   const myId = session?.user?.id ?? null
+  const { isStaff, canCreatePoll } = useModRole()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -625,6 +674,20 @@ export default function Chat() {
   const [ctxPos, setCtxPos] = useState({ x: 0, y: 0 })
   const [emojiForMsg, setEmojiForMsg] = useState<string | null>(null)
   const [replyTo, setReplyTo] = useState<Message | null>(null)
+  // Ghost Read (DMs only) — per-visit toggle, resets each time a room is opened
+  // (see openRoom below). While active, markRoomAsRead is a no-op so the other
+  // person's read receipt never flips for this visit.
+  const [ghostReadActive, setGhostReadActive] = useState(false)
+  // Rank Tag (Staff/Moderator/Admin, Global Chat only) — a pending tag attaches
+  // to the next message sent, same pattern as replyTo above.
+  const [rankTagPickerOpen, setRankTagPickerOpen] = useState(false)
+  const [pendingRankTag, setPendingRankTag] = useState<RankGroupId | null>(null)
+  // Polls (Staff/Moderator/Admin + Verified, Global Chat only)
+  const [pollModalOpen, setPollModalOpen] = useState(false)
+  const [pollRefreshToken, setPollRefreshToken] = useState(0)
+  // Starred messages — private per-user bookmarks (see migration 0041)
+  const [starredPanelOpen, setStarredPanelOpen] = useState(false)
+  const [myStarredIds, setMyStarredIds] = useState<Set<string>>(new Set())
 
   // Player profile modal
   const [viewProfile, setViewProfile] = useState<SearchedProfile | null>(null)
@@ -634,6 +697,25 @@ export default function Chat() {
   const [convMenuOpen, setConvMenuOpen] = useState(false)
   // Pinned message banner content — fetched separately since ChatRoom only stores the id
   const [pinnedMsgPreview, setPinnedMsgPreview] = useState<{ id: string; content: string; senderName: string } | null>(null)
+  const [spotlightMsgPreview, setSpotlightMsgPreview] = useState<{ id: string; content: string; senderName: string } | null>(null)
+  // Slow Mode — client-side cooldown UX only; real enforcement is the RLS
+  // policy in migration 0040. Staff/Moderator/Admin are exempt (see there).
+  const [slowModeCooldownUntil, setSlowModeCooldownUntil] = useState<number | null>(null)
+  const [nowTick, setNowTick] = useState(Date.now())
+  useEffect(() => {
+    if (!slowModeCooldownUntil) return
+    const id = setInterval(() => setNowTick(Date.now()), 500)
+    return () => clearInterval(id)
+  }, [slowModeCooldownUntil])
+  useEffect(() => {
+    if (slowModeCooldownUntil && nowTick >= slowModeCooldownUntil) setSlowModeCooldownUntil(null)
+  }, [nowTick, slowModeCooldownUntil])
+  const [slowModePickerOpen, setSlowModePickerOpen] = useState(false)
+  // Spotlight — which message's context menu currently has its duration submenu open.
+  const [spotlightPickerFor, setSpotlightPickerFor] = useState<Message | null>(null)
+  const [spotlightCustomMinutes, setSpotlightCustomMinutes] = useState('')
+  const slowModeCooldownRemaining = slowModeCooldownUntil ? Math.max(0, Math.ceil((slowModeCooldownUntil - nowTick) / 1000)) : 0
+  const isSlowModeCooling = activeRoom?.type === 'global' && !!activeRoom.slowMode && !isStaff && slowModeCooldownRemaining > 0
   // Per-room row menu in the room list (pin/delete), keyed by room id, null = closed
   const [roomMenuOpenFor, setRoomMenuOpenFor] = useState<string | null>(null)
   const [roomMenuPos, setRoomMenuPos] = useState({ x: 0, y: 0 })
@@ -733,14 +815,14 @@ export default function Chat() {
   /** Persists my read position for the active room, throttled so scrolling
    *  doesn't fire a write on every frame. Other member's UI updates via realtime. */
   const markRoomAsRead = useCallback((roomId: string) => {
-    if (!myId) return
+    if (!myId || ghostReadActive) return
     const now = Date.now()
     if (now - lastMarkReadAtRef.current < MARK_READ_THROTTLE_MS) return
     lastMarkReadAtRef.current = now
     supabase.from('room_members').update({ last_read_at: new Date().toISOString() })
       .eq('room_id', roomId).eq('user_id', myId)
       .then(({ error }) => { if (error) console.error('Failed to mark room as read:', error.message) })
-  }, [myId])
+  }, [myId, ghostReadActive])
 
   // ── Ensure global chat room exists & user is a member ──────
   async function ensureGlobalRoom(): Promise<string | null> {
@@ -795,6 +877,7 @@ export default function Chat() {
 
   // ── Load rooms ──────────────────────────────────────────────
   useEffect(() => { if (myId) loadRooms() }, [myId])
+  useEffect(() => { if (myId) fetchMyStarredMessageIds(myId).then(setMyStarredIds) }, [myId])
 
   // Room-list-wide realtime: keeps "recent chats move to top" live even for rooms
   // that aren't currently open (the per-room subscription in openRoom only covers
@@ -867,7 +950,7 @@ export default function Chat() {
     if (!visibleRoomIds.length) { setRooms([]); setRoomsLoading(false); return }
 
     const { data: roomRows } = await supabase
-      .from('chat_rooms').select('id, type, name, pinned_message_id').in('id', visibleRoomIds)
+      .from('chat_rooms').select('id, type, name, pinned_message_id, spotlight_message_id, spotlight_expires_at, slow_mode, slow_mode_seconds').in('id', visibleRoomIds)
 
     if (!roomRows?.length) { setRooms([]); setRoomsLoading(false); return }
 
@@ -907,6 +990,10 @@ export default function Chat() {
         pinned: myState?.pinned ?? false,
         clearedAt,
         pinnedMessageId: room.pinned_message_id ?? null,
+        spotlightMessageId: room.spotlight_message_id ?? null,
+        spotlightExpiresAt: room.spotlight_expires_at ?? null,
+        slowMode: room.slow_mode ?? false,
+        slowModeSeconds: room.slow_mode_seconds ?? 10,
       }
     }))
 
@@ -954,6 +1041,8 @@ export default function Chat() {
     setShowConv(true)
     setMessages([]); setMsgsLoading(true)
     setReplyTo(null); setText('')
+    setGhostReadActive(false)
+    setPendingRankTag(null); setRankTagPickerOpen(false)
     setEmojiOpen(false)
     setHasMoreOlder(false)
     setOtherLastReadAt(null)
@@ -967,7 +1056,7 @@ export default function Chat() {
     // If I've cleared this chat, only fetch messages after that cutoff.
     let query = supabase
       .from('messages')
-      .select('id, sender_id, content, created_at, deleted, hidden, hidden_reason, reply_to_id, type, audio_path, audio_duration_seconds, call_id')
+      .select('id, sender_id, content, created_at, deleted, hidden, hidden_reason, reply_to_id, type, audio_path, audio_duration_seconds, call_id, rank_tag_group, poll_id')
       .eq('room_id', room.id)
     if (room.clearedAt) query = query.gt('created_at', room.clearedAt)
     const { data, error } = await query
@@ -1076,6 +1165,22 @@ export default function Chat() {
       }
     }
 
+    // Spotlight banner — same idea as the pinned banner above, but temporary
+    // (see spotlightExpiresAt) and Global Chat only.
+    setSpotlightMsgPreview(null)
+    if (room.spotlightMessageId && room.spotlightExpiresAt && new Date(room.spotlightExpiresAt) > new Date()) {
+      const { data: spotlightRow } = await supabase
+        .from('messages').select('id, sender_id, content').eq('id', room.spotlightMessageId).maybeSingle()
+      if (spotlightRow) {
+        const spotlightSender = allMembers.find(mb => mb.user_id === spotlightRow.sender_id)
+        setSpotlightMsgPreview({
+          id: spotlightRow.id,
+          content: spotlightRow.content,
+          senderName: spotlightSender ? (spotlightSender.profile.display_name || spotlightSender.profile.username) : 'Unknown',
+        })
+      }
+    }
+
     // ── Real-time subscription — appends only the new row, never re-fetches the list.
     //    Also syncs message edits/deletes, live reactions, pin changes, and the other
     //    DM member's read position, all on one channel scoped to this room. ──
@@ -1088,7 +1193,7 @@ export default function Chat() {
         table: 'messages',
         filter: `room_id=eq.${room.id}`
       }, async (payload) => {
-        const raw = payload.new as { id: string; sender_id: string; content: string; created_at: string; deleted: boolean; hidden: boolean; hidden_reason: string | null; reply_to_id: string | null; type: 'text' | 'voice_note' | 'call_log'; audio_path: string | null; audio_duration_seconds: number | null; call_id: string | null }
+        const raw = payload.new as { id: string; sender_id: string; content: string; created_at: string; deleted: boolean; hidden: boolean; hidden_reason: string | null; reply_to_id: string | null; type: 'text' | 'voice_note' | 'call_log' | 'rank_tag' | 'poll'; audio_path: string | null; audio_duration_seconds: number | null; call_id: string | null; rank_tag_group: string | null; poll_id: string | null }
 
         // Resolve sender name (may be a new global chat participant not in original members)
         let senderName = 'Unknown'
@@ -1162,21 +1267,78 @@ export default function Chat() {
         table: 'chat_rooms',
         filter: `id=eq.${room.id}`
       }, async (payload) => {
-        // Live-syncs pin/unpin performed by the other member of the conversation.
-        const raw = payload.new as { pinned_message_id: string | null }
-        setActiveRoom(r => (r && r.id === room.id) ? { ...r, pinnedMessageId: raw.pinned_message_id } : r)
-        setRooms(prev => prev.map(r => r.id === room.id ? { ...r, pinnedMessageId: raw.pinned_message_id } : r))
-        if (!raw.pinned_message_id) { setPinnedMsgPreview(null); return }
-        const { data: pinnedRow } = await supabase
-          .from('messages').select('id, sender_id, content').eq('id', raw.pinned_message_id).maybeSingle()
-        if (pinnedRow) {
-          const pinnedSender = roomMembersRef.current.find(mb => mb.user_id === pinnedRow.sender_id)
-          setPinnedMsgPreview({
-            id: pinnedRow.id,
-            content: pinnedRow.content,
-            senderName: pinnedSender ? (pinnedSender.profile.display_name || pinnedSender.profile.username) : 'Unknown',
-          })
+        // Live-syncs pin/unpin, Spotlight, and Slow Mode changes made by staff.
+        const raw = payload.new as {
+          pinned_message_id: string | null
+          spotlight_message_id: string | null
+          spotlight_expires_at: string | null
+          slow_mode: boolean
+          slow_mode_seconds: number
         }
+        setActiveRoom(r => (r && r.id === room.id) ? {
+          ...r,
+          pinnedMessageId: raw.pinned_message_id,
+          spotlightMessageId: raw.spotlight_message_id,
+          spotlightExpiresAt: raw.spotlight_expires_at,
+          slowMode: raw.slow_mode,
+          slowModeSeconds: raw.slow_mode_seconds,
+        } : r)
+        setRooms(prev => prev.map(r => r.id === room.id ? {
+          ...r,
+          pinnedMessageId: raw.pinned_message_id,
+          spotlightMessageId: raw.spotlight_message_id,
+          spotlightExpiresAt: raw.spotlight_expires_at,
+          slowMode: raw.slow_mode,
+          slowModeSeconds: raw.slow_mode_seconds,
+        } : r))
+
+        if (!raw.pinned_message_id) { setPinnedMsgPreview(null) } else {
+          const { data: pinnedRow } = await supabase
+            .from('messages').select('id, sender_id, content').eq('id', raw.pinned_message_id).maybeSingle()
+          if (pinnedRow) {
+            const pinnedSender = roomMembersRef.current.find(mb => mb.user_id === pinnedRow.sender_id)
+            setPinnedMsgPreview({
+              id: pinnedRow.id,
+              content: pinnedRow.content,
+              senderName: pinnedSender ? (pinnedSender.profile.display_name || pinnedSender.profile.username) : 'Unknown',
+            })
+          }
+        }
+
+        if (!raw.spotlight_message_id || !raw.spotlight_expires_at || new Date(raw.spotlight_expires_at) <= new Date()) {
+          setSpotlightMsgPreview(null)
+        } else {
+          const { data: spotlightRow } = await supabase
+            .from('messages').select('id, sender_id, content').eq('id', raw.spotlight_message_id).maybeSingle()
+          if (spotlightRow) {
+            const spotlightSender = roomMembersRef.current.find(mb => mb.user_id === spotlightRow.sender_id)
+            setSpotlightMsgPreview({
+              id: spotlightRow.id,
+              content: spotlightRow.content,
+              senderName: spotlightSender ? (spotlightSender.profile.display_name || spotlightSender.profile.username) : 'Unknown',
+            })
+          }
+        }
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'poll_votes',
+        filter: `room_id=eq.${room.id}`
+      }, () => {
+        // A vote count changed somewhere in this room — every visible
+        // PollMessage refetches its own data. Simpler than diffing individual
+        // vote rows, and Global Chat rarely has many polls open at once.
+        setPollRefreshToken(t => t + 1)
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'polls',
+        filter: `room_id=eq.${room.id}`
+      }, () => {
+        // Covers a poll being ended early (closed_at set) by someone else.
+        setPollRefreshToken(t => t + 1)
       })
       .on('postgres_changes', {
         event: 'UPDATE',
@@ -1207,7 +1369,7 @@ export default function Chat() {
     const oldestCreatedAt = messages[0].created_at
     let query = supabase
       .from('messages')
-      .select('id, sender_id, content, created_at, deleted, hidden, hidden_reason, reply_to_id, type, audio_path, audio_duration_seconds, call_id')
+      .select('id, sender_id, content, created_at, deleted, hidden, hidden_reason, reply_to_id, type, audio_path, audio_duration_seconds, call_id, rank_tag_group, poll_id')
       .eq('room_id', activeRoom.id)
       .lt('created_at', oldestCreatedAt)
     // Never page past a soft-clear cutoff — that history is hidden for me.
@@ -1360,6 +1522,10 @@ export default function Chat() {
         pinned: false,
         clearedAt: null,
         pinnedMessageId: null,
+        spotlightMessageId: null,
+        spotlightExpiresAt: null,
+        slowMode: false,
+        slowModeSeconds: 10,
       }
 
       setPlayerSearch('')
@@ -1425,6 +1591,7 @@ export default function Chat() {
     reply_to_id?: string
     type?: MessageType
     audio_duration_seconds?: number
+    rank_tag_group?: RankGroupId
   }
 
   async function sendMsg() {
@@ -1432,6 +1599,7 @@ export default function Chat() {
     if (!trimmed || !activeRoom || !myId || sending) return
     if (trimmed.length > MAX_MESSAGE_LENGTH) return // guards against a pasted block over the DB check-constraint limit
     if (activeRoom.type === 'dm' && dmBlockState !== 'none') return // composer is hidden in this state, but guard defensively
+    if (activeRoom.type === 'global' && activeRoom.slowMode && !isStaff && slowModeCooldownRemaining > 0) return
     if (containsProfanity(trimmed)) { setComposerError(PROFANITY_BLOCKED_MESSAGE); return }
 
     setSending(true)
@@ -1440,9 +1608,12 @@ export default function Chat() {
     if (typingTimeoutRef.current) { clearTimeout(typingTimeoutRef.current); typingTimeoutRef.current = null }
     presenceChannelRef.current?.track({ typing: false })
 
+    const rankTag = pendingRankTag && isStaff && activeRoom.type === 'global' ? pendingRankTag : null
+
     const payload: MessageInsertPayload = { room_id: activeRoom.id, sender_id: myId, content: trimmed }
     if (replyTo) payload.reply_to_id = replyTo.id
-    const { data: inserted, error } = await supabase.from('messages').insert(payload).select('id, sender_id, content, created_at, deleted, hidden, hidden_reason, reply_to_id, type, audio_path, audio_duration_seconds, call_id').single()
+    if (rankTag) { payload.type = 'rank_tag'; payload.rank_tag_group = rankTag }
+    const { data: inserted, error } = await supabase.from('messages').insert(payload).select('id, sender_id, content, created_at, deleted, hidden, hidden_reason, reply_to_id, type, audio_path, audio_duration_seconds, call_id, rank_tag_group, poll_id').single()
     if (!error && inserted) {
       // Weekly mission: messages_sent
       if (myId) updateMissionProgress(myId, 'messages_sent', 1).catch(console.error)
@@ -1451,6 +1622,10 @@ export default function Chat() {
         activeRoom.members
           .filter(mb => mb.user_id !== myId)
           .forEach(mb => notifyMessage(myId, mb.user_id, inserted.content).catch(console.error))
+      }
+      // Rank tag: fan out to every user currently in that rank group
+      if (myId && rankTag) {
+        notifyRankTag(myId, rankTag, { messageId: inserted.id }).catch(console.error)
       }
       // Optimistically add own message immediately without waiting for realtime
       const myMember = activeRoom.members.find(mb => mb.user_id === myId)
@@ -1461,9 +1636,12 @@ export default function Chat() {
         if (ms.find(m => m.id === inserted.id)) return ms
         return [...ms, { ...inserted, deleted: false, reactions: [], senderName, senderUsername, replyPreview: replyTo?.content, replyPreviewName: replyTo?.senderName }]
       })
-      setText(''); setReplyTo(null)
+      setText(''); setReplyTo(null); setPendingRankTag(null)
+      if (activeRoom.type === 'global' && activeRoom.slowMode && !isStaff) {
+        setSlowModeCooldownUntil(Date.now() + activeRoom.slowModeSeconds * 1000)
+      }
     } else if (!error) {
-      setText(''); setReplyTo(null)
+      setText(''); setReplyTo(null); setPendingRankTag(null)
     } else if (error.message?.includes('CV_PROFANITY')) {
       setComposerError(PROFANITY_BLOCKED_MESSAGE)
     }
@@ -1491,7 +1669,7 @@ export default function Chat() {
     if (replyTo) payload.reply_to_id = replyTo.id
 
     const { data: inserted, error } = await supabase.from('messages').insert(payload)
-      .select('id, sender_id, content, created_at, deleted, hidden, hidden_reason, reply_to_id, type, audio_path, audio_duration_seconds, call_id').single()
+      .select('id, sender_id, content, created_at, deleted, hidden, hidden_reason, reply_to_id, type, audio_path, audio_duration_seconds, call_id, rank_tag_group, poll_id').single()
 
     if (error || !inserted) {
       if (error?.message?.includes('CV_VOICE_NOTES_PRO_ONLY')) {
@@ -1621,9 +1799,11 @@ export default function Chat() {
     if (activeRoom?.id === roomId) { setActiveRoom(null); setShowConv(false); setMessages([]) }
   }
 
-  /** Pin a message to the top of the active conversation, visible to all members. */
+  /** Pin a message to the top of the active conversation, visible to all members.
+   *  Global Chat: Staff/Moderator/Admin only. DMs: any member, unchanged. */
   async function pinMessage(msg: Message) {
     if (!activeRoom) return
+    if (activeRoom.type === 'global' && !isStaff) return
     const { error } = await supabase.from('chat_rooms').update({ pinned_message_id: msg.id }).eq('id', activeRoom.id)
     if (error) {
       console.error('Failed to pin message — has the pin/clear/delete migration been run on this Supabase project?', error.message)
@@ -1641,6 +1821,7 @@ export default function Chat() {
 
   async function unpinMessage() {
     if (!activeRoom) return
+    if (activeRoom.type === 'global' && !isStaff) return
     const { error } = await supabase.from('chat_rooms').update({ pinned_message_id: null }).eq('id', activeRoom.id)
     if (error) {
       console.error('Failed to unpin message:', error.message)
@@ -1649,6 +1830,76 @@ export default function Chat() {
     setActiveRoom(r => r ? { ...r, pinnedMessageId: null } : r)
     setRooms(prev => prev.map(r => r.id === activeRoom.id ? { ...r, pinnedMessageId: null } : r))
     setPinnedMsgPreview(null)
+  }
+
+  /** Temporary pin, separate from the permanent pin above. Staff/Moderator/
+   *  Admin, Global Chat only. Auto-expires client-side (no cron) — see the
+   *  spotlightExpiresAt check wherever this is rendered/synced. */
+  async function spotlightMessage(msg: Message, durationMinutes: number) {
+    if (!activeRoom || activeRoom.type !== 'global' || !isStaff) return
+    const expiresAt = new Date(Date.now() + durationMinutes * 60_000).toISOString()
+    const { error } = await supabase.from('chat_rooms')
+      .update({ spotlight_message_id: msg.id, spotlight_expires_at: expiresAt }).eq('id', activeRoom.id)
+    if (error) {
+      console.error('Failed to spotlight message:', error.message)
+      return
+    }
+    setActiveRoom(r => r ? { ...r, spotlightMessageId: msg.id, spotlightExpiresAt: expiresAt } : r)
+    setRooms(prev => prev.map(r => r.id === activeRoom.id ? { ...r, spotlightMessageId: msg.id, spotlightExpiresAt: expiresAt } : r))
+    setSpotlightMsgPreview({
+      id: msg.id,
+      content: msg.deleted ? 'Message deleted' : msg.content,
+      senderName: msg.sender_id === myId ? 'You' : (msg.senderName || 'Unknown'),
+    })
+    setCtxMsg(null)
+  }
+
+  async function clearSpotlight() {
+    if (!activeRoom || activeRoom.type !== 'global' || !isStaff) return
+    const { error } = await supabase.from('chat_rooms')
+      .update({ spotlight_message_id: null, spotlight_expires_at: null }).eq('id', activeRoom.id)
+    if (error) {
+      console.error('Failed to clear spotlight:', error.message)
+      return
+    }
+    setActiveRoom(r => r ? { ...r, spotlightMessageId: null, spotlightExpiresAt: null } : r)
+    setRooms(prev => prev.map(r => r.id === activeRoom.id ? { ...r, spotlightMessageId: null, spotlightExpiresAt: null } : r))
+    setSpotlightMsgPreview(null)
+  }
+
+  /** Staff/Moderator/Admin, Global Chat only. Staff themselves are exempt
+   *  from the cooldown (enforced server-side in migration 0040). */
+  async function toggleSlowMode(enabled: boolean, seconds: 10 | 20 | 30) {
+    if (!activeRoom || activeRoom.type !== 'global' || !isStaff) return
+    const { error } = await supabase.from('chat_rooms')
+      .update({ slow_mode: enabled, slow_mode_seconds: seconds }).eq('id', activeRoom.id)
+    if (error) {
+      console.error('Failed to toggle Slow Mode:', error.message)
+      return
+    }
+    setActiveRoom(r => r ? { ...r, slowMode: enabled, slowModeSeconds: seconds } : r)
+    setRooms(prev => prev.map(r => r.id === activeRoom.id ? { ...r, slowMode: enabled, slowModeSeconds: seconds } : r))
+  }
+
+  /** Private per-user bookmark — everyone can star any message, any room.
+   *  Nobody else ever sees this (see migration 0041). */
+  async function toggleStar(messageId: string) {
+    if (!myId) return
+    const currentlyStarred = myStarredIds.has(messageId)
+    setMyStarredIds(prev => {
+      const next = new Set(prev)
+      currentlyStarred ? next.delete(messageId) : next.add(messageId)
+      return next
+    })
+    const { error } = currentlyStarred ? await unstarMessage(myId, messageId) : await starMessage(myId, messageId)
+    if (error) {
+      console.error('Failed to toggle star:', error)
+      setMyStarredIds(prev => {
+        const next = new Set(prev)
+        currentlyStarred ? next.add(messageId) : next.delete(messageId)
+        return next
+      })
+    }
   }
 
   function formatTime(iso: string) {
@@ -1700,7 +1951,10 @@ export default function Chat() {
                 <span style={{ fontSize:17, fontWeight:700, color:'var(--text)' }}>Messages</span>
                 {totalUnread > 0 && <span style={{ background:'var(--accent)', color:'#fff', fontSize:10, fontWeight:700, padding:'2px 7px', borderRadius:10 }}>{totalUnread}</span>}
               </div>
-              <IBtn><MoreVertical size={15} /></IBtn>
+              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                <IBtn onClick={() => setStarredPanelOpen(true)} title="Starred messages"><Star size={15} /></IBtn>
+                <IBtn><MoreVertical size={15} /></IBtn>
+              </div>
             </div>
 
             {/* Room search */}
@@ -1879,6 +2133,11 @@ export default function Chat() {
                         🌐 Open to all Chillverse players
                       </div>
                     )}
+                    {activeRoom.type === 'global' && activeRoom.slowMode && (
+                      <div style={{ fontSize:10.5, color:'var(--accent)', fontWeight:600 }}>
+                        🐢 Slow mode: {activeRoom.slowModeSeconds}s
+                      </div>
+                    )}
                     {activeRoom.type === 'dm' && (() => {
                       const other = activeRoom.members.find(m => m.user_id !== myId)
                       if (!other || !onlineUserIds.has(other.user_id)) return null
@@ -1891,7 +2150,7 @@ export default function Chat() {
                 <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
                   <div style={{
                     display:'flex', alignItems:'center', gap:6, overflow:'hidden',
-                    maxWidth: headerDrawerOpen ? 132 : 0,
+                    maxWidth: headerDrawerOpen ? 220 : 0,
                     opacity: headerDrawerOpen ? 1 : 0,
                     background: headerDrawerOpen ? 'var(--surface2)' : 'transparent',
                     border: headerDrawerOpen ? '1px solid rgba(255,255,255,0.08)' : '1px solid transparent',
@@ -1904,9 +2163,37 @@ export default function Chat() {
                       if (!other) return null
                       return <StartCallButton roomId={activeRoom.id} callee={{ id: other.user_id, username: other.profile.username, display_name: other.profile.display_name, avatar: other.profile.avatar }} size={32} />
                     })()}
+                    {activeRoom.type === 'dm' && (
+                      <IBtn onClick={() => setGhostReadActive(v => !v)} style={{ width:32, height:32, ...(ghostReadActive ? { color:'var(--accent)', borderColor:'var(--accent)' } : {}) }}
+                        title={ghostReadActive ? 'Ghost Read is on — reopen the chat to turn it off' : 'Open without marking as read (this visit only)'}>
+                        {ghostReadActive ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </IBtn>
+                    )}
                     <IBtn onClick={() => { setMsgSearchOpen(o => !o); if (msgSearchOpen) setMsgSearchQuery('') }} style={{ width:32, height:32 }}>
                       <Search size={14} />
                     </IBtn>
+                    {activeRoom.type === 'global' && isStaff && (
+                      <div style={{ position:'relative' }}>
+                        <IBtn onClick={() => setSlowModePickerOpen(v => !v)} style={{ width:32, height:32, ...(activeRoom.slowMode ? { color:'var(--accent)', borderColor:'var(--accent)' } : {}) }} title="Slow Mode">
+                          <Timer size={14} />
+                        </IBtn>
+                        {slowModePickerOpen && (
+                          <div style={{ position:'absolute', top:'110%', right:0, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:14, padding:8, display:'flex', flexDirection:'column', gap:3, boxShadow:'0 12px 40px rgba(0,0,0,0.5)', minWidth:150, zIndex:50 }}>
+                            <div style={{ fontSize:10.5, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:0.3, padding:'2px 6px 4px' }}>Slow mode</div>
+                            <button type="button" onClick={() => { toggleSlowMode(false, activeRoom.slowModeSeconds as 10|20|30); setSlowModePickerOpen(false) }}
+                              style={{ textAlign:'left', background: !activeRoom.slowMode ? 'var(--surface)' : 'none', border:'none', borderRadius:8, padding:'7px 9px', fontSize:12.5, fontWeight:600, color: !activeRoom.slowMode ? 'var(--accent)' : 'var(--text)', cursor:'pointer' }}>
+                              Off
+                            </button>
+                            {([10, 20, 30] as const).map(s => (
+                              <button key={s} type="button" onClick={() => { toggleSlowMode(true, s); setSlowModePickerOpen(false) }}
+                                style={{ textAlign:'left', background: activeRoom.slowMode && activeRoom.slowModeSeconds === s ? 'var(--surface)' : 'none', border:'none', borderRadius:8, padding:'7px 9px', fontSize:12.5, fontWeight:600, color: activeRoom.slowMode && activeRoom.slowModeSeconds === s ? 'var(--accent)' : 'var(--text)', cursor:'pointer' }}>
+                                {s} seconds
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {activeRoom.type === 'dm' && (
                       <IBtn onClick={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect()
@@ -1944,6 +2231,22 @@ export default function Chat() {
                 </div>
               )}
 
+              {/* Spotlight banner — temporary pin, shows above the permanent pin below */}
+              {spotlightMsgPreview && activeRoom.type === 'global' && (
+                <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 16px', background:'rgba(255,193,7,0.10)', borderBottom:'1px solid rgba(255,255,255,0.05)', flexShrink:0 }}>
+                  <Zap size={13} style={{ color:'#ffc107', flexShrink:0 }} />
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:10.5, fontWeight:700, color:'#ffc107' }}>Spotlight — {spotlightMsgPreview.senderName}</div>
+                    <div style={{ fontSize:12, color:'var(--text-dim)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{spotlightMsgPreview.content}</div>
+                  </div>
+                  {isStaff && (
+                    <button type="button" onClick={clearSpotlight} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)', padding:4, flexShrink:0 }}>
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+              )}
+
               {/* Pinned message banner */}
               {pinnedMsgPreview && (
                 <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 16px', background:'rgba(79,142,247,0.08)', borderBottom:'1px solid rgba(255,255,255,0.05)', flexShrink:0 }}>
@@ -1952,9 +2255,11 @@ export default function Chat() {
                     <div style={{ fontSize:10.5, fontWeight:700, color:'#4f8ef7' }}>{pinnedMsgPreview.senderName}</div>
                     <div style={{ fontSize:12, color:'var(--text-dim)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{pinnedMsgPreview.content}</div>
                   </div>
-                  <button type="button" onClick={unpinMessage} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)', padding:4, flexShrink:0 }}>
-                    <X size={13} />
-                  </button>
+                  {(activeRoom.type !== 'global' || isStaff) && (
+                    <button type="button" onClick={unpinMessage} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)', padding:4, flexShrink:0 }}>
+                      <X size={13} />
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -2030,6 +2335,19 @@ export default function Chat() {
                         const first = burst[0]
                         const isMine = first.sender_id === myId
                         const senderLabel = isMine ? 'You' : (first.senderName || 'Unknown')
+
+                        // Rank Tags and Polls are always a burst of one (see the grouping
+                        // fix in groupMessages) and render full-width, outside the normal
+                        // avatar+bubble column — deliberately not styled like a chat message.
+                        if (burst.length === 1 && first.type === 'rank_tag') {
+                          return <RankTagAnnouncement key={first.id} msg={first} senderLabel={senderLabel} formatTime={formatTime} myId={myId} />
+                        }
+                        if (burst.length === 1 && first.type === 'poll' && first.poll_id) {
+                          return first.hidden
+                            ? <HiddenContentNotice key={first.id} reason={first.hidden_reason} isOwner={isMine} />
+                            : <PollMessage key={first.id} pollId={first.poll_id} myId={myId} isStaff={isStaff} formatTime={formatTime} refreshToken={pollRefreshToken} />
+                        }
+
                         return (
                           <MessageBurst
                             key={first.id}
@@ -2086,6 +2404,20 @@ export default function Chat() {
                 </div>
               )}
 
+              {/* Pending rank tag — clears itself on send, mirrors the reply bar above */}
+              {pendingRankTag && (() => {
+                const g = RANK_GROUPS.find(rg => rg.id === pendingRankTag)!
+                return (
+                  <div style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 14px', background:'var(--surface2)', borderTop:'1px solid rgba(255,255,255,0.04)' }}>
+                    <Megaphone size={14} style={{ color: g.color, flexShrink:0 }} />
+                    <div style={{ flex:1, fontSize:12, color:'var(--text-dim)' }}>
+                      <span style={{ color: g.color, fontWeight:700 }}>Tagging @{g.label}</span> — notifies everyone in that rank
+                    </div>
+                    <button type="button" onClick={() => setPendingRankTag(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)' }}><X size={14} /></button>
+                  </div>
+                )
+              })()}
+
               {/* Block banner — replaces the composer entirely when either party has blocked the other in this DM */}
               {activeRoom.type === 'dm' && dmBlockState !== 'none' ? (
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, padding:'12px 16px', background:'rgba(255,107,107,0.08)', borderTop:'1px solid rgba(255,107,107,0.15)' }}>
@@ -2117,15 +2449,23 @@ export default function Chat() {
                   )}
                   <div style={{ display:'flex', alignItems:'flex-end', gap:8, padding:'10px 12px', background:'rgba(17,17,19,0.92)', backdropFilter:'blur(14px)', borderTop:'1px solid rgba(255,255,255,0.05)' }}>
                     {!isRecordingVoiceNote && <IBtn onClick={() => setEmojiOpen(v => !v)}><Smile size={15} /></IBtn>}
+                    {!isRecordingVoiceNote && isStaff && activeRoom.type === 'global' && (
+                      <IBtn onClick={() => setRankTagPickerOpen(v => !v)} title="Tag a rank group"><Megaphone size={15} /></IBtn>
+                    )}
+                    {!isRecordingVoiceNote && canCreatePoll && activeRoom.type === 'global' && (
+                      <IBtn onClick={() => setPollModalOpen(true)} title="Create a poll"><BarChart3 size={15} /></IBtn>
+                    )}
                     {!isRecordingVoiceNote && (
                       <div style={{ flex:1, background:'var(--surface)', boxShadow:'inset 2px 2px 6px var(--neu-dark)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:14, padding:'9px 12px', display:'flex', alignItems:'flex-end' }}>
-                        <textarea rows={1} value={text} onChange={handleTextChange} onKeyDown={handleKey} placeholder="Type a message…" maxLength={MAX_MESSAGE_LENGTH}
+                        <textarea rows={1} value={text} onChange={handleTextChange} onKeyDown={handleKey}
+                          placeholder={isSlowModeCooling ? `Wait ${slowModeCooldownRemaining}s…` : 'Type a message…'} maxLength={MAX_MESSAGE_LENGTH}
+                          disabled={isSlowModeCooling}
                           style={{ flex:1, background:'transparent', border:'none', outline:'none', color:'var(--text)', fontSize:13.5, resize:'none', maxHeight:80, overflowY:'auto', lineHeight:1.4, fontFamily:'inherit' }} />
                       </div>
                     )}
                     {text.trim() ? (
-                      <button type="button" onClick={sendMsg} disabled={!text.trim() || sending}
-                        style={{ width:40, height:40, borderRadius:11, flexShrink:0, border:'none', background:'linear-gradient(135deg,var(--accent),var(--accent2))', boxShadow:'0 4px 14px rgba(255,107,0,0.35)', color:'#fff', cursor: !text.trim() || sending ? 'not-allowed' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s', opacity: !text.trim() || sending ? 0.6 : 1 }}>
+                      <button type="button" onClick={sendMsg} disabled={!text.trim() || sending || isSlowModeCooling}
+                        style={{ width:40, height:40, borderRadius:11, flexShrink:0, border:'none', background:'linear-gradient(135deg,var(--accent),var(--accent2))', boxShadow:'0 4px 14px rgba(255,107,0,0.35)', color:'#fff', cursor: !text.trim() || sending || isSlowModeCooling ? 'not-allowed' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s', opacity: !text.trim() || sending || isSlowModeCooling ? 0.6 : 1 }}>
                         <Send size={16} />
                       </button>
                     ) : myIsPro ? (
@@ -2158,6 +2498,23 @@ export default function Chat() {
                 </div>
               )}
 
+              {/* Rank tag picker — Staff/Moderator/Admin, Global Chat only */}
+              {rankTagPickerOpen && (
+                <div style={{ position:'absolute', bottom:70, right:14, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:16, padding:10, display:'flex', flexDirection:'column', gap:4, boxShadow:'0 12px 40px rgba(0,0,0,0.5)', minWidth:170, zIndex:50 }}>
+                  <div style={{ fontSize:10.5, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:0.3, padding:'2px 6px 4px' }}>Tag a rank</div>
+                  {RANK_GROUPS.map(g => (
+                    <button key={g.id} type="button"
+                      onClick={() => { setPendingRankTag(g.id); setRankTagPickerOpen(false) }}
+                      style={{ display:'flex', alignItems:'center', gap:8, background:'none', border:'none', cursor:'pointer', padding:'6px 8px', borderRadius:8, textAlign:'left' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'none' }}>
+                      <span style={{ width:9, height:9, borderRadius:'50%', background:g.color, flexShrink:0 }} />
+                      <span style={{ fontSize:13, fontWeight:600, color:'var(--text)' }}>{g.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Context menu — React / Reply / Block / Delete */}
               {ctxMsg && (
                 <>
@@ -2166,10 +2523,18 @@ export default function Chat() {
                     {[
                       { icon: <Smile size={14} />, label:'React', action: () => { setEmojiForMsg(ctxMsg.id); setCtxMsg(null) } },
                       { icon: <Reply size={14} />, label:'Reply', action: () => { setReplyTo(ctxMsg); setCtxMsg(null) } },
-                      ...(!ctxMsg.deleted ? [
+                      {
+                        icon: <Star size={14} fill={myStarredIds.has(ctxMsg.id) ? 'currentColor' : 'none'} />,
+                        label: myStarredIds.has(ctxMsg.id) ? 'Unstar' : 'Star',
+                        action: () => { toggleStar(ctxMsg.id); setCtxMsg(null) }
+                      },
+                      ...(!ctxMsg.deleted && (activeRoom?.type !== 'global' || isStaff) ? [
                         activeRoom?.pinnedMessageId === ctxMsg.id
                           ? { icon: <PinOff size={14} />, label:'Unpin', action: unpinMessage }
                           : { icon: <Pin size={14} />, label:'Pin', action: () => pinMessage(ctxMsg) }
+                      ] : []),
+                      ...(!ctxMsg.deleted && activeRoom?.type === 'global' && isStaff ? [
+                        { icon: <Zap size={14} />, label:'Spotlight', action: () => { setSpotlightPickerFor(ctxMsg); setCtxMsg(null) } }
                       ] : []),
                       ...(ctxMsg.sender_id !== myId ? [{
                         icon: <UserPlus size={14} />,
@@ -2218,6 +2583,39 @@ export default function Chat() {
             )
           )}
         </div>
+      )}
+
+      {/* Spotlight duration picker — opened from the Spotlight context-menu action above */}
+      {spotlightPickerFor && (
+        <>
+          <div style={{ position:'fixed', inset:0, zIndex:90 }} onClick={() => { setSpotlightPickerFor(null); setSpotlightCustomMinutes('') }} />
+          <div style={{ position:'fixed', left: Math.min(ctxPos.x, window.innerWidth - 210), top: Math.min(ctxPos.y, window.innerHeight - 220), zIndex:100, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:14, padding:10, boxShadow:'0 12px 40px rgba(0,0,0,0.5)', minWidth:195 }}>
+            <div style={{ fontSize:10.5, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:0.3, padding:'2px 6px 6px' }}>Spotlight duration</div>
+            {[{ label: '10 minutes', minutes: 10 }, { label: '1 hour', minutes: 60 }].map(p => (
+              <button key={p.minutes} type="button"
+                onClick={() => { spotlightMessage(spotlightPickerFor, p.minutes); setSpotlightPickerFor(null); setSpotlightCustomMinutes('') }}
+                style={{ display:'block', width:'100%', textAlign:'left', background:'none', border:'none', borderRadius:8, padding:'8px 9px', fontSize:12.5, fontWeight:600, color:'var(--text)', cursor:'pointer' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'none' }}>
+                {p.label}
+              </button>
+            ))}
+            <div style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 9px 2px' }}>
+              <input type="number" min={1} max={1440} value={spotlightCustomMinutes} onChange={e => setSpotlightCustomMinutes(e.target.value)}
+                placeholder="Custom (min)"
+                style={{ width:90, background:'var(--surface)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:7, padding:'6px 8px', fontSize:12, color:'var(--text)' }} />
+              <button type="button"
+                disabled={!spotlightCustomMinutes || Number(spotlightCustomMinutes) <= 0}
+                onClick={() => {
+                  const mins = Number(spotlightCustomMinutes)
+                  if (mins > 0) { spotlightMessage(spotlightPickerFor, mins); setSpotlightPickerFor(null); setSpotlightCustomMinutes('') }
+                }}
+                style={{ padding:'6px 10px', borderRadius:7, border:'none', background:'var(--accent)', color:'#fff', fontSize:12, fontWeight:700, cursor: !spotlightCustomMinutes || Number(spotlightCustomMinutes) <= 0 ? 'default' : 'pointer', opacity: !spotlightCustomMinutes || Number(spotlightCustomMinutes) <= 0 ? 0.5 : 1 }}>
+                Set
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Conversation-header 3-dot menu — Pin/Unpin chat, Clear chat, Block user. Same
@@ -2350,6 +2748,27 @@ export default function Chat() {
           onClose={() => setReportTarget(null)}
         />
       )}
+
+      {activeRoom && (
+        <PollComposerModal
+          open={pollModalOpen}
+          onClose={() => setPollModalOpen(false)}
+          roomId={activeRoom.id}
+          maxDurationHours={isStaff ? 168 : 48}
+          onCreated={() => { scrollModeRef.current = 'bottom' }}
+        />
+      )}
+
+      <StarredMessagesPanel
+        open={starredPanelOpen}
+        onClose={() => setStarredPanelOpen(false)}
+        myId={myId}
+        roomLabels={new Map(rooms.map(r => [r.id, roomLabel(r)]))}
+        onJumpToRoom={(roomId) => {
+          const room = rooms.find(r => r.id === roomId)
+          if (room) openRoom(room)
+        }}
+      />
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
