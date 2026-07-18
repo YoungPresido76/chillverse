@@ -53,12 +53,13 @@ function getBestMove(board: TacCell[], mode: TacMode): number {
   return move
 }
 
-// Base XP per win, scaled by current game rank (no streak multiplier for TacZone)
-const RANK_XP: Record<GameRank, number> = {
-  beginner:     25,
-  intermediate: 27,
-  advanced:     29,
-  master:       31,
+// XP per win now depends on AI difficulty, not game rank — this closes the
+// farming exploit where people sat on Easy (weak/random AI, trivial wins)
+// and still collected the same XP as Hard/Expert.
+const MODE_XP: Record<TacMode, number> = {
+  easy:   4,
+  hard:   8,
+  expert: 12,
 }
 
 
@@ -110,8 +111,9 @@ export default function TacZone({ rank: initialRank, onEnd, onBack, sessionsLeft
     if (res.winner || isDraw) {
       setGameResult(isDraw ? { winner: null, line: null } : res)
       if (res.winner === 'X') {
-        // Player wins — flat XP based on current game rank, no multiplier
-        const earnedXP = RANK_XP[rankState.rank]
+        // Player wins — flat XP based on the AI difficulty mode picked at
+        // start, no multiplier.
+        const earnedXP = MODE_XP[mode]
         sessionXpRef.current = sessionXpRef.current + earnedXP
         setTotalXP(sessionXpRef.current)
         setSessionScores(s => ({ ...s, W: s.W + 1 }))
@@ -167,7 +169,7 @@ export default function TacZone({ rank: initialRank, onEnd, onBack, sessionsLeft
 
   const rules = [
     { icon: '🧠', text: 'You are X — get three in a row to win' },
-    { icon: '⚡', text: 'XP per win scales with your current game rank' },
+    { icon: '⚡', text: 'XP per win depends on AI difficulty — Easy: 4, Hard: 8, Expert: 12' },
     { icon: '♾️', text: 'Unlimited plays — no daily limit' },
     { icon: '🤖', text: 'AI difficulty: Easy / Hard / Expert' },
   ]
