@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
   Trophy, Home, Flame, Gamepad2, ShoppingBag, Gift,
-  User, Settings, Zap, X, ChevronLeft, ChevronRight,
+  Settings, Zap, X, ChevronLeft, ChevronRight,
   Package, ChevronDown, Wallet, GamepadIcon, Compass, Layers, ShieldCheck, LayoutDashboard,
 } from 'lucide-react'
 import { ripple } from '../shared/lib/ripple'
@@ -50,21 +50,12 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { label: 'Shop',      to: '/mall',       icon: ShoppingBag },
       { label: 'Inventory', to: '/inventory',  icon: Package     },
+      { label: 'Wallet',    to: '/wallet',     icon: Wallet      },
     ],
   },
   { label: 'Gift',         to: '/gift',         icon: Gift,        badge: null },
   { label: 'Ranks',        to: '/ranks',        icon: Trophy,      badge: null },
   { label: 'Achievements', to: '/achievements', icon: Zap,         badge: null },
-  {
-    label: 'Profile',
-    to: '/profile',
-    icon: User,
-    badge: null,
-    children: [
-      { label: 'Profile',  to: '/profile',  icon: User   },
-      { label: 'Wallet',   to: '/wallet',   icon: Wallet },
-    ],
-  },
   {
     label: 'Settings',
     to: '/settings',
@@ -104,8 +95,7 @@ export default function Sidebar({ open, collapsed, onClose, onToggleCollapse, pr
   // Track which collapsible groups are open; default Mall open if active
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
     const s = new Set<string>()
-    if (pathname === '/mall' || pathname === '/inventory') s.add('Mall')
-    if (pathname === '/profile' || pathname === '/wallet') s.add('Profile')
+    if (pathname === '/mall' || pathname === '/inventory' || pathname === '/wallet') s.add('Mall')
     if (pathname === '/games' || pathname === '/leaderboards' || pathname === '/exploration') s.add('Games')
     if (pathname === '/settings' || pathname === '/version') s.add('Settings')
     return s
