@@ -131,7 +131,7 @@ interface LiveActivity {
 
 type PreviewTab = 'main' | 'wishlist' | 'stats'
 
-export default function ProfilePreviewModal({ userId, onClose }: { userId: string; onClose: () => void }) {
+export default function ProfilePreviewModal({ userId, onClose, isPreview = false }: { userId: string; onClose: () => void; isPreview?: boolean }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [profile, setProfile] = useState<PreviewProfile | null>(null)
@@ -553,11 +553,12 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
       }}
     >
       <div
-        onClick={e => e.stopPropagation()}
+        onClick={isPreview ? undefined : e => e.stopPropagation()}
         style={{
           ...sheetBase,
-          background: 'var(--bg)', overflowY: 'auto', overscrollBehavior: 'contain', position: 'relative',
+          background: 'var(--bg)', overflowY: isPreview ? 'hidden' : 'auto', overscrollBehavior: 'contain', position: 'relative',
           boxShadow: '0 -8px 40px rgba(0,0,0,0.5)',
+          ...(isPreview ? { pointerEvents: 'none' as const } : {}),
         }}
       >
         <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.22)', margin: '10px auto 0' }} />
@@ -710,7 +711,7 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
                 </div>
               </div>
 
-              {!isModerator && !isMe && (
+              {!isModerator && !isMe && !isPreview && (
                 <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
                   <button
                     type="button" onClick={(e) => { ripple(e); handleFollow() }} disabled={busy || followStatus === 'blocked'}
@@ -745,7 +746,7 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
                 </div>
               )}
 
-              {!isModerator && isMe && (
+              {!isModerator && isMe && !isPreview && (
                 <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
                   <button
                     type="button" onClick={(e) => { ripple(e); setShowEdit(true) }}
@@ -856,7 +857,7 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
                     <p style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)' }}>{memberSince}</p>
                   </div>
 
-                  {!isModerator && bestAchievements.length > 0 && (
+                  {!isModerator && !isPreview && bestAchievements.length > 0 && (
                     <div className="pv-section">
                       <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 8 }}>Achievements</p>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
