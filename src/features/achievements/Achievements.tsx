@@ -121,7 +121,7 @@ export default function Achievements() {
   const pct = allAchs.length ? Math.round((unlockedCount / allAchs.length) * 100) : 0
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: 80 }}>
+    <div style={{ minHeight: '100vh', paddingBottom: 80 }}>
       <PageOnboarding pageKey="achievements" />
 
       {/* Header */}
@@ -188,7 +188,7 @@ export default function Achievements() {
 
           return (
             <div key={ach.id}
-              style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', background: isUnlocked ? RARITY_GLOW[ach.rarity] : 'transparent', border: isUnlocked ? `1px solid ${rarityColor}33` : '1px solid rgba(255,255,255,0.04)', borderRadius: 16, boxShadow: isUnlocked ? `0 4px 20px ${rarityColor}22` : '2px 2px 8px var(--neu-dark)', transition: 'all 0.2s', opacity: isUnlocked ? 1 : 0.5 }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', background: isUnlocked ? RARITY_GLOW[ach.rarity] : 'var(--surface)', border: isUnlocked ? `1px solid ${rarityColor}33` : '1px solid rgba(255,255,255,0.04)', borderRadius: 16, boxShadow: isUnlocked ? `0 4px 20px ${rarityColor}22, 2px 2px 8px var(--neu-dark)` : '4px 4px 10px var(--neu-dark), -3px -3px 7px var(--neu-light)', transition: 'all 0.2s', opacity: isUnlocked ? 1 : 0.6 }}>
 
               {/* Icon bubble */}
               <div style={{ width: 52, height: 52, borderRadius: 16, background: isUnlocked ? `linear-gradient(135deg,${rarityColor}33,${rarityColor}11)` : 'var(--surface)', border: isUnlocked ? `1.5px solid ${rarityColor}44` : '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: isUnlocked ? `0 0 16px ${rarityColor}33` : 'none', filter: isUnlocked ? 'none' : 'grayscale(1) brightness(0.4)' }}>
