@@ -1,22 +1,26 @@
 // src/features/games/GameDetailModal.tsx
 //
 // Discord-style "activity" detail sheet. Tapping a game card opens this
-// instead of jumping straight into the game: game icon over a banner
-// (either the game's real banner image, or — when one hasn't been supplied
-// — the game's icon used as the banner too, so it's never blank), name,
-// description, a couple of info chips, and a single Play button.
+// instead of jumping straight into the game.
+//
+// Phone AND tablet: a bottom sheet that slides up and covers almost the
+// full screen (not literally edge-to-edge — it has rounded top corners
+// and a sliver of backdrop above it), same as the rest of the app's
+// sheets (see ProfilePreviewModal). This is keyed off touch/pointer type,
+// NOT just viewport width — a tablet's width alone can be wide enough to
+// look "desktop-sized" while still being a touch device, which used to
+// wrongly push it into the desktop layout below.
+//
+// Real desktop (mouse/trackpad, i.e. `pointer: fine`, above a width
+// floor): a centered dialog card that does NOT cover the full screen.
 //
 // Back arrow (top-left) closes it. "…" (top-right) opens Copy Game ID /
 // Favorite. Favoriting pins the card to the top of its section on the
 // lobby and adds a star badge to it.
-//
-// Full-screen takeover on phone. On tablet/desktop it's a centered sheet
-// that does NOT cover the full screen — same content, just framed as a
-// dialog card instead of a page.
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  ArrowLeft, MoreVertical, Copy, Check, Star, Play, Lock, Zap, Crown,
+  ArrowLeft, MoreVertical, Copy, Check, Star, Play, Lock, Zap, Crown, Users, Tag, Flame,
 } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { getRankConfig, RankProgressBar } from './play/GameShell'
@@ -27,6 +31,7 @@ interface Props {
   game: GameMeta
   rank: GameRank
   streak: number
+  bestStreak: number
   isFavorite: boolean
   onToggleFavorite: () => void
   locked: boolean
@@ -35,14 +40,28 @@ interface Props {
   onClose: () => void
 }
 
+// Sheet height on phone/tablet — a percentage of the viewport, so it
+// always "almost covers" the screen proportionally rather than either
+// looking cramped or reading as a flat full-page swap.
+const SHEET_HEIGHT_VH = 92
+
+function computeIsDesktop(): boolean {
+  if (typeof window === 'undefined') return false
+  const pointerFine = window.matchMedia ? window.matchMedia('(pointer: fine)').matches : true
+  // Fine pointer (mouse/trackpad) AND enough width — a touch tablet can
+  // easily be wider than this, but won't have a fine pointer, so it
+  // still correctly falls through to the sheet layout below.
+  return pointerFine && window.innerWidth >= 820
+}
+
 export default function GameDetailModal({
-  game, rank, streak, isFavorite, onToggleFavorite, locked, lockedReason, onPlay, onClose,
+  game, rank, streak, bestStreak, isFavorite, onToggleFavorite, locked, lockedReason, onPlay, onClose,
 }: Props) {
   const Icon = game.icon
   const cost = game.sessionCost ?? 1
   const rankCfg = getRankConfig(rank)
 
-  const [isWide, setIsWide] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 720)
+  const [isDesktop, setIsDesktop] = useState(computeIsDesktop)
   const [entered, setEntered] = useState(false)
   const [closing, setClosing] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -50,7 +69,7 @@ export default function GameDetailModal({
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    function onResize() { setIsWide(window.innerWidth >= 720) }
+    function onResize() { setIsDesktop(computeIsDesktop()) }
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
@@ -71,7 +90,7 @@ export default function GameDetailModal({
 
   function close() {
     setClosing(true)
-    setTimeout(onClose, 200)
+    setTimeout(onClose, 220)
   }
 
   function handleCopyId() {
@@ -81,6 +100,30 @@ export default function GameDetailModal({
   }
 
   const hasBanner = !!game.bannerUrl
+  const description = game.description ?? game.tagline
+
+  // ── Layout, split by device class ──────────────────────────────
+  const sheetStyle: React.CSSProperties = isDesktop
+    ? {
+        width: 'min(92vw, 460px)',
+        height: 'auto',
+        maxHeight: '85vh',
+        borderRadius: 20,
+        transform: entered && !closing ? 'scale(1)' : 'scale(0.94)',
+        opacity: entered && !closing ? 1 : 0,
+        transition: 'transform 0.24s cubic-bezier(0.32,0.72,0,1), opacity 0.2s ease-out',
+        boxShadow: '0 12px 48px rgba(0,0,0,0.55)',
+      }
+    : {
+        width: '100%',
+        height: `${SHEET_HEIGHT_VH}vh`,
+        maxHeight: `${SHEET_HEIGHT_VH}vh`,
+        borderRadius: '20px 20px 0 0',
+        marginTop: 'auto',
+        transform: entered && !closing ? 'translateY(0)' : 'translateY(100%)',
+        transition: 'transform 0.32s cubic-bezier(0.32,0.72,0,1)',
+        boxShadow: '0 -8px 40px rgba(0,0,0,0.5)',
+      }
 
   return createPortal(
     <div
@@ -88,34 +131,30 @@ export default function GameDetailModal({
       style={{
         position: 'fixed', inset: 0, zIndex: 21000,
         background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-        display: 'flex', alignItems: isWide ? 'center' : 'stretch', justifyContent: 'center',
+        display: 'flex', alignItems: isDesktop ? 'center' : 'flex-end', justifyContent: 'center',
         opacity: entered && !closing ? 1 : 0, transition: 'opacity 0.2s ease-out',
       }}
     >
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          width: isWide ? 'min(92vw, 460px)' : '100%',
-          height: isWide ? 'auto' : '100%',
-          maxHeight: isWide ? '85vh' : '100%',
-          borderRadius: isWide ? 20 : 0,
+          ...sheetStyle,
           background: 'var(--bg)',
           overflowY: 'auto', overscrollBehavior: 'contain',
-          boxShadow: isWide ? '0 12px 48px rgba(0,0,0,0.55)' : 'none',
-          transform: isWide
-            ? (entered && !closing ? 'scale(1)' : 'scale(0.94)')
-            : (entered && !closing ? 'translateY(0)' : 'translateY(16px)'),
-          opacity: isWide ? (entered && !closing ? 1 : 0) : 1,
-          transition: 'transform 0.24s cubic-bezier(0.32,0.72,0,1), opacity 0.2s ease-out',
           position: 'relative',
         }}
       >
+        {!isDesktop && (
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.22)', margin: '10px auto 0' }} />
+        )}
+
         {/* Icon strip — accent-tinted, holds the small game icon like the
             app icon above a Discord activity banner. */}
         <div style={{
           position: 'relative', height: 64,
           background: `linear-gradient(135deg, ${game.accent}55, ${game.accent}22)`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
+          marginTop: isDesktop ? 0 : 4,
         }}>
           <div style={{
             width: 52, height: 52, borderRadius: 16, background: 'var(--bg)',
@@ -163,7 +202,7 @@ export default function GameDetailModal({
         {/* Banner — real image if we have one, otherwise the game's own
             icon blown up on an accent gradient so it's never blank. */}
         <div style={{
-          position: 'relative', height: isWide ? 180 : 190,
+          position: 'relative', height: isDesktop ? 180 : 200,
           background: hasBanner ? '#000' : `linear-gradient(135deg, ${game.accent}33, ${game.accent}0d)`,
           display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
         }}>
@@ -174,13 +213,29 @@ export default function GameDetailModal({
           )}
         </div>
 
-        <div style={{ padding: '18px 20px 22px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <div style={{ padding: '18px 20px 26px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <h2 style={{ fontSize: 19, fontWeight: 800, color: 'var(--text)' }}>{game.name}</h2>
             {isFavorite && <Star size={15} style={{ color: '#f5c542' }} fill="#f5c542" />}
             {game.requiresPro && <Crown size={14} style={{ color: '#9b6dff' }} />}
           </div>
-          <p style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5, marginBottom: 14 }}>{game.tagline}</p>
+
+          {/* Category / players — quick-glance info row, Discord-style */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12, flexWrap: 'wrap' }}>
+            {game.players && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-dim)' }}>
+                <Users size={12} /> {game.players}
+              </span>
+            )}
+            {game.category && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-dim)' }}>
+                <Tag size={12} /> {game.category}
+              </span>
+            )}
+          </div>
+
+          {/* About */}
+          <p style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.55, marginBottom: 16 }}>{description}</p>
 
           {/* Info chips */}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
@@ -193,9 +248,16 @@ export default function GameDetailModal({
             {game.requiresPro && <span className="chip" style={{ color: '#9b6dff' }}>Pro only</span>}
           </div>
 
-          <div style={{ marginBottom: 18 }}>
+          {/* Rank + personal best */}
+          <div style={{ marginBottom: 10 }}>
             <RankProgressBar rank={rank} streak={streak} streakRequired={rankCfg.streakRequired} />
           </div>
+          {bestStreak > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16 }}>
+              <Flame size={12} style={{ color: '#ff9a3c' }} />
+              <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Best streak: <strong style={{ color: 'var(--text-dim)' }}>{bestStreak}</strong></span>
+            </div>
+          )}
 
           {locked && lockedReason && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(155,109,255,0.08)', border: '1px solid rgba(155,109,255,0.25)', borderRadius: 12, padding: '10px 12px', marginBottom: 14 }}>

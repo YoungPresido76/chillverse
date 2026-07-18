@@ -571,6 +571,7 @@ export default function Games() {
             game={meta}
             rank={(ranks[selectedGame] ?? 'beginner') as GameRank}
             streak={streaks[selectedGame] ?? 0}
+            bestStreak={allTimeStreaks[selectedGame] ?? 0}
             isFavorite={favorites.has(selectedGame)}
             onToggleFavorite={() => toggleFavorite(selectedGame)}
             locked={locked}
