@@ -100,7 +100,7 @@ function getLockInfo(item: MallItem, hasOwnedRequirement: boolean, isPro: boolea
 /* ══════════════════════════════════════════════════════
    CARD COMPONENTS
 ══════════════════════════════════════════════════════ */
-function SquareCard({ item, onSelect, onWishlist, wishlisted, likeCount = 0 }: { item: MallItem; onSelect: (item: MallItem) => void; onWishlist?: (item: MallItem) => void; wishlisted?: boolean; likeCount?: number }) {
+function SquareCard({ item, onSelect, onWishlist, wishlisted, likeCount = 0, compact = false }: { item: MallItem; onSelect: (item: MallItem) => void; onWishlist?: (item: MallItem) => void; wishlisted?: boolean; likeCount?: number; compact?: boolean }) {
   const isPro = useContext(MallProContext)
   const userXp = useContext(MallXpContext)
   const lock = getLockInfo(item, false, isPro, userXp)
@@ -112,38 +112,38 @@ function SquareCard({ item, onSelect, onWishlist, wishlisted, likeCount = 0 }: {
       className="ripple-wrap"
       style={{
         background: 'var(--surface)', border: isMythic ? '1px solid rgba(255,107,0,0.3)' : '1px solid rgba(255,255,255,0.05)',
-        borderRadius: 16, padding: 10, cursor: 'pointer', position: 'relative',
+        borderRadius: compact ? 13 : 16, padding: compact ? 7 : 10, cursor: 'pointer', position: 'relative',
         boxShadow: isMythic ? '0 0 0 1px rgba(255,107,0,0.18),4px 4px 10px var(--neu-dark)' : '4px 4px 10px var(--neu-dark),-2px -2px 8px var(--neu-light)',
         opacity: lock.locked ? 0.55 : 1,
       }}
     >
       <div style={{
-        width: '100%', aspectRatio: '1 / 1', borderRadius: 12, marginBottom: 8, overflow: 'hidden',
+        width: '100%', aspectRatio: '1 / 1', borderRadius: compact ? 10 : 12, marginBottom: compact ? 6 : 8, overflow: 'hidden',
         background: item.image_url ? `url(${item.image_url}) center/cover` : 'var(--surface2)',
         filter: lock.locked ? 'grayscale(0.6)' : 'none',
       }} />
-      <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', marginBottom: 4, lineHeight: 1.3 }}>{item.name}</div>
+      <div style={{ fontSize: compact ? 10.5 : 12.5, fontWeight: 700, color: 'var(--text)', marginBottom: compact ? 3 : 4, lineHeight: 1.25, whiteSpace: compact ? 'nowrap' : 'normal', overflow: compact ? 'hidden' : 'visible', textOverflow: compact ? 'ellipsis' : 'clip' }}>{item.name}</div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <RarityBadge rarity={item.rarity} />
+        {!compact && <RarityBadge rarity={item.rarity} />}
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           {lock.locked ? (
-            <Lock size={13} color="var(--text-muted)" />
+            <Lock size={compact ? 11 : 13} color="var(--text-muted)" />
           ) : item.price_gems != null ? (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 700, color: 'var(--text)' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: compact ? 10 : 11.5, fontWeight: 700, color: 'var(--text)' }}>
               💎 {item.price_gems.toLocaleString()}
             </span>
           ) : null}
           {!lock.locked && onWishlist && (
             <button type="button" onClick={e => { e.stopPropagation(); onWishlist(item) }}
               style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', color: wishlisted ? '#ff4d8b' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3 }}>
-              <Heart size={13} style={{ fill: wishlisted ? '#ff4d8b' : 'none' }} />
-              <span style={{ fontSize: 9, fontWeight: 700, color: wishlisted ? '#ff4d8b' : 'var(--text-muted)', minWidth: 10 }}>{likeCount}</span>
+              <Heart size={compact ? 11 : 13} style={{ fill: wishlisted ? '#ff4d8b' : 'none' }} />
+              {!compact && <span style={{ fontSize: 9, fontWeight: 700, color: wishlisted ? '#ff4d8b' : 'var(--text-muted)', minWidth: 10 }}>{likeCount}</span>}
             </button>
           )}
         </div>
       </div>
       {lock.locked && lock.reason && (
-        <div style={{ fontSize: 9.5, color: 'var(--text-muted)', marginTop: 4 }}>{lock.reason}</div>
+        <div style={{ fontSize: compact ? 8.5 : 9.5, color: 'var(--text-muted)', marginTop: 4 }}>{lock.reason}</div>
       )}
     </div>
   )
@@ -202,6 +202,56 @@ function RectCard({ item, onSelect, onWishlist, wishlisted, likeCount = 0 }: { i
   )
 }
 
+function BannerCard({ item, onSelect, onWishlist, wishlisted, likeCount = 0 }: { item: MallItem; onSelect: (item: MallItem) => void; onWishlist?: (item: MallItem) => void; wishlisted?: boolean; likeCount?: number }) {
+  const isPro = useContext(MallProContext)
+  const userXp = useContext(MallXpContext)
+  const lock = getLockInfo(item, false, isPro, userXp)
+  const isMythic = item.rarity === 'Mythic'
+
+  return (
+    <div
+      onClick={(e) => { ripple(e); onSelect(item) }}
+      className="ripple-wrap"
+      style={{
+        background: 'var(--surface)', border: isMythic ? '1px solid rgba(255,107,0,0.3)' : '1px solid rgba(255,255,255,0.05)',
+        borderRadius: 18, padding: 12, cursor: 'pointer', position: 'relative',
+        boxShadow: isMythic ? '0 0 0 1px rgba(255,107,0,0.18),4px 4px 10px var(--neu-dark)' : '4px 4px 10px var(--neu-dark),-2px -2px 8px var(--neu-light)',
+        opacity: lock.locked ? 0.55 : 1,
+      }}
+    >
+      <div style={{
+        width: '100%', aspectRatio: '2.4 / 1', borderRadius: 14, marginBottom: 10, overflow: 'hidden', position: 'relative',
+        background: item.image_url ? `url(${item.image_url}) center/cover` : 'var(--surface2)',
+        filter: lock.locked ? 'grayscale(0.6)' : 'none',
+      }}>
+        {!lock.locked && onWishlist && (
+          <button type="button" onClick={e => { e.stopPropagation(); onWishlist(item) }}
+            style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)', border: 'none', borderRadius: 20, cursor: 'pointer', padding: '4px 8px', color: wishlisted ? '#ff4d8b' : '#fff', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <Heart size={13} style={{ fill: wishlisted ? '#ff4d8b' : 'none' }} />
+            <span style={{ fontSize: 9.5, fontWeight: 700 }}>{likeCount}</span>
+          </button>
+        )}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)', marginBottom: 4, lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
+          <RarityBadge rarity={item.rarity} />
+        </div>
+        {lock.locked ? (
+          <Lock size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+        ) : item.price_gems != null ? (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12.5, fontWeight: 700, color: 'var(--text)', flexShrink: 0 }}>
+            💎 {item.price_gems.toLocaleString()}
+          </span>
+        ) : null}
+      </div>
+      {lock.locked && lock.reason && (
+        <div style={{ fontSize: 9.5, color: 'var(--text-muted)', marginTop: 4 }}>{lock.reason}</div>
+      )}
+    </div>
+  )
+}
+
 /* ══════════════════════════════════════════════════════
    PURCHASE TOAST
 ══════════════════════════════════════════════════════ */
@@ -226,14 +276,23 @@ function PurchaseToast({ message, onDone }: { message: string; onDone: () => voi
 /* ══════════════════════════════════════════════════════
    DETAIL / CONFIRM MODAL
 ══════════════════════════════════════════════════════ */
+const BUY_LABEL: Partial<Record<MallItem['category'], string>> = {
+  profile_pic: 'Buy Profile Pic',
+  banner: 'Buy Banner',
+  avatar_skin: 'Buy Avatar',
+}
+
 function ItemModal({
-  item, walletBalance, userId, onClose, onPurchased,
+  item, walletBalance, userId, onClose, onPurchased, onWishlist, wishlisted, previewProfile,
 }: {
   item: MallItem
   walletBalance: number
   userId: string | null
   onClose: () => void
   onPurchased: (item: MallItem) => void
+  onWishlist?: (item: MallItem) => void
+  wishlisted?: boolean
+  previewProfile?: { avatar: string; displayName: string; username: string } | null
 }) {
   const isPro = useContext(MallProContext)
   const userXp = useContext(MallXpContext)
@@ -242,6 +301,7 @@ function ItemModal({
   const [buying, setBuying] = useState(false)
   const [alreadyOwned, setAlreadyOwned] = useState(false)
   const [checkingOwn, setCheckingOwn] = useState(true)
+  const showProfilePreview = item.category === 'banner'
 
   // Check if user already owns this item
   useEffect(() => {
@@ -299,32 +359,88 @@ function ItemModal({
     }
   }
 
+  const buyLabelBase = BUY_LABEL[item.category] ?? 'Buy'
+
   return (
     <div
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-      style={{ position: 'fixed', inset: 0, zIndex: 800, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      style={{ position: 'fixed', inset: 0, zIndex: 800, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
     >
-      <div style={{ background: 'var(--surface)', borderRadius: 22, padding: 24, width: '100%', maxWidth: 360, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 20px 60px rgba(0,0,0,0.55)', position: 'relative' }}>
-        <button onClick={onClose} style={{ position: 'absolute', top: 14, right: 14, width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)' }}>
-          <X size={13} />
-        </button>
+      <div style={{
+        background: 'var(--surface)', borderRadius: '24px 24px 0 0', padding: '10px 20px 24px', width: '100%', maxWidth: 480,
+        border: '1px solid rgba(255,255,255,0.08)', borderBottom: 'none', boxShadow: '0 -20px 60px rgba(0,0,0,0.55)',
+        position: 'relative', maxHeight: '88vh', overflowY: 'auto', animation: 'slideUp 0.28s cubic-bezier(0.16,1,0.3,1) both',
+      }}>
+        {/* Drag handle */}
+        <div style={{ width: 36, height: 4, borderRadius: 3, background: 'rgba(255,255,255,0.14)', margin: '2px auto 14px' }} />
 
-        <div style={{ width: '100%', height: 320, borderRadius: 16, marginBottom: 16, overflow: 'hidden', background: 'var(--surface2)' }}>
-          {item.animated_url ? (
-            /\.(mp4|webm)$/i.test(item.animated_url) ? (
-              <video
-                src={item.animated_url}
-                autoPlay loop muted playsInline
-                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }}
-              />
-            ) : (
-              // gif (or any still-image fallback) — browsers animate gifs natively
-              <img src={item.animated_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }} />
-            )
-          ) : item.image_url ? (
-            <img src={item.image_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }} />
-          ) : null}
+        {/* Header: cancel (right) + wishlist heart */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginBottom: 14 }}>
+          {onWishlist && !lock.locked && (
+            <button type="button" onClick={(e) => { e.stopPropagation(); onWishlist(item) }}
+              style={{ width: 30, height: 30, borderRadius: 9, background: 'rgba(255,255,255,0.06)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: wishlisted ? '#ff4d8b' : 'var(--text-dim)' }}>
+              <Heart size={14} style={{ fill: wishlisted ? '#ff4d8b' : 'none' }} />
+            </button>
+          )}
+          <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 9, background: 'rgba(255,255,255,0.06)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)' }}>
+            <X size={14} />
+          </button>
         </div>
+
+        {showProfilePreview ? (
+          /* ── Banner: live preview on the user's own profile header, just banner + avatar + name (nothing below) ── */
+          <div style={{ borderRadius: 18, overflow: 'hidden', marginBottom: 16, border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ position: 'relative', width: '100%', aspectRatio: '2.2 / 1', background: 'var(--surface2)' }}>
+              {item.animated_url ? (
+                /\.(mp4|webm)$/i.test(item.animated_url) ? (
+                  <video src={item.animated_url} autoPlay loop muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <img src={item.animated_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                )
+              ) : item.image_url ? (
+                <img src={item.image_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : null}
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.45) 100%)' }} />
+            </div>
+            <div style={{ background: 'var(--surface)', padding: '0 14px 14px', marginTop: -32, position: 'relative' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10 }}>
+                <div style={{ width: 56, height: 56, borderRadius: 15, padding: 2, background: 'linear-gradient(135deg,var(--accent),#4f8ef7)', border: '3px solid var(--surface)', flexShrink: 0 }}>
+                  {previewProfile?.avatar ? (
+                    <img src={previewProfile.avatar} alt="" style={{ width: '100%', height: '100%', borderRadius: 11, objectFit: 'cover', display: 'block' }} />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', borderRadius: 11, background: 'var(--surface2)' }} />
+                  )}
+                </div>
+                <div style={{ minWidth: 0, paddingBottom: 4 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewProfile?.displayName || 'You'}</div>
+                  {previewProfile?.username && (
+                    <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>@{previewProfile.username}</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div style={{
+            width: '100%', aspectRatio: item.category === 'profile_pic' ? '1 / 1' : '3 / 4', maxHeight: 340,
+            borderRadius: 16, marginBottom: 16, overflow: 'hidden', background: 'var(--surface2)',
+          }}>
+            {item.animated_url ? (
+              /\.(mp4|webm)$/i.test(item.animated_url) ? (
+                <video
+                  src={item.animated_url}
+                  autoPlay loop muted playsInline
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }}
+                />
+              ) : (
+                // gif (or any still-image fallback) — browsers animate gifs natively
+                <img src={item.animated_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }} />
+              )
+            ) : item.image_url ? (
+              <img src={item.image_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }} />
+            ) : null}
+          </div>
+        )}
 
         {item.sub_category && (
           <div style={{ fontSize: 10.5, color: 'var(--text-muted)', textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.6, fontWeight: 700, marginBottom: 6 }}>
@@ -335,9 +451,11 @@ function ItemModal({
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
           <RarityBadge rarity={item.rarity} />
         </div>
-        <div style={{ fontSize: 12.5, color: 'var(--text-dim)', textAlign: 'center', lineHeight: 1.6, marginBottom: 18 }}>
-          {item.description}
-        </div>
+        {item.description && (
+          <div style={{ fontSize: 12.5, color: 'var(--text-dim)', textAlign: 'center', lineHeight: 1.6, marginBottom: 18 }}>
+            {item.description}
+          </div>
+        )}
 
         {lock.locked ? (
           <div style={{ textAlign: 'center', padding: 12, background: 'var(--surface2)', borderRadius: 12, fontSize: 12, color: 'var(--text-muted)' }}>
@@ -378,7 +496,7 @@ function ItemModal({
                 transition: 'all 0.2s',
               }}
             >
-              <ShoppingBag size={14} /> {buying ? 'Buying…' : item.price_gems != null ? 'Buy' : 'Unlock'}
+              <ShoppingBag size={14} /> {buying ? 'Buying…' : item.price_gems != null ? buyLabelBase : 'Unlock'}
             </button>
           </>
         )}
@@ -421,8 +539,8 @@ function ProfilePicsPage({ items, onBack, onSelect, onWishlist, wishlisted, like
       {profilePics.length === 0 ? (
         <EmptyState label="No profile pics available yet." />
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 11 }}>
-          {profilePics.map(item => <SquareCard key={item.id} item={item} onSelect={onSelect} onWishlist={onWishlist} wishlisted={wishlisted?.has(item.id)} likeCount={likeCounts?.[item.id] ?? 0} />)}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+          {profilePics.map(item => <SquareCard key={item.id} item={item} onSelect={onSelect} onWishlist={onWishlist} wishlisted={wishlisted?.has(item.id)} likeCount={likeCounts?.[item.id] ?? 0} compact />)}
         </div>
       )}
     </SubPage>
@@ -495,8 +613,8 @@ function BannersPage({ items, onBack, onSelect, onWishlist, wishlisted, likeCoun
       {banners.length === 0 ? (
         <EmptyState label="No banners available yet." />
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-          {banners.map(item => <RectCard key={item.id} item={item} onSelect={onSelect} onWishlist={onWishlist} wishlisted={wishlisted?.has(item.id)} likeCount={likeCounts?.[item.id] ?? 0} />)}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {banners.map(item => <BannerCard key={item.id} item={item} onSelect={onSelect} onWishlist={onWishlist} wishlisted={wishlisted?.has(item.id)} likeCount={likeCounts?.[item.id] ?? 0} />)}
         </div>
       )}
     </SubPage>
@@ -608,6 +726,7 @@ export default function Mall() {
       <style>{`
         @keyframes slideInRight { from { transform: translateX(100%) } to { transform: translateX(0) } }
         @keyframes feedIn { from { opacity:0; transform: translateY(12px) } to { opacity:1; transform: translateY(0) } }
+        @keyframes slideUp { from { transform: translateY(100%) } to { transform: translateY(0) } }
       `}</style>
 
       {!openSection && (
@@ -727,6 +846,9 @@ export default function Mall() {
           walletBalance={diamondBalance}
           userId={userId}
           onClose={() => setSelectedItem(null)}
+          onWishlist={handleWishlist}
+          wishlisted={wishlisted.has(selectedItem.id)}
+          previewProfile={profile ? { avatar: profile.avatar, displayName: profile.display_name ?? profile.username, username: profile.username } : null}
           onPurchased={(item) => {
             setPurchaseToast(`${item.name} added to your inventory!`)
             setWishlisted(prev => {
