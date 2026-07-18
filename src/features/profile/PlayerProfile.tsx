@@ -6,7 +6,7 @@ import {
   ArrowLeft, UserPlus, UserCheck, ShieldOff, X, Flag,
   MessageCircle, Zap, Heart, Star, Package,
   Gamepad2, Trophy, Users, ImageIcon, Film,
-  Sparkles, Sunrise, Moon as MoonIcon, Globe2, Ban,
+  Sparkles, Sunrise, Moon as MoonIcon, Globe2, Ban, Gift,
 } from 'lucide-react'
 import { supabase } from '../../shared/lib/supabase'
 import { useAuth } from '../auth/useAuth'
@@ -22,6 +22,7 @@ import BadgeRow from '../badges/BadgeRow'
 import BadgesStatRow from '../badges/BadgesStatRow'
 import BadgesModal from '../badges/BadgesModal'
 import Avatar from '../../shared/components/Avatar'
+import SendGiftModal, { giftResultMessage, type GiftSendResult } from '../economy/SendGiftModal'
 
 function getRank(xp: number): RankTier { return getUserRankTier(xp) }
 
@@ -226,6 +227,7 @@ function PlayerProfileInner() {
   const [equippedArtifact, setEquippedArtifact] = useState<string | null>(null)
   const [showAchievements, setShowAchievements] = useState(false)
   const [showWishlist, setShowWishlist] = useState(false)
+  const [giftTarget, setGiftTarget] = useState<{ itemId: string | null; itemName: string; itemImage: string | null } | null>(null)
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
   const [liking, setLiking] = useState(false)
@@ -774,7 +776,24 @@ function PlayerProfileInner() {
           })}
         </SimpleListModal>
       )}
-      {showWishlist && <ViewerWishlistModal userId={userId!} onClose={() => setShowWishlist(false)} />}
+      {showWishlist && (
+        <ViewerWishlistModal
+          userId={userId!}
+          canGift={myId !== userId}
+          onSelectItem={(t) => { setShowWishlist(false); setGiftTarget(t) }}
+          onClose={() => setShowWishlist(false)}
+        />
+      )}
+      {giftTarget && (
+        <SendGiftModal
+          recipientId={userId!}
+          recipientName={player.display_name || player.username}
+          recipientAvatar={player.avatar}
+          target={giftTarget}
+          onClose={() => setGiftTarget(null)}
+          onSent={(result: GiftSendResult, name: string) => setToast(giftResultMessage(result, name))}
+        />
+      )}
       {showBadgesModal && (
         <BadgesModal badges={playerBadges} allDefs={badgeDefs} originalUsername={player.original_username ?? player.username} onClose={() => setShowBadgesModal(false)} />
       )}
@@ -811,16 +830,21 @@ function SimpleListModal({ title, subtitle, children, onClose }: { title: string
   )
 }
 
-// ── Viewer wishlist (read-only) ──────────────────────────────────
-function ViewerWishlistModal({ userId, onClose }: { userId: string; onClose: () => void }) {
-  const [items, setItems] = useState<{ id: string; item_name: string; item_image: string | null }[]>([])
+// ── Viewer wishlist (read-only, but tap an item to send it as a gift) ──
+function ViewerWishlistModal({ userId, canGift, onSelectItem, onClose }: {
+  userId: string
+  canGift: boolean
+  onSelectItem: (target: { itemId: string | null; itemName: string; itemImage: string | null }) => void
+  onClose: () => void
+}) {
+  const [items, setItems] = useState<{ id: string; item_id: string | null; item_name: string; item_image: string | null }[]>([])
   const [loading, setLoading] = useState(true)
   useEffect(() => {
-    supabase.from('wishlist').select('id, item_name, item_image').eq('user_id', userId).order('added_at', { ascending: false })
+    supabase.from('wishlist').select('id, item_id, item_name, item_image').eq('user_id', userId).order('added_at', { ascending: false })
       .then(({ data }) => { setItems(data ?? []); setLoading(false) })
   }, [userId])
   return (
-    <SimpleListModal title="Wishlist" onClose={onClose}>
+    <SimpleListModal title="Wishlist" subtitle={canGift ? 'Tap an item to send it as a gift' : undefined} onClose={onClose}>
       {loading ? (
         <div style={{ textAlign: 'center', padding: '20px 0' }}>
           <span style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid var(--surface3)', borderTopColor: 'var(--accent)', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />
@@ -828,12 +852,18 @@ function ViewerWishlistModal({ userId, onClose }: { userId: string; onClose: () 
       ) : items.length === 0 ? (
         <p style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0' }}>Wishlist is empty</p>
       ) : items.map(item => (
-        <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 12, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', marginBottom: 8 }}>
+        <button
+          key={item.id}
+          type="button"
+          disabled={!canGift}
+          onClick={() => canGift && onSelectItem({ itemId: item.item_id, itemName: item.item_name, itemImage: item.item_image })}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 12, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', marginBottom: 8, width: '100%', textAlign: 'left', cursor: canGift ? 'pointer' : 'default', fontFamily: 'inherit' }}>
           <div style={{ width: 36, height: 36, borderRadius: 9, background: 'var(--surface2)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {item.item_image ? <img src={item.item_image} alt={item.item_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ImageIcon size={14} style={{ color: 'var(--text-muted)' }} />}
           </div>
-          <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)' }}>{item.item_name}</span>
-        </div>
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', flex: 1 }}>{item.item_name}</span>
+          {canGift && <Gift size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />}
+        </button>
       ))}
     </SimpleListModal>
   )

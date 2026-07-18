@@ -38,6 +38,7 @@ import { getGameById, getGameMeta } from '../games/games'
 import { getAllPlayerRanks } from '../games/gameSession'
 import ReportModal from '../safety/ReportModal'
 import { useCall } from '../chat/calling/CallContext'
+import SendGiftModal, { giftResultMessage, type GiftSendResult } from '../economy/SendGiftModal'
 import { MOD_AVATAR_URL } from '../moderation/modShowcase'
 import EditProfileModal from './EditProfileModal'
 import type { Profile } from '../../shared/types'
@@ -116,6 +117,7 @@ interface PreviewAchievement {
 
 interface PreviewWishlistItem {
   id: string
+  item_id: string | null
   item_name: string
   item_image: string | null
 }
@@ -163,6 +165,8 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
   const [activeTab, setActiveTab] = useState<PreviewTab>('main')
   const [wishlist, setWishlist] = useState<PreviewWishlistItem[]>([])
   const [wishlistLoading, setWishlistLoading] = useState(true)
+  const [giftTarget, setGiftTarget] = useState<{ itemId: string | null; itemName: string; itemImage: string | null } | null>(null)
+  const [giftToast, setGiftToast] = useState<string | null>(null)
   const [lbPosition, setLbPosition] = useState<number | null>(null)
   const [equippedArtifact, setEquippedArtifact] = useState<string | null>(null)
   const [equippedArtifactImage, setEquippedArtifactImage] = useState<string | null>(null)
@@ -273,7 +277,7 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
   useEffect(() => {
     let active = true
     setWishlistLoading(true)
-    supabase.from('wishlist').select('id, item_name, item_image').eq('user_id', userId)
+    supabase.from('wishlist').select('id, item_id, item_name, item_image').eq('user_id', userId)
       .order('added_at', { ascending: false }).limit(WISHLIST_MAX)
       .then(({ data }) => {
         if (!active) return
@@ -886,13 +890,23 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
                     <p style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', padding: '16px 0' }}>Wishlist is empty</p>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {!isMe && (
+                        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Tap an item to send it as a gift</p>
+                      )}
                       {wishlist.map(item => (
-                        <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 12, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <button
+                          key={item.id}
+                          type="button"
+                          className="pv-btn"
+                          disabled={isMe}
+                          onClick={() => !isMe && setGiftTarget({ itemId: item.item_id, itemName: item.item_name, itemImage: item.item_image })}
+                          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 12, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', width: '100%', textAlign: 'left', cursor: isMe ? 'default' : 'pointer', fontFamily: 'inherit' }}>
                           <div style={{ width: 36, height: 36, borderRadius: 9, background: 'var(--surface2)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             {item.item_image ? <img src={item.item_image} alt={item.item_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ImageIcon size={14} style={{ color: 'var(--text-muted)' }} />}
                           </div>
-                          <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)' }}>{item.item_name}</span>
-                        </div>
+                          <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', flex: 1 }}>{item.item_name}</span>
+                          {!isMe && <Gift size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />}
+                        </button>
                       ))}
                     </div>
                   )}
@@ -1057,6 +1071,27 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
           icon={achToast.icon}
           rarity={achToast.rarity}
           onDone={() => setAchToast(null)}
+        />
+      )}
+
+      {giftTarget && profile && (
+        <SendGiftModal
+          recipientId={profile.id}
+          recipientName={displayName}
+          recipientAvatar={profile.avatar}
+          target={giftTarget}
+          onClose={() => setGiftTarget(null)}
+          onSent={(result: GiftSendResult, name: string) => setGiftToast(giftResultMessage(result, name))}
+        />
+      )}
+
+      {giftToast && (
+        <BadgeToast
+          title={giftToast}
+          icon="" rarity=""
+          colorOverride="#ff6b00"
+          customIcon={<Gift size={14} />}
+          onDone={() => setGiftToast(null)}
         />
       )}
 
