@@ -21,6 +21,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   X, MoreVertical, UserPlus, UserCheck, MessageCircle, ShieldOff, Copy, Flag, Check, Phone,
   Image as ImageIcon, Edit3, Gift, Zap, Trophy, Star, Sparkles, Package,
+  Heart, UserRound, Sunrise, Moon as MoonIcon,
 } from 'lucide-react'
 import { supabase } from '../../shared/lib/supabase'
 import { useAuth } from '../auth/useAuth'
@@ -75,7 +76,13 @@ interface PreviewProfile {
   favorite_game: string | null
   grid_cards: string[] | null
   equipped_avatar: string | null
+  gender: string | null
+  play_time: 'morning' | 'night' | null
+  info_tags: string[] | null
+  show_follow_counts: boolean
 }
+
+const GENDER_LABELS: Record<string, string> = { male: 'MALE', female: 'FEMALE', other: 'OTHER' }
 
 // Total icon slots in the badge row, RANK INCLUDED — the rank tier now
 // renders as one of these icons instead of its own separate pill, so
@@ -88,6 +95,17 @@ const ACH_RARITY_RANK: Record<string, number> = { legendary: 0, epic: 1, rare: 2
 const BEST_ACHIEVEMENTS_COUNT = 19
 
 const WISHLIST_MAX = 10
+
+// mm:ss (or h:mm:ss past an hour) elapsed-time readout for the live
+// "Playing X" activity card, matching Discord's own ticking timer.
+function formatElapsed(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000))
+  const h = Math.floor(totalSeconds / 3600)
+  const m = Math.floor((totalSeconds % 3600) / 60)
+  const s = totalSeconds % 60
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  return `${m}:${String(s).padStart(2, '0')}`
+}
 
 interface PreviewAchievement {
   id: string
@@ -105,6 +123,7 @@ interface PreviewWishlistItem {
 interface LiveActivity {
   movie: boolean
   game: string | null
+  gameSince: number | null
   exploring: boolean
 }
 
@@ -133,7 +152,13 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
   const [badgeToast, setBadgeToast] = useState<BadgeDef | null>(null)
   const [bestAchievements, setBestAchievements] = useState<PreviewAchievement[]>([])
   const [achToast, setAchToast] = useState<PreviewAchievement | null>(null)
-  const [activity, setActivity] = useState<LiveActivity>({ movie: false, game: null, exploring: false })
+  const [activity, setActivity] = useState<LiveActivity>({ movie: false, game: null, gameSince: null, exploring: false })
+  const [nowTick, setNowTick] = useState(() => Date.now())
+  const [followers, setFollowers] = useState(0)
+  const [following, setFollowing] = useState(0)
+  const [liked, setLiked] = useState(false)
+  const [likeCount, setLikeCount] = useState(0)
+  const [liking, setLiking] = useState(false)
   const [showRankToast, setShowRankToast] = useState(false)
   const [activeTab, setActiveTab] = useState<PreviewTab>('main')
   const [wishlist, setWishlist] = useState<PreviewWishlistItem[]>([])
@@ -267,12 +292,12 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
     })
 
     function syncActivity() {
-      const state = channel.presenceState<{ activity: string; game?: string }>()
+      const state = channel.presenceState<{ activity: string; game?: string; since?: number }>()
       const entries = Object.values(state).flat()
       const movieEntry = entries.find(e => e.activity === 'watching_movie')
       const gameEntry = entries.find(e => e.activity === 'playing' && e.game)
       const exploreEntry = entries.find(e => e.activity === 'exploring')
-      setActivity({ movie: !!movieEntry, game: gameEntry?.game ?? null, exploring: !!exploreEntry })
+      setActivity({ movie: !!movieEntry, game: gameEntry?.game ?? null, gameSince: gameEntry?.since ?? null, exploring: !!exploreEntry })
     }
 
     channel
@@ -283,6 +308,40 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
 
     return () => { supabase.removeChannel(channel) }
   }, [userId])
+
+  // Live ticker — re-renders once a second while a game session is active
+  // so the elapsed-time readout (e.g. "5:51") counts up in real time,
+  // matching Discord's own "Playing X" activity card.
+  useEffect(() => {
+    if (!activity.game || !activity.gameSince) return
+    const interval = setInterval(() => setNowTick(Date.now()), 1000)
+    return () => clearInterval(interval)
+  }, [activity.game, activity.gameSince])
+
+  // Followers / following counts — hidden (shown as "—") if the owner
+  // turned off show_follow_counts, same rule as the old full-page profile.
+  useEffect(() => {
+    let active = true
+    supabase.from('profile_follow_counts').select('followers_count, following_count').eq('id', userId).single()
+      .then(({ data }) => {
+        if (!active || !data) return
+        setFollowers(Number(data.followers_count))
+        setFollowing(Number(data.following_count))
+      })
+    return () => { active = false }
+  }, [userId])
+
+  // Like count + whether I've already liked this profile.
+  useEffect(() => {
+    let active = true
+    supabase.from('profile_likes').select('liker_id', { count: 'exact', head: true }).eq('profile_id', userId)
+      .then(({ count }) => { if (active) setLikeCount(count ?? 0) })
+    if (user) {
+      supabase.from('profile_likes').select('liker_id').eq('profile_id', userId).eq('liker_id', user.id).maybeSingle()
+        .then(({ data }) => { if (active) setLiked(!!data) })
+    }
+    return () => { active = false }
+  }, [userId, user])
 
   // Leaderboard position — only worth fetching (all-profiles scan) if the
   // player actually opted into showing it via their grid card picks.
@@ -358,11 +417,26 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
     if (followStatus === 'following') {
       await supabase.from('follows').delete().eq('follower_id', user.id).eq('following_id', userId)
       setFollowStatus('none')
+      setFollowers(f => Math.max(0, f - 1))
     } else {
       await supabase.from('follows').insert({ follower_id: user.id, following_id: userId })
       setFollowStatus('following')
+      setFollowers(f => f + 1)
     }
     setBusy(false)
+  }
+
+  async function handleLike() {
+    if (!user || liking) return
+    setLiking(true)
+    if (liked) {
+      const { error } = await supabase.from('profile_likes').delete().eq('profile_id', userId).eq('liker_id', user.id)
+      if (!error) { setLiked(false); setLikeCount(c => Math.max(0, c - 1)) }
+    } else {
+      const { error } = await supabase.from('profile_likes').insert({ profile_id: userId, liker_id: user.id })
+      if (!error) { setLiked(true); setLikeCount(c => c + 1) }
+    }
+    setLiking(false)
   }
 
   async function handleBlock() {
@@ -557,44 +631,80 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
             <p style={{ fontSize: 12.5, color: 'var(--text-dim)', padding: '20px 0' }}>This profile couldn't be loaded.</p>
           ) : (
             <>
-              <p style={{ fontSize: 17, fontWeight: 800, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                {displayName}
-              </p>
-              <p style={{ fontSize: 12.5, color: 'var(--text-dim)', marginTop: 1 }}>@{profile.username}</p>
+              {/* Name row — display name on the left, like count pinned to
+                  the far right (this is the position marked on the
+                  reference screenshot: level with the name, right edge). */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <p style={{ fontSize: 17, fontWeight: 800, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                  {displayName}
+                </p>
+                <button
+                  type="button" onClick={(e) => { ripple(e); handleLike() }} disabled={!user || liking}
+                  className="ripple-wrap pv-btn"
+                  style={{
+                    flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 20,
+                    border: `1px solid ${liked ? 'rgba(255,77,139,0.4)' : 'rgba(255,255,255,0.1)'}`,
+                    background: liked ? 'rgba(255,77,139,0.14)' : 'var(--surface2)',
+                    cursor: (!user || liking) ? 'default' : 'pointer',
+                  }}
+                >
+                  <Heart size={12} color={liked ? '#ff4d8b' : 'var(--text-muted)'} style={{ fill: liked ? '#ff4d8b' : 'none' }} />
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: liked ? '#ff4d8b' : 'var(--text-dim)' }}>{likeCount}</span>
+                </button>
+              </div>
 
-              {/* Badge row — rank tier is now just the first icon here,
-                  not its own pill. Max 5 icons total (rank included).
-                  Legacy-username badge, if owned, is always among them. */}
-              {!isModerator && (rank || ownedBadges.length > 0) && (
-                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-                  {rank && (
-                    <button
-                      type="button"
-                      className="pv-btn"
-                      onClick={() => setShowRankToast(true)}
-                      title={rank.name}
-                      style={{ width: 26, height: 26, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: rank.color + '1c', border: `1px solid ${rank.color}44`, cursor: 'pointer', padding: 0, fontSize: 13 }}
-                    >
-                      {rank.emoji}
-                    </button>
+              {/* Handle row — @username on the left; gender pill (sitting
+                  where Discord shows a role/pronoun tag) and the badge
+                  grid box on the right, badges included. */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                <p style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>@{profile.username}</p>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {!isModerator && profile.info_tags?.includes('gender') && profile.gender && (
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 8, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                      <UserRound size={12} style={{ color: 'var(--text-muted)' }} />
+                      <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-dim)', letterSpacing: 0.3 }}>
+                        {GENDER_LABELS[profile.gender] ?? profile.gender.toUpperCase()}
+                      </span>
+                    </div>
                   )}
-                  {ownedBadges.map(def => {
-                    const color = BADGE_RARITY_COLOR[def.rarity] ?? '#888899'
-                    return (
-                      <button
-                        key={def.id}
-                        type="button"
-                        className="pv-btn"
-                        onClick={() => setBadgeToast(def)}
-                        title={badgeDisplayTitle(def, profile.original_username)}
-                        style={{ width: 26, height: 26, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: color + '1c', border: `1px solid ${color}33`, cursor: 'pointer', padding: 0 }}
-                      >
-                        <BadgeIcon iconKey={def.icon} size={13} color={color} />
-                      </button>
-                    )
-                  })}
+
+                  {/* Badge grid box — rank tier is the first icon, then
+                      real badges by rarity, all inside one little bordered
+                      grid box (wraps into rows), mirroring Discord's badge
+                      panel on a user's profile card. */}
+                  {!isModerator && (rank || ownedBadges.length > 0) && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: 4, borderRadius: 9, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', maxWidth: 100, justifyContent: 'flex-end' }}>
+                      {rank && (
+                        <button
+                          type="button"
+                          className="pv-btn"
+                          onClick={() => setShowRankToast(true)}
+                          title={rank.name}
+                          style={{ width: 22, height: 22, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: rank.color + '1c', border: `1px solid ${rank.color}44`, cursor: 'pointer', padding: 0, fontSize: 11 }}
+                        >
+                          {rank.emoji}
+                        </button>
+                      )}
+                      {ownedBadges.map(def => {
+                        const color = BADGE_RARITY_COLOR[def.rarity] ?? '#888899'
+                        return (
+                          <button
+                            key={def.id}
+                            type="button"
+                            className="pv-btn"
+                            onClick={() => setBadgeToast(def)}
+                            title={badgeDisplayTitle(def, profile.original_username)}
+                            style={{ width: 22, height: 22, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: color + '1c', border: `1px solid ${color}33`, cursor: 'pointer', padding: 0 }}
+                          >
+                            <BadgeIcon iconKey={def.icon} size={11} color={color} />
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
 
               {!isModerator && !isMe && (
                 <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
@@ -667,13 +777,23 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
               {activity.game && (() => {
                 const gameMeta = getGameById(activity.game as string)
                 const GameIcon = gameMeta?.icon
+                const elapsed = activity.gameSince ? formatElapsed(nowTick - activity.gameSince) : null
                 return (
-                  <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 12, background: 'rgba(79,142,247,0.1)', border: '1px solid rgba(79,142,247,0.25)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4f8ef7', boxShadow: '0 0 8px #4f8ef7', animation: 'pulse 1.5s ease-in-out infinite', flexShrink: 0 }} />
-                    {GameIcon && <GameIcon size={13} style={{ color: '#4f8ef7', flexShrink: 0 }} />}
-                    <span style={{ fontSize: 12, color: 'var(--text)', fontWeight: 600 }}>
-                      Playing <strong style={{ color: '#4f8ef7' }}>{gameMeta?.name ?? activity.game}</strong>
-                    </span>
+                  <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 12, background: 'rgba(79,142,247,0.1)', border: '1px solid rgba(79,142,247,0.25)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(79,142,247,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {GameIcon ? <GameIcon size={16} style={{ color: '#4f8ef7' }} /> : <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4f8ef7' }} />}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, color: 'var(--text)', fontWeight: 700 }}>
+                        Playing <strong style={{ color: '#4f8ef7' }}>{gameMeta?.name ?? activity.game}</strong>
+                      </div>
+                      {elapsed && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
+                          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4f8ef7', boxShadow: '0 0 6px #4f8ef7', animation: 'pulse 1.5s ease-in-out infinite', flexShrink: 0 }} />
+                          <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{elapsed}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )
               })()}
@@ -709,6 +829,17 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
 
               {activeTab === 'main' ? (
                 <div className="pv-panel" style={{ marginTop: 12, background: 'var(--surface)', borderRadius: 12, padding: '2px 12px' }}>
+                  <div className="pv-section" style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '10px 8px', borderRadius: 13, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>{profile.show_follow_counts ? followers.toLocaleString() : '—'}</span>
+                      <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.3 }}>Followers</span>
+                    </div>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '10px 8px', borderRadius: 13, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>{profile.show_follow_counts ? following.toLocaleString() : '—'}</span>
+                      <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.3 }}>Following</span>
+                    </div>
+                  </div>
+
                   {profile.bio && (
                     <div className="pv-section">
                       <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 }}>About Me</p>
@@ -792,22 +923,42 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
                     </button>
                   )}
 
+                  {/* Active mornings/nights — owner's chosen play-time tag */}
+                  {profile.info_tags?.includes('play_time') && profile.play_time && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderRadius: 13, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                        {profile.play_time === 'morning'
+                          ? <Sunrise size={14} style={{ color: '#f5c542' }} />
+                          : <MoonIcon size={14} style={{ color: '#9b6dff' }} />}
+                        <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)' }}>Usually active</span>
+                      </div>
+                      <span style={{ fontSize: 12.5, fontWeight: 800, color: profile.play_time === 'morning' ? '#f5c542' : '#9b6dff' }}>
+                        {profile.play_time === 'morning' ? 'Mornings' : 'Nights'}
+                      </span>
+                    </div>
+                  )}
+
                   {/* Favorite game, with star score */}
                   {profile.favorite_game && (() => {
                     const meta = getGameMeta(profile.favorite_game)
                     if (!meta) return null
                     const stars = GAME_RANK_STARS[favoriteGameRank ?? ''] ?? 0
                     return (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 13, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                        <div style={{ width: 34, height: 34, borderRadius: 9, background: `${meta.accent}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <meta.icon size={16} style={{ color: meta.accent }} />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--text)', marginBottom: 2 }}>{meta.name}</div>
-                          <div style={{ display: 'flex', gap: 2 }}>
-                            {Array.from({ length: 5 }).map((_, i) => (
-                              <Star key={i} size={10} style={{ color: i < stars ? '#f5c542' : 'var(--surface3)' }} fill={i < stars ? '#f5c542' : 'none'} />
-                            ))}
+                      <div>
+                        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6, marginLeft: 2 }}>
+                          @{profile.username} likes playing
+                        </p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 13, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <div style={{ width: 34, height: 34, borderRadius: 9, background: `${meta.accent}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <meta.icon size={16} style={{ color: meta.accent }} />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--text)', marginBottom: 2 }}>{meta.name}</div>
+                            <div style={{ display: 'flex', gap: 2 }}>
+                              {Array.from({ length: 5 }).map((_, i) => (
+                                <Star key={i} size={10} style={{ color: i < stars ? '#f5c542' : 'var(--surface3)' }} fill={i < stars ? '#f5c542' : 'none'} />
+                              ))}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -815,7 +966,7 @@ export default function ProfilePreviewModal({ userId, onClose }: { userId: strin
                   })()}
 
                   {/* Equipped avatar + artifact */}
-                  <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '12px 8px', borderRadius: 13, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
                       <div style={{ width: 44, height: 44, borderRadius: 11, background: profile.equipped_avatar ? `${rank?.color ?? '#888899'}18` : 'var(--surface2)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: profile.equipped_avatar ? `1px solid ${rank?.color ?? '#888899'}33` : '1px solid rgba(255,255,255,0.06)' }}>
                         {profile.equipped_avatar && profile.equipped_avatar.startsWith('http')
