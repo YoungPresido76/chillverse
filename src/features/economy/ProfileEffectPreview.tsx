@@ -27,12 +27,19 @@
 // back to the item's buy sheet, which is still mounted underneath — it
 // just slides itself out of the way while this is open instead of
 // competing with this layer for stacking order.
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import ProfilePreviewModal from '../profile/ProfilePreviewModal'
 
 // Mirrors SHEET_HEIGHT_VH in ProfilePreviewModal.tsx / BUY_SHEET_HEIGHT_VH
 // in Mall.tsx, so the video lines up exactly with the real sheet under it.
 const SHEET_HEIGHT_VH = 85
+
+// How long the card sits fully clear after the effect finishes playing,
+// before it plays again. The "on" duration is no longer guessed — it's
+// driven by the video's own real 'ended' event (see handleEffectEnded),
+// so this works correctly no matter how long a given effect's clip is.
+const EFFECT_REST_MS = 20000
 
 export default function ProfileEffectPreview({
   userId, videoUrl, onClose,
@@ -41,6 +48,46 @@ export default function ProfileEffectPreview({
   videoUrl: string | null
   onClose: () => void
 }) {
+  // Mirrors ProfilePreviewModal's own isWide breakpoint exactly, so this
+  // layer's width always matches the real sheet's width — full-bleed on
+  // phone, capped card-width on tablet+. Without this the effect layer was
+  // stuck at the tablet width even on phone, leaving strips of the sheet's
+  // left/right edges completely undimmed while the effect played.
+  const [isWide, setIsWide] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 640)
+  useEffect(() => {
+    function onResize() { setIsWide(window.innerWidth >= 640) }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  const sheetWidth = isWide ? 'min(92vw, 460px)' : '100%'
+
+  // Play/rest cadence: the effect plays through its real length (however
+  // long that clip actually is), then the card sits perfectly clear for
+  // EFFECT_REST_MS before the effect restarts — driven by the video's own
+  // 'ended' event rather than a guessed duration.
+  const [effectPlaying, setEffectPlaying] = useState(true)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const restTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => { if (restTimerRef.current) clearTimeout(restTimerRef.current) }
+  }, [])
+
+  function handleEffectEnded() {
+    setEffectPlaying(false)
+    restTimerRef.current = setTimeout(() => setEffectPlaying(true), EFFECT_REST_MS)
+  }
+
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v) return
+    if (effectPlaying) {
+      v.currentTime = 0
+      v.play().catch(() => {})
+    } else {
+      v.pause()
+    }
+  }, [effectPlaying])
   return (
     <>
       {/* The real profile card — read-only. isPreview strips Edit Profile /
@@ -78,9 +125,10 @@ export default function ProfileEffectPreview({
               <div style={{
                 position: 'fixed', inset: 0, zIndex: 20005, pointerEvents: 'none',
                 display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+                opacity: effectPlaying ? 1 : 0, transition: 'opacity 0.6s ease',
               }}>
                 <div style={{
-                  width: 'min(92vw, 460px)', height: `${SHEET_HEIGHT_VH}vh`,
+                  width: sheetWidth, height: `${SHEET_HEIGHT_VH}vh`,
                   borderRadius: '20px 20px 0 0', overflow: 'hidden',
                   background: 'rgba(0,0,0,0.16)', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)',
                   animation: 'effectDimFade 3.2s ease forwards',
@@ -94,17 +142,29 @@ export default function ProfileEffectPreview({
               <div style={{
                 position: 'fixed', inset: 0, zIndex: 20006, pointerEvents: 'none',
                 display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+                opacity: effectPlaying ? 1 : 0, transition: 'opacity 0.6s ease',
               }}>
                 <div style={{
-                  width: 'min(92vw, 460px)', height: `${SHEET_HEIGHT_VH}vh`,
+                  width: sheetWidth, height: `${SHEET_HEIGHT_VH}vh`,
                   borderRadius: '20px 20px 0 0', overflow: 'hidden', position: 'relative',
                 }}>
                   <video
+                    ref={videoRef}
                     src={videoUrl}
-                    autoPlay loop muted playsInline
+                    autoPlay muted playsInline
+                    onEnded={handleEffectEnded}
                     style={{
                       position: 'absolute', inset: 0, width: '100%', height: '100%',
-                      objectFit: 'cover',
+                      // contain, not cover — cover crops the video to fill
+                      // the box, and on a tall PC viewport (this box is
+                      // 85vh, so it gets much taller on a big monitor than
+                      // on phone) that crop was zooming straight into a
+                      // fully bright/opaque part of the clip and cutting
+                      // away the darker regions that let the card show
+                      // through. contain always shows the full frame
+                      // regardless of box shape, so the see-through parts
+                      // never get cropped away.
+                      objectFit: 'contain',
                       // Opacity (not blend mode) is what's actually letting
                       // the card show through here — the source clip's
                       // "black" isn't pure enough for mixBlendMode:'screen'
@@ -112,8 +172,14 @@ export default function ProfileEffectPreview({
                       // instead and use `filter` purely for bloom/glow on
                       // top of that, with no blend-mode transparency trick
                       // involved at all.
+                      //
+                      // blur(1.4px) here isn't for bloom — it's feathering
+                      // the internal boundary wherever the clip jumps from
+                      // a bright patch (near-opaque at this opacity) to a
+                      // dark one (near-invisible), so it reads as a soft
+                      // glow rather than a sharp graphic edge.
+                      filter: 'blur(1.4px) brightness(1.3) saturate(1.35) drop-shadow(0 0 26px rgba(255,150,60,0.6)) drop-shadow(0 0 46px rgba(255,90,30,0.35))',
                       opacity: 0.55,
-                      filter: 'brightness(1.3) saturate(1.35) drop-shadow(0 0 26px rgba(255,150,60,0.6)) drop-shadow(0 0 46px rgba(255,90,30,0.35))',
                     }}
                   />
                 </div>
