@@ -228,14 +228,14 @@ function BracketCorner({ position, color = 'var(--accent)' }: {
   position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
   color?: string
 }) {
-  const size = 14
-  const thickness = 2
+  const size = 10
+  const thickness = 1.5
   const base: React.CSSProperties = { position:'absolute', width:size, height:size, pointerEvents:'none' }
   const placement: Record<string, React.CSSProperties> = {
-    'top-left':     { top:-1, left:-1, borderTop:`${thickness}px solid ${color}`, borderLeft:`${thickness}px solid ${color}`, borderTopLeftRadius:4 },
-    'top-right':    { top:-1, right:-1, borderTop:`${thickness}px solid ${color}`, borderRight:`${thickness}px solid ${color}`, borderTopRightRadius:4 },
-    'bottom-left':  { bottom:-1, left:-1, borderBottom:`${thickness}px solid ${color}`, borderLeft:`${thickness}px solid ${color}`, borderBottomLeftRadius:4 },
-    'bottom-right': { bottom:-1, right:-1, borderBottom:`${thickness}px solid ${color}`, borderRight:`${thickness}px solid ${color}`, borderBottomRightRadius:4 },
+    'top-left':     { top:-1, left:-1, borderTop:`${thickness}px solid ${color}`, borderLeft:`${thickness}px solid ${color}`, borderTopLeftRadius:3 },
+    'top-right':    { top:-1, right:-1, borderTop:`${thickness}px solid ${color}`, borderRight:`${thickness}px solid ${color}`, borderTopRightRadius:3 },
+    'bottom-left':  { bottom:-1, left:-1, borderBottom:`${thickness}px solid ${color}`, borderLeft:`${thickness}px solid ${color}`, borderBottomLeftRadius:3 },
+    'bottom-right': { bottom:-1, right:-1, borderBottom:`${thickness}px solid ${color}`, borderRight:`${thickness}px solid ${color}`, borderBottomRightRadius:3 },
   }
   return <span style={{ ...base, ...placement[position] }} />
 }
@@ -267,11 +267,11 @@ const MessageLine = memo(function MessageLine({
         // column width for any message that happens to wrap onto more than
         // one line.
         display:'inline-block', width:'fit-content', maxWidth:'100%',
-        marginBottom:8,
-        padding:'8px 12px',
-        borderRadius:10,
+        marginBottom:4,
+        padding:'5px 9px',
+        borderRadius:8,
         background:'var(--surface)',
-        boxShadow:'4px 4px 10px var(--neu-dark), -3px -3px 7px var(--neu-light)',
+        boxShadow:'3px 3px 7px rgba(10,10,12,0.45), -2px -2px 5px rgba(38,38,48,0.35)',
       }}>
 
       {!isMine && showLeadingCorner && <BracketCorner position="top-left" />}
@@ -285,8 +285,8 @@ const MessageLine = memo(function MessageLine({
           messages never show a name at all. */}
       {msg.replyPreview && !msg.deleted && (
         <div style={{ marginBottom:3, display:'flex', flexDirection:'column', alignItems: isMine ? 'flex-end' : 'flex-start' }}>
-          <span style={{ fontSize:10.5, fontWeight:700, color:'#4f8ef7' }}>{msg.replyPreviewName || 'Unknown'}</span>
-          <span style={{ fontSize:11, color:'var(--text-dim)', maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+          <span style={{ fontSize:10, fontWeight:700, color:'#4f8ef7' }}>{msg.replyPreviewName || 'Unknown'}</span>
+          <span style={{ fontSize:10.5, color:'var(--text-dim)', maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
             {msg.replyPreview.length > 60 ? `${msg.replyPreview.slice(0, 60)}…` : msg.replyPreview}
           </span>
         </div>
@@ -296,7 +296,7 @@ const MessageLine = memo(function MessageLine({
           text — plain inline flow (no flex-shrink) so short text like "hey" can
           never get squeezed into a one-letter-per-line collapse. Text wraps at
           word boundaries the normal way only once it's actually too long. */}
-      <span style={{ fontSize:13.5, lineHeight:1.45, color:'var(--text)', fontStyle: msg.deleted ? 'italic' : 'normal', opacity: msg.deleted ? 0.6 : 1, wordBreak:'break-word' }}>
+      <span style={{ fontSize:12.5, lineHeight:1.4, color:'var(--text)', fontStyle: msg.deleted ? 'italic' : 'normal', opacity: msg.deleted ? 0.6 : 1, wordBreak:'break-word' }}>
         {msg.hidden ? (
           <HiddenContentNotice reason={msg.hidden_reason} isOwner={isMine} inline />
         ) : msg.deleted ? 'Message deleted' : msg.type === 'voice_note' ? (
@@ -313,11 +313,11 @@ const MessageLine = memo(function MessageLine({
           </span>
         ) : msg.content}
         {' '}
-        <span style={{ display:'inline-flex', alignItems:'center', gap:3, whiteSpace:'nowrap' }}>
-          {isStarred && <Star size={10} fill="#ffc107" style={{ color:'#ffc107' }} />}
-          <span style={{ fontSize:10, color:'var(--text-muted)' }}>{formatTime(msg.created_at)}</span>
-          {isMine && !msg.deleted && readReceipt === 'read' && <CheckCheck size={12} style={{ color:'var(--accent)' }} />}
-          {isMine && !msg.deleted && readReceipt === 'sent' && <Check size={12} style={{ color:'var(--text-muted)' }} />}
+        <span style={{ display:'inline-flex', alignItems:'center', gap:2, whiteSpace:'nowrap' }}>
+          {isStarred && <Star size={9} fill="#ffc107" style={{ color:'#ffc107' }} />}
+          <span style={{ fontSize:9.5, color:'var(--text-muted)' }}>{formatTime(msg.created_at)}</span>
+          {isMine && !msg.deleted && readReceipt === 'read' && <CheckCheck size={11} style={{ color:'var(--accent)' }} />}
+          {isMine && !msg.deleted && readReceipt === 'sent' && <Check size={11} style={{ color:'var(--text-muted)' }} />}
         </span>
       </span>
     </div>
@@ -389,12 +389,12 @@ const MessageBurst = memo(function MessageBurst({
   const first = burst[0]
 
   return (
-    <div style={{ display:'flex', flexDirection: isMine ? 'row-reverse' : 'row', alignItems:'flex-end', gap:8, marginBottom:6 }}>
+    <div style={{ display:'flex', flexDirection: isMine ? 'row-reverse' : 'row', alignItems:'flex-start', gap:6, marginBottom:4 }}>
       {isGroupChat && !isMine && (
         <button
           type="button"
           onClick={() => onOpenProfile(first)}
-          style={{ background:'none', border:'none', padding:0, cursor:'pointer', flexShrink:0, marginBottom:8 }}
+          style={{ background:'none', border:'none', padding:0, cursor:'pointer', flexShrink:0 }}
           title={senderLabel}>
           <Avatar name={senderLabel} avatarUrl={avatarUrl} size={30} radius={10} />
         </button>
