@@ -5,7 +5,7 @@ import { Heart, Share2, Check } from 'lucide-react'
 import { useAuth } from '../auth/useAuth'
 import { toggleHighlightLike } from './highlights'
 import { shareHighlight } from './shareHighlight'
-import { HIGHLIGHT_ILLUSTRATIONS } from './highlightAssets'
+import { HIGHLIGHT_ILLUSTRATIONS, BOUNCING_ILLUSTRATION_KINDS } from './highlightAssets'
 import { BadgeIcon } from '../badges/badgeIcons'
 import { getGameMeta } from '../games/games'
 import Avatar from '../../shared/components/Avatar'
@@ -137,12 +137,24 @@ function HighlightArt({ highlight, authorName }: { highlight: Highlight; authorN
 
   const src = HIGHLIGHT_ILLUSTRATIONS[highlight.kind]
   if (src) {
+    const bouncy = !!BOUNCING_ILLUSTRATION_KINDS[highlight.kind]
     return (
-      <img
-        src={src}
-        alt=""
-        style={{ width: size, height: size, objectFit: 'contain', flexShrink: 0 }}
-      />
+      <>
+        {bouncy && (
+          <style>{`@keyframes highlightBob { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-4px) rotate(3deg); } }`}</style>
+        )}
+        <img
+          src={src}
+          alt=""
+          style={{
+            width: size,
+            height: size,
+            objectFit: 'contain',
+            flexShrink: 0,
+            animation: bouncy ? 'highlightBob 2.4s ease-in-out infinite' : undefined,
+          }}
+        />
+      </>
     )
   }
 
