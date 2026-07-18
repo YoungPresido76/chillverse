@@ -1952,12 +1952,12 @@ export default function Chat() {
   const showChat = !isMobile || showConv
 
   return (
-    <div className="flex h-[calc(100dvh-60px)] overflow-hidden relative" style={{ background:'var(--bg)' }}>
+    <div className="flex h-[calc(100dvh-60px)] overflow-hidden relative">
       <PageOnboarding pageKey="chat" />
 
       {/* ── Contact list + player search ── */}
       {showList && (
-        <div className="w-full sm:w-[320px] flex-shrink-0 flex flex-col overflow-hidden" style={{ background:'var(--surface)', borderRight: isMobile ? 'none' : '1px solid rgba(255,255,255,0.05)' }}>
+        <div className="w-full sm:w-[320px] flex-shrink-0 flex flex-col overflow-hidden" style={{ background:'rgba(26,26,31,0.7)', backdropFilter:'blur(20px)', WebkitBackdropFilter:'blur(20px)', boxShadow:'6px 0 24px var(--neu-dark), inset -1px 0 0 rgba(255,255,255,0.03)', borderRight: isMobile ? 'none' : '1px solid rgba(255,255,255,0.06)' }}>
 
           {/* Header */}
           <div className="p-0 sm:p-3 md:p-4 pb-2">
@@ -2117,7 +2117,7 @@ export default function Chat() {
 
       {/* ── Conversation panel ── */}
       {showChat && (
-        <div style={{ flex:1, display:'flex', flexDirection:'column', background:'var(--bg)', minWidth:0, position:'relative' }}>
+        <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, position:'relative' }}>
           {activeRoom ? (
             <>
               {/* Conv topbar — single full-width header block: title on the left, back
