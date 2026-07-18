@@ -10,6 +10,7 @@ import {
 import { ripple } from '../shared/lib/ripple'
 import { useModRole } from '../features/moderation/useModRole'
 import Avatar from '../shared/components/Avatar'
+import Logo from './Logo'
 import type { Profile } from '../shared/types'
 
 // Matches the presence values stored on profiles.presence (see Profile.tsx / Settings.tsx)
@@ -139,9 +140,7 @@ export default function Sidebar({ open, collapsed, onClose, onToggleCollapse, pr
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-5 pb-4" style={{ minHeight: 60 }}>
           {!collapsed && (
-            <span style={{ fontSize: 20, fontWeight: 800, background: 'linear-gradient(135deg, var(--accent), var(--accent2))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', whiteSpace: 'nowrap' }}>
-              Chillverse
-            </span>
+            <Logo size={30} />
           )}
           <button type="button" onClick={onClose} className="lg:hidden ml-auto"
             style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
