@@ -4,12 +4,12 @@ import type { MouseEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, ShieldAlert, Users, UserPlus, Crown, ShieldBan, Gem,
-  ShoppingBag, Gamepad2, Swords, Sparkles, Flag, LifeBuoy, RefreshCw, AlertTriangle, Search, ChevronRight,
+  ShoppingBag, Gamepad2, Swords, Sparkles, Flag, LifeBuoy, RefreshCw, AlertTriangle, Search,
 } from 'lucide-react'
 import { useModRole } from '../moderation/useModRole'
 import { ripple } from '../../shared/lib/ripple'
 import { fetchAdminDashboardStats, type AdminDashboardStats } from './adminStats'
-import AdminUsersDrawer from './AdminUsersDrawer'
+import AdminUserSearch from './AdminUserSearch'
 
 function StatCard({
   icon: Icon, label, value, tint, onClick,
@@ -19,7 +19,7 @@ function StatCard({
   value: string | number
   tint?: string
   /** When present, the card renders as a button — used for stats that open
-   *  an AdminDrawer drill-down (e.g. "Total users" → AdminUsersDrawer). */
+   *  an inline AdminUserSearch drill-down (e.g. "Total users" → search). */
   onClick?: (e: MouseEvent<HTMLDivElement>) => void
 }) {
   return (
@@ -106,15 +106,26 @@ const ADMIN_SECTIONS: { key: AdminSection; label: string; description: string; i
   { key: 'operations', label: 'Support desk', description: 'Reports, bans, tickets, actions', icon: LifeBuoy },
 ]
 
+const ADMIN_WING_STORAGE_KEY = 'cv_admin_active_wing'
+
 export default function AdminDashboard() {
   const navigate = useNavigate()
   const { isAdmin, loading: roleLoading } = useModRole()
   const [stats, setStats] = useState<AdminDashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [usersDrawerOpen, setUsersDrawerOpen] = useState(false)
-  const [activeSection, setActiveSection] = useState<AdminSection>('overview')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [activeSection, setActiveSection] = useState<AdminSection>(() => {
+    if (typeof window === 'undefined') return 'overview'
+    const stored = sessionStorage.getItem(ADMIN_WING_STORAGE_KEY) as AdminSection | null
+    return stored && ADMIN_SECTIONS.some(s => s.key === stored) ? stored : 'overview'
+  })
   const activeMeta = useMemo(() => ADMIN_SECTIONS.find(s => s.key === activeSection) ?? ADMIN_SECTIONS[0], [activeSection])
+
+  function selectSection(key: AdminSection) {
+    setActiveSection(key)
+    sessionStorage.setItem(ADMIN_WING_STORAGE_KEY, key)
+  }
 
   async function load() {
     setLoading(true)
@@ -189,30 +200,53 @@ export default function AdminDashboard() {
 
         {stats && (
           <div className="neu-card" style={{ padding: 16, marginTop: 16 }}>
-            <div className="flex items-center justify-between gap-3" style={{ marginBottom: 12 }}>
-              <div>
-                <p style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase', margin: 0 }}>Admin mall map</p>
-                <p style={{ fontSize: 12, color: 'var(--text-dim)', margin: '3px 0 0' }}>Choose a wing; each tab opens its own statistics dashboard.</p>
-              </div>
-              <button type="button" onClick={(e) => { ripple(e); setUsersDrawerOpen(true) }} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, border: 'none', borderRadius: 12, padding: '10px 12px', background: 'linear-gradient(135deg, var(--accent), var(--accent2))', color: '#fff', fontWeight: 800, fontSize: 12, cursor: 'pointer', boxShadow: '3px 3px 8px var(--neu-dark)' }}>
-                <Search size={14} /> Search user
-              </button>
+            <div style={{ marginBottom: 12 }}>
+              <p style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase', margin: 0 }}>Admin mall map</p>
+              <p style={{ fontSize: 12, color: 'var(--text-dim)', margin: '3px 0 0' }}>Choose a wing; each tab opens its own statistics dashboard.</p>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
-              {ADMIN_SECTIONS.map(section => {
-                const Icon = section.icon
-                const active = activeSection === section.key
-                return (
-                  <button key={section.key} type="button" onClick={(e) => { ripple(e); setActiveSection(section.key) }} className={active ? 'neu-inset' : 'neu-card-sm'} style={{ border: active ? '1px solid rgba(255,107,0,0.35)' : '1px solid rgba(255,255,255,0.04)', padding: 12, textAlign: 'left', cursor: 'pointer', color: 'var(--text)', display: 'flex', gap: 10, alignItems: 'center' }}>
-                    <span className="neu-icon" style={{ width: 34, height: 34, color: active ? 'var(--accent)' : 'var(--text-dim)', background: 'var(--surface2)', flexShrink: 0 }}><Icon size={16} /></span>
-                    <span style={{ minWidth: 0, flex: 1 }}>
-                      <span style={{ display: 'block', fontSize: 12.5, fontWeight: 900 }}>{section.label}</span>
-                      <span style={{ display: 'block', fontSize: 10.5, color: 'var(--text-muted)', lineHeight: 1.25 }}>{section.description}</span>
-                    </span>
-                    <ChevronRight size={14} style={{ color: active ? 'var(--accent)' : 'var(--text-muted)' }} />
-                  </button>
-                )
-              })}
+
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className="admin-tab-scroll" style={{ flex: 1, minWidth: 0 }}>
+                {ADMIN_SECTIONS.map(section => {
+                  const Icon = section.icon
+                  const active = activeSection === section.key
+                  return (
+                    <button
+                      key={section.key}
+                      type="button"
+                      onClick={(e) => { ripple(e); selectSection(section.key) }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
+                        padding: '9px 14px', borderRadius: 11, cursor: 'pointer', whiteSpace: 'nowrap',
+                        background: active ? 'var(--surface2)' : 'transparent',
+                        border: active ? '1px solid rgba(255,107,0,0.35)' : '1px solid rgba(255,255,255,0.04)',
+                        color: active ? 'var(--accent)' : 'var(--text-dim)',
+                        fontSize: 12.5, fontWeight: 800,
+                      }}
+                    >
+                      <Icon size={13} /> {section.label}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <button
+                type="button"
+                onClick={(e) => { ripple(e); setSearchOpen(o => !o) }}
+                aria-label="Search users"
+                style={{
+                  width: 36, height: 36, borderRadius: 11, flexShrink: 0,
+                  background: searchOpen ? 'var(--surface2)' : 'var(--surface)',
+                  border: searchOpen ? '1px solid rgba(255,107,0,0.35)' : '1px solid rgba(255,255,255,0.07)',
+                  color: searchOpen ? 'var(--accent)' : 'var(--text-dim)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                  boxShadow: '2px 2px 6px var(--neu-dark)',
+                }}
+              >
+                <Search size={15} />
+              </button>
+
+              {searchOpen && <AdminUserSearch onClose={() => setSearchOpen(false)} />}
             </div>
           </div>
         )}
@@ -229,7 +263,7 @@ export default function AdminDashboard() {
                 icon={Users}
                 label="Total users"
                 value={stats.overview.total_users}
-                onClick={(e) => { ripple(e); setUsersDrawerOpen(true) }}
+                onClick={(e) => { ripple(e); setSearchOpen(true) }}
               />
               <StatCard icon={UserPlus} label="New (7d)" value={stats.overview.new_users_7d} tint="var(--gold)" />
               <StatCard icon={UserPlus} label="New (30d)" value={stats.overview.new_users_30d} tint="var(--gold)" />
@@ -250,7 +284,7 @@ export default function AdminDashboard() {
                 label="Flagged balances (>3,000)"
                 value={stats.economy.flagged_balance_count}
                 tint="var(--red)"
-                onClick={(e) => { ripple(e); setUsersDrawerOpen(true) }}
+                onClick={(e) => { ripple(e); setSearchOpen(true) }}
               />
             </div>
             <div className="neu-card" style={{ padding: 16 }}>
@@ -317,8 +351,6 @@ export default function AdminDashboard() {
           </>
         )}
       </div>
-
-      <AdminUsersDrawer open={usersDrawerOpen} onClose={() => setUsersDrawerOpen(false)} />
     </div>
   )
 }
