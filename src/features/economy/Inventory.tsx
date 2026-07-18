@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Package, Shirt, Zap, Image as ImageIcon,
-  X, CheckCircle2, CircleDashed,
+  X, CheckCircle2, CircleDashed, Sparkles,
 } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { supabase } from '../../shared/lib/supabase'
@@ -19,6 +19,17 @@ interface InventoryEntry {
   is_equipped: boolean
   quantity: number
   item: MallItem
+}
+
+// What actually "conflicts" when equipping — normally just the mall
+// category (only one avatar skin, one xp booster, etc. at a time). Profile
+// card effects and albums both live under the profile_pic category for
+// browsing purposes, but each is its own independent slot: equipping an
+// effect must NOT unequip your actual profile picture, and vice versa.
+function equipSlot(item: MallItem): string {
+  if (item.sub_category === 'Profile card effect') return 'profile_card_effect'
+  if (item.sub_category === 'album') return 'album'
+  return item.category
 }
 
 /* ══════════════════════════════════════════════════
@@ -269,9 +280,13 @@ function InventoryCard({ entry, onTap }: { entry: InventoryEntry; onTap: () => v
           ? `url(${item.image_url}) center/cover`
           : `linear-gradient(135deg, ${color}18, ${color}08)`,
         border: `1px solid ${color}22`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
       }}>
-        {!item.image_url && <Package size={22} style={{ color: `${color}55` }} />}
+        {!item.image_url && item.animated_url && /\.(mp4|webm)$/i.test(item.animated_url) ? (
+          <video src={item.animated_url} muted playsInline preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : !item.image_url ? (
+          <Package size={22} style={{ color: `${color}55` }} />
+        ) : null}
       </div>
 
       {/* Name */}
@@ -334,17 +349,17 @@ export default function Inventory() {
   const equip = useCallback(async (entry: InventoryEntry) => {
     const { item } = entry
 
-    // Optimistic: unequip all in same category, equip this one
+    // Optimistic: unequip all in the same slot, equip this one
     setInventory(prev => prev.map(e => ({
       ...e,
-      is_equipped: e.item.category === item.category ? e.id === entry.id : e.is_equipped,
+      is_equipped: equipSlot(e.item) === equipSlot(item) ? e.id === entry.id : e.is_equipped,
     })))
     setToast({ text: `Equipped ${item.name}`, equipped: true })
     setSelected(null)
 
     // Persist inventory state
     const sameCategory = inventory
-      .filter(e => e.item.category === item.category && e.is_equipped && e.id !== entry.id)
+      .filter(e => equipSlot(e.item) === equipSlot(item) && e.is_equipped && e.id !== entry.id)
       .map(e => e.id)
     if (sameCategory.length) {
       await supabase.from('user_inventory').update({ is_equipped: false }).in('id', sameCategory)
@@ -353,7 +368,11 @@ export default function Inventory() {
 
     // Apply to profile
     if (!userId) return
-    if (item.category === 'profile_pic' && item.sub_category !== 'album') {
+    if (item.sub_category === 'Profile card effect') {
+      // Sets the live profile-view effect (plays on PlayerProfile for
+      // visitors) — does NOT touch the actual profile picture.
+      await supabase.from('profiles').update({ equipped_profile_effect_url: item.animated_url }).eq('id', userId)
+    } else if (item.category === 'profile_pic' && item.sub_category !== 'album') {
       // Sets actual profile picture (avatar field stores emoji OR image URL)
       await supabase.from('profiles').update({ avatar: item.image_url ?? item.name }).eq('id', userId)
     } else if (item.category === 'avatar_skin') {
@@ -377,7 +396,9 @@ export default function Inventory() {
 
     // Revert profile fields
     if (!userId) return
-    if (item.category === 'profile_pic' && item.sub_category !== 'album') {
+    if (item.sub_category === 'Profile card effect') {
+      await supabase.from('profiles').update({ equipped_profile_effect_url: null }).eq('id', userId)
+    } else if (item.category === 'profile_pic' && item.sub_category !== 'album') {
       await supabase.from('profiles').update({ avatar: '🧑‍🚀' }).eq('id', userId)
     } else if (item.category === 'avatar_skin') {
       await supabase.from('profiles').update({ equipped_avatar: null }).eq('id', userId)
@@ -389,7 +410,8 @@ export default function Inventory() {
 
   const avatars     = inventory.filter(e => e.item.category === 'avatar_skin')
   const consumables = inventory.filter(e => e.item.category === 'xp_booster' || e.item.is_consumable)
-  const profilePics = inventory.filter(e => e.item.category === 'profile_pic' && e.item.sub_category !== 'album')
+  const profilePics = inventory.filter(e => e.item.category === 'profile_pic' && e.item.sub_category !== 'album' && e.item.sub_category !== 'Profile card effect')
+  const cardEffects = inventory.filter(e => e.item.sub_category === 'Profile card effect')
   const albums      = inventory.filter(e => e.item.sub_category === 'album')
 
   const isEmpty = !loading && inventory.length === 0
@@ -452,7 +474,7 @@ export default function Inventory() {
         )}
 
         {/* Divider */}
-        {avatars.length > 0 && (consumables.length > 0 || profilePics.length > 0 || albums.length > 0) && (
+        {avatars.length > 0 && (consumables.length > 0 || profilePics.length > 0 || albums.length > 0 || cardEffects.length > 0) && (
           <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', marginBottom: 28 }} />
         )}
 
@@ -467,17 +489,32 @@ export default function Inventory() {
         )}
 
         {/* Divider */}
-        {consumables.length > 0 && (profilePics.length > 0 || albums.length > 0) && (
+        {consumables.length > 0 && (profilePics.length > 0 || albums.length > 0 || cardEffects.length > 0) && (
           <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', marginBottom: 28 }} />
         )}
 
         {/* ─── Profile Pics & Albums ───────────────── */}
         {(profilePics.length > 0 || albums.length > 0) && (
-          <div style={{ animation: 'invSectionIn 0.3s ease-out both', animationDelay: '0.14s' }}>
+          <div style={{ marginBottom: cardEffects.length > 0 ? 28 : 0, animation: 'invSectionIn 0.3s ease-out both', animationDelay: '0.14s' }}>
             <SectionHeader icon={<ImageIcon size={16} style={{ color: '#4f8ef7' }} />} label="Profile Pics & Albums" count={profilePics.length + albums.length} />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
               {profilePics.map(e => <InventoryCard key={e.id} entry={e} onTap={() => setSelected(e)} />)}
               {albums.map(e => <InventoryCard key={e.id} entry={e} onTap={() => setSelected(e)} />)}
+            </div>
+          </div>
+        )}
+
+        {/* Divider */}
+        {(profilePics.length > 0 || albums.length > 0) && cardEffects.length > 0 && (
+          <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', marginBottom: 28 }} />
+        )}
+
+        {/* ─── Profile Card Effects ────────────────── */}
+        {cardEffects.length > 0 && (
+          <div style={{ animation: 'invSectionIn 0.3s ease-out both', animationDelay: '0.2s' }}>
+            <SectionHeader icon={<Sparkles size={16} style={{ color: '#ff6b00' }} />} label="Profile Card Effects" count={cardEffects.length} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+              {cardEffects.map(e => <InventoryCard key={e.id} entry={e} onTap={() => setSelected(e)} />)}
             </div>
           </div>
         )}

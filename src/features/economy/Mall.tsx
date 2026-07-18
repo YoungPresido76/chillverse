@@ -1,4 +1,5 @@
 // src/pages/Mall.tsx
+import type React from 'react'
 import { useState, useMemo, useCallback, useEffect, createContext, useContext } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -15,6 +16,7 @@ import { useMallItems } from './useMallItems'
 import { useWallet } from './useWallet'
 import type { MallItem, MallRarity } from '../../shared/types'
 import PageOnboarding from '../onboarding/PageOnboarding'
+import ProfileEffectPreview from './ProfileEffectPreview'
 
 // Whether the viewing user has an active Pro (Orbit/Void) plan. Provided
 // once at the top of Mall() and read by SquareCard/RectCard/ItemModal so
@@ -100,6 +102,24 @@ function getLockInfo(item: MallItem, hasOwnedRequirement: boolean, isPro: boolea
 /* ══════════════════════════════════════════════════════
    CARD COMPONENTS
 ══════════════════════════════════════════════════════ */
+// Grid-card thumbnail: uses the static image_url when there is one. If an
+// item has no poster but does have a video (animated_url), we render the
+// video itself with no autoplay — the browser just displays frame 1, which
+// looks identical to a static poster without needing a separate asset.
+function CardThumb({ item, style }: { item: MallItem; style: React.CSSProperties }) {
+  if (item.image_url) {
+    return <div style={{ ...style, background: `url(${item.image_url}) center/cover` }} />
+  }
+  if (item.animated_url && /\.(mp4|webm)$/i.test(item.animated_url)) {
+    return (
+      <div style={{ ...style, background: 'var(--surface2)' }}>
+        <video src={item.animated_url} muted playsInline preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      </div>
+    )
+  }
+  return <div style={{ ...style, background: 'var(--surface2)' }} />
+}
+
 function SquareCard({ item, onSelect, onWishlist, wishlisted, likeCount = 0, compact = false }: { item: MallItem; onSelect: (item: MallItem) => void; onWishlist?: (item: MallItem) => void; wishlisted?: boolean; likeCount?: number; compact?: boolean }) {
   const isPro = useContext(MallProContext)
   const userXp = useContext(MallXpContext)
@@ -117,9 +137,8 @@ function SquareCard({ item, onSelect, onWishlist, wishlisted, likeCount = 0, com
         opacity: lock.locked ? 0.55 : 1,
       }}
     >
-      <div style={{
+      <CardThumb item={item} style={{
         width: '100%', aspectRatio: '1 / 1', borderRadius: compact ? 10 : 12, marginBottom: compact ? 6 : 8, overflow: 'hidden',
-        background: item.image_url ? `url(${item.image_url}) center/cover` : 'var(--surface2)',
         filter: lock.locked ? 'grayscale(0.6)' : 'none',
       }} />
       <div style={{ fontSize: compact ? 10.5 : 12.5, fontWeight: 700, color: 'var(--text)', marginBottom: compact ? 3 : 4, lineHeight: 1.25, whiteSpace: compact ? 'nowrap' : 'normal', overflow: compact ? 'hidden' : 'visible', textOverflow: compact ? 'ellipsis' : 'clip' }}>{item.name}</div>
@@ -166,9 +185,8 @@ function RectCard({ item, onSelect, onWishlist, wishlisted, likeCount = 0 }: { i
         opacity: lock.locked ? 0.55 : 1,
       }}
     >
-      <div style={{
+      <CardThumb item={item} style={{
         width: '100%', aspectRatio: '3 / 4', borderRadius: 14, marginBottom: 10, overflow: 'hidden',
-        background: item.image_url ? `url(${item.image_url}) center/cover` : 'var(--surface2)',
         filter: lock.locked ? 'grayscale(0.6)' : 'none',
       }} />
       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 5, lineHeight: 1.3 }}>{item.name}</div>
@@ -329,18 +347,34 @@ function ItemModal({
   // full-but-shrunk image treatment further down.
   const isBanner = item.category === 'banner'
   const isProfilePic = item.category === 'profile_pic'
+  // Profile card effects share the profile_pic category (they live in the
+  // "Profile card effect" sub-tab under Profile Pics) but behave nothing
+  // like a normal profile pic: the sheet shows only the static poster
+  // (image_url), never an inline mockup, and "Preview" opens a full-screen
+  // look at the real profile with the effect playing over it instead of
+  // toggling a small mockup in place.
+  const isCardEffect = item.sub_category === 'Profile card effect'
   const mockBannerSrc = isBanner ? (item.animated_url || item.image_url) : previewProfile?.banner
-  const mockAvatarSrc = isProfilePic ? (item.animated_url || item.image_url) : previewProfile?.avatar
+  const mockAvatarSrc = isProfilePic && !isCardEffect ? (item.animated_url || item.image_url) : previewProfile?.avatar
+  // Card-effect thumb: static poster only. If an item has no poster (no
+  // image_url), fall back to the video itself with no autoplay so the
+  // browser just shows frame 1 — never the animated version here.
+  const cardEffectPosterSrc = item.image_url || null
+  const cardEffectPosterIsVideo = !item.image_url && !!item.animated_url && /\.(mp4|webm)$/i.test(item.animated_url)
 
   // ── Profile-pic-only: on-demand "preview on profile" toggle ──────────
   const [showPicPreview, setShowPicPreview] = useState(false)
+  // ── Card-effect-only: full-screen "how it'll actually look" preview,
+  // which draws up the real profile (via ProfileEffectPreview) instead of
+  // the small in-sheet mockup other categories use. ──
+  const [showEffectPreview, setShowEffectPreview] = useState(false)
   // ── Profile-pic-only: occasional nudge bubble pointing at the eye
   // toggle, reminding people it's there. Only fires some of the time (not
   // on every single view of a profile pic) and only until the person
   // actually taps preview or dismisses it. ──
   const [showPreviewNudge, setShowPreviewNudge] = useState(false)
   useEffect(() => {
-    if (!isProfilePic) return
+    if (!isProfilePic || isCardEffect) return
     if (Math.random() > 0.35) return // fires roughly 1 in ~3 opens, not every time
     const showT = setTimeout(() => setShowPreviewNudge(true), 1100)
     const hideT = setTimeout(() => setShowPreviewNudge(false), 6500)
@@ -426,16 +460,20 @@ function ItemModal({
             <div style={{ position: 'relative', marginRight: 'auto' }}>
               <button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); setShowPicPreview(v => !v); setShowPreviewNudge(false) }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (isCardEffect) { setShowEffectPreview(true) } else { setShowPicPreview(v => !v) }
+                  setShowPreviewNudge(false)
+                }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 20,
-                  background: showPicPreview ? 'rgba(255,107,0,0.14)' : 'rgba(255,255,255,0.06)',
-                  border: showPicPreview ? '1px solid rgba(255,107,0,0.35)' : '1px solid transparent',
-                  cursor: 'pointer', color: showPicPreview ? 'var(--accent)' : 'var(--text-dim)',
+                  background: (showPicPreview || showEffectPreview) ? 'rgba(255,107,0,0.14)' : 'rgba(255,255,255,0.06)',
+                  border: (showPicPreview || showEffectPreview) ? '1px solid rgba(255,107,0,0.35)' : '1px solid transparent',
+                  cursor: 'pointer', color: (showPicPreview || showEffectPreview) ? 'var(--accent)' : 'var(--text-dim)',
                   fontSize: 11.5, fontWeight: 700,
                 }}
               >
-                <Eye size={14} /> {showPicPreview ? 'Hide preview' : 'Preview'}
+                <Eye size={14} /> {isCardEffect ? 'Preview' : (showPicPreview ? 'Hide preview' : 'Preview')}
               </button>
               {/* Occasional nudge bubble — points at the preview button,
                   only shows some of the time, and disappears on its own or
@@ -480,7 +518,13 @@ function ItemModal({
               overflow: 'hidden', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.06)',
               boxShadow: '4px 4px 12px var(--neu-dark),-2px -2px 8px var(--neu-light)',
             }}>
-              {mockAvatarSrc ? (
+              {isCardEffect ? (
+                cardEffectPosterSrc ? (
+                  <img src={cardEffectPosterSrc} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : cardEffectPosterIsVideo ? (
+                  <video src={item.animated_url!} muted playsInline preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : null
+              ) : mockAvatarSrc ? (
                 /\.(mp4|webm)$/i.test(mockAvatarSrc) ? (
                   <video src={mockAvatarSrc} autoPlay loop muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
@@ -489,7 +533,7 @@ function ItemModal({
               ) : null}
             </div>
 
-            {showPicPreview && (
+            {showPicPreview && !isCardEffect && (
               <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', marginBottom: 16, border: '1px solid rgba(255,255,255,0.06)', minHeight: MOCK_TOTAL_H, animation: 'feedIn 0.25s ease-out both' }}>
                 <div style={{ position: 'relative', width: '100%', height: MOCK_BANNER_H, background: 'var(--surface2)' }}>
                   {previewProfile?.banner ? (
@@ -670,6 +714,14 @@ function ItemModal({
           </>
         )}
       </div>
+
+      {showEffectPreview && isCardEffect && userId && (
+        <ProfileEffectPreview
+          userId={userId}
+          videoUrl={item.animated_url}
+          onClose={() => setShowEffectPreview(false)}
+        />
+      )}
     </div>
   )
 }
@@ -701,12 +753,38 @@ function SubPage({ title, onBack, children }: { title: string; onBack: () => voi
 /* ══════════════════════════════════════════════════════
    PROFILE PICS SUB-PAGE
 ══════════════════════════════════════════════════════ */
+// "Classic" covers every existing profile pic (sub_category is null on all
+// of them). "Profile card effect" is the new tab holding the Discord-style
+// animated effects — same pattern as the Avatar sub-tabs below.
+const PROFILE_PIC_SUB_CATEGORIES = ['Classic', 'Profile card effect']
+
 function ProfilePicsPage({ items, onBack, onSelect, onWishlist, wishlisted, likeCounts }: { items: MallItem[]; onBack: () => void; onSelect: (item: MallItem) => void; onWishlist?: (item: MallItem) => void; wishlisted?: Set<string>; likeCounts?: Record<string, number> }) {
-  const profilePics = items.filter(i => i.category === 'profile_pic')
+  const [activeTab, setActiveTab] = useState(PROFILE_PIC_SUB_CATEGORIES[0])
+  const profilePics = items.filter(i => i.category === 'profile_pic' && (activeTab === 'Classic' ? !i.sub_category : i.sub_category === activeTab))
+
   return (
     <SubPage title="Profile Pics" onBack={onBack}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 18, overflowX: 'auto' }}>
+        {PROFILE_PIC_SUB_CATEGORIES.map(tab => (
+          <button
+            key={tab}
+            onClick={(e) => { ripple(e); setActiveTab(tab) }}
+            className="ripple-wrap"
+            style={{
+              padding: '7px 14px', borderRadius: 20, cursor: 'pointer', whiteSpace: 'nowrap',
+              fontSize: 12, fontWeight: 600, fontFamily: 'inherit',
+              background: activeTab === tab ? 'rgba(255,255,255,0.1)' : 'transparent',
+              color: activeTab === tab ? '#fff' : 'var(--text-dim)',
+              border: activeTab === tab ? '1px solid rgba(255,255,255,0.14)' : '1px solid transparent',
+            }}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
       {profilePics.length === 0 ? (
-        <EmptyState label="No profile pics available yet." />
+        <EmptyState label={`No items in "${activeTab}" yet.`} />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
           {profilePics.map(item => <SquareCard key={item.id} item={item} onSelect={onSelect} onWishlist={onWishlist} wishlisted={wishlisted?.has(item.id)} likeCount={likeCounts?.[item.id] ?? 0} compact />)}
@@ -999,10 +1077,7 @@ export default function Mall() {
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'linear-gradient(135deg,var(--accent),#f5c542)', color: '#1a1108', fontSize: 9.5, fontWeight: 800, padding: '3px 8px', borderRadius: 8, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 10 }}>
                     <Star size={10} /> Featured
                   </div>
-                  <div style={{
-                    width: '100%', height: 90, borderRadius: 13, marginBottom: 10,
-                    background: item.image_url ? `url(${item.image_url}) center/cover` : 'var(--surface2)',
-                  }} />
+                  <CardThumb item={item} style={{ width: '100%', height: 90, borderRadius: 13, marginBottom: 10, overflow: 'hidden' }} />
                   <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>{item.name}</div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <RarityBadge rarity={item.rarity} />
