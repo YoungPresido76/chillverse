@@ -3,7 +3,7 @@ import { useState, useMemo, useCallback, useEffect, createContext, useContext } 
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, ChevronRight, Image as ImageIcon, Shirt, Zap,
-  Lock, Star, X, ShoppingBag, Heart, Users,
+  Lock, Star, X, ShoppingBag, Heart, Users, Eye, Sparkles,
 } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { supabase } from '../../shared/lib/supabase'
@@ -283,13 +283,23 @@ const BUY_LABEL: Partial<Record<MallItem['category'], string>> = {
 }
 
 // Shared sizing for the "profile header mockup" preview (banner + the
-// overlapping avatar + name/username). Every mall-item preview — banner,
-// profile pic, and avatar — renders inside a container of this same total
-// height so the sheet height is consistent across categories by
-// construction, instead of padding shorter previews with empty space.
+// overlapping avatar + name/username), used automatically for banners and
+// on-demand (behind the eye-toggle) for profile pics.
 const MOCK_BANNER_H = 110
 const MOCK_AVATAR_SIZE = 56
 const MOCK_TOTAL_H = 194 // banner (110) + overlapping avatar's visible half (28) + name/username block + padding
+
+// The buy sheet is always exactly this tall — same fixed height as the
+// profile preview sheet (see SHEET_HEIGHT_VH in ProfilePreviewModal.tsx) —
+// regardless of how much or how little info a given item has. Short
+// content just leaves breathing room at the bottom; long content scrolls
+// inside the sheet. No more "sheet height depends on content" behavior.
+const BUY_SHEET_HEIGHT_VH = 85
+
+// Small square thumbnail size for the profile-pic item view (the "just the
+// small pic" per-item image, distinct from the full profile-header mockup
+// which now only appears on demand for profile pics).
+const PIC_THUMB_SIZE = 108
 
 function ItemModal({
   item, walletBalance, userId, onClose, onPurchased, onWishlist, wishlisted, previewProfile, ownerCount = 0,
@@ -311,14 +321,32 @@ function ItemModal({
   const [buying, setBuying] = useState(false)
   const [alreadyOwned, setAlreadyOwned] = useState(false)
   const [checkingOwn, setCheckingOwn] = useState(true)
-  // Banner and profile-pic items both preview inside the same profile-header
-  // mockup — banner items put the item image in the banner slot (with the
-  // user's real avatar overlapping it), profile-pic items put the item
-  // image in the avatar slot (with the user's real banner, or a neutral
-  // placeholder, behind it).
-  const showProfileMock = item.category === 'banner' || item.category === 'profile_pic'
-  const mockBannerSrc = item.category === 'banner' ? (item.animated_url || item.image_url) : previewProfile?.banner
-  const mockAvatarSrc = item.category === 'profile_pic' ? (item.animated_url || item.image_url) : previewProfile?.avatar
+  // Only banners show the full profile-header mockup automatically — it's
+  // the one thing that fills the whole header, so it's worth previewing up
+  // front. Profile pics show just their own small thumbnail by default;
+  // the full "how it'll look on your profile" mockup is revealed on demand
+  // via the eye-toggle below (see showPicPreview). Avatars get their own
+  // full-but-shrunk image treatment further down.
+  const isBanner = item.category === 'banner'
+  const isProfilePic = item.category === 'profile_pic'
+  const mockBannerSrc = isBanner ? (item.animated_url || item.image_url) : previewProfile?.banner
+  const mockAvatarSrc = isProfilePic ? (item.animated_url || item.image_url) : previewProfile?.avatar
+
+  // ── Profile-pic-only: on-demand "preview on profile" toggle ──────────
+  const [showPicPreview, setShowPicPreview] = useState(false)
+  // ── Profile-pic-only: occasional nudge bubble pointing at the eye
+  // toggle, reminding people it's there. Only fires some of the time (not
+  // on every single view of a profile pic) and only until the person
+  // actually taps preview or dismisses it. ──
+  const [showPreviewNudge, setShowPreviewNudge] = useState(false)
+  useEffect(() => {
+    if (!isProfilePic) return
+    if (Math.random() > 0.35) return // fires roughly 1 in ~3 opens, not every time
+    const showT = setTimeout(() => setShowPreviewNudge(true), 1100)
+    const hideT = setTimeout(() => setShowPreviewNudge(false), 6500)
+    return () => { clearTimeout(showT); clearTimeout(hideT) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.id, isProfilePic])
 
   // Check if user already owns this item
   useEffect(() => {
@@ -386,13 +414,50 @@ function ItemModal({
       <div style={{
         background: 'var(--surface)', borderRadius: '20px 20px 0 0', padding: '0 20px 24px', width: '100%', maxWidth: 460,
         border: '1px solid rgba(255,255,255,0.08)', borderBottom: 'none', boxShadow: '0 -20px 60px rgba(0,0,0,0.55)',
-        position: 'relative', maxHeight: '88vh', overflowY: 'auto', animation: 'slideUp 0.28s cubic-bezier(0.16,1,0.3,1) both',
+        position: 'relative', height: `${BUY_SHEET_HEIGHT_VH}vh`, overflowY: 'auto', overscrollBehavior: 'contain',
+        display: 'flex', flexDirection: 'column', animation: 'slideUp 0.28s cubic-bezier(0.16,1,0.3,1) both',
       }}>
         {/* Drag handle */}
-        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.22)', margin: '10px auto 0' }} />
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.22)', margin: '10px auto 0', flexShrink: 0 }} />
 
-        {/* Header: cancel (right) + wishlist heart */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, margin: '14px 0' }}>
+        {/* Header: preview eye (profile pics only) + wishlist heart + close */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, margin: '14px 0', flexShrink: 0, position: 'relative' }}>
+          {isProfilePic && !lock.locked && (
+            <div style={{ position: 'relative', marginRight: 'auto' }}>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setShowPicPreview(v => !v); setShowPreviewNudge(false) }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 20,
+                  background: showPicPreview ? 'rgba(255,107,0,0.14)' : 'rgba(255,255,255,0.06)',
+                  border: showPicPreview ? '1px solid rgba(255,107,0,0.35)' : '1px solid transparent',
+                  cursor: 'pointer', color: showPicPreview ? 'var(--accent)' : 'var(--text-dim)',
+                  fontSize: 11.5, fontWeight: 700,
+                }}
+              >
+                <Eye size={14} /> {showPicPreview ? 'Hide preview' : 'Preview'}
+              </button>
+              {/* Occasional nudge bubble — points at the preview button,
+                  only shows some of the time, and disappears on its own or
+                  the moment the person taps preview. */}
+              {showPreviewNudge && (
+                <div
+                  onClick={(e) => { e.stopPropagation(); setShowPicPreview(true); setShowPreviewNudge(false) }}
+                  style={{
+                    position: 'absolute', top: '100%', left: 0, marginTop: 8, zIndex: 5,
+                    display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 12,
+                    background: 'rgba(20,20,24,0.97)', border: '1px solid rgba(255,107,0,0.3)',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.45)', cursor: 'pointer', whiteSpace: 'nowrap',
+                    animation: 'feedIn 0.25s ease-out both',
+                  }}
+                >
+                  <div style={{ position: 'absolute', top: -5, left: 16, width: 9, height: 9, background: 'rgba(20,20,24,0.97)', borderLeft: '1px solid rgba(255,107,0,0.3)', borderTop: '1px solid rgba(255,107,0,0.3)', transform: 'rotate(45deg)' }} />
+                  <Sparkles size={12} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)' }}>Tap preview to see how it'll look</span>
+                </div>
+              )}
+            </div>
+          )}
           {onWishlist && !lock.locked && (
             <button type="button" onClick={(e) => { e.stopPropagation(); onWishlist(item) }}
               style={{ width: 30, height: 30, borderRadius: 9, background: 'rgba(255,255,255,0.06)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: wishlisted ? '#ff4d8b' : 'var(--text-dim)' }}>
@@ -404,16 +469,72 @@ function ItemModal({
           </button>
         </div>
 
-        {showProfileMock ? (
-          /* ── Banner & profile pic: both preview inside the same
-             profile-header mockup, so both sheets land at the same total
-             height (MOCK_TOTAL_H) instead of needing empty filler space.
-             The avatar is positioned with `position: absolute`, not a
-             negative margin — a negative margin on a child with no
-             padding/border above it collapses with the parent's own
-             margin and escapes upward, which is what was clipping the
-             avatar against the banner before. Absolute positioning can't
-             collapse, so it can't get clipped. ── */
+        {isProfilePic ? (
+          /* ── Profile pic: small standalone thumbnail by default. The
+             full "how it'll look on your profile" mockup only appears
+             once the person taps the eye/Preview toggle above — banners
+             are the only category that auto-shows the full mockup. ── */
+          <div style={{ flexShrink: 0 }}>
+            <div style={{
+              width: PIC_THUMB_SIZE, height: PIC_THUMB_SIZE, margin: '0 auto 14px', borderRadius: 22,
+              overflow: 'hidden', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.06)',
+              boxShadow: '4px 4px 12px var(--neu-dark),-2px -2px 8px var(--neu-light)',
+            }}>
+              {mockAvatarSrc ? (
+                /\.(mp4|webm)$/i.test(mockAvatarSrc) ? (
+                  <video src={mockAvatarSrc} autoPlay loop muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <img src={mockAvatarSrc} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                )
+              ) : null}
+            </div>
+
+            {showPicPreview && (
+              <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', marginBottom: 16, border: '1px solid rgba(255,255,255,0.06)', minHeight: MOCK_TOTAL_H, animation: 'feedIn 0.25s ease-out both' }}>
+                <div style={{ position: 'relative', width: '100%', height: MOCK_BANNER_H, background: 'var(--surface2)' }}>
+                  {previewProfile?.banner ? (
+                    /\.(mp4|webm)$/i.test(previewProfile.banner) ? (
+                      <video src={previewProfile.banner} autoPlay loop muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <img src={previewProfile.banner} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    )
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,rgba(79,142,247,0.18),rgba(155,109,255,0.14))' }} />
+                  )}
+                </div>
+                <div style={{ background: 'var(--surface)', padding: `${MOCK_AVATAR_SIZE / 2 + 8}px 14px 14px` }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewProfile?.displayName || 'You'}</div>
+                  {previewProfile?.username && (
+                    <div style={{ fontSize: 11.5, color: 'var(--text-dim)', marginTop: 2 }}>@{previewProfile.username}</div>
+                  )}
+                </div>
+                <div style={{
+                  position: 'absolute', left: 14, top: MOCK_BANNER_H - MOCK_AVATAR_SIZE / 2,
+                  width: MOCK_AVATAR_SIZE, height: MOCK_AVATAR_SIZE, borderRadius: 16, padding: 2,
+                  background: 'linear-gradient(135deg,var(--accent),#4f8ef7)', border: '3px solid var(--surface)',
+                }}>
+                  {mockAvatarSrc ? (
+                    /\.(mp4|webm)$/i.test(mockAvatarSrc) ? (
+                      <video src={mockAvatarSrc} autoPlay loop muted playsInline style={{ width: '100%', height: '100%', borderRadius: 12, objectFit: 'cover', display: 'block' }} />
+                    ) : (
+                      <img src={mockAvatarSrc} alt="" style={{ width: '100%', height: '100%', borderRadius: 12, objectFit: 'cover', display: 'block' }} />
+                    )
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', borderRadius: 12, background: 'var(--surface2)' }} />
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : isBanner ? (
+          /* ── Banner: previews automatically inside the profile-header
+             mockup (this is the only category that does, since a banner
+             IS the whole header). The avatar chip is positioned with
+             `position: absolute`, not a negative margin — a negative
+             margin on a child with no padding/border above it collapses
+             with the parent's own margin and escapes upward, which is
+             what was clipping the avatar against the banner before.
+             Absolute positioning can't collapse, so it can't get clipped. ── */
           <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', marginBottom: 16, border: '1px solid rgba(255,255,255,0.06)', minHeight: MOCK_TOTAL_H }}>
             <div style={{ position: 'relative', width: '100%', height: MOCK_BANNER_H, background: 'var(--surface2)' }}>
               {mockBannerSrc ? (
@@ -453,27 +574,29 @@ function ItemModal({
             </div>
           </div>
         ) : (
-          /* ── Avatar (and any other) items: no profile-header mockup to
-             show, but framed at the same MOCK_TOTAL_H so the sheet still
-             matches the height of the banner/profile-pic sheets. ── */
+          /* ── Avatar (and any other) items: no profile-header mockup —
+             instead the WHOLE image is shown, shrunk down to fit inside
+             the frame (objectFit: contain, not cover), so nothing gets
+             cropped off the top/bottom/sides. Framed at MOCK_TOTAL_H so
+             the sheet still lines up with the banner/profile-pic sheets. ── */
           <div style={{
             width: '100%', height: MOCK_TOTAL_H,
             borderRadius: 16, marginBottom: 16, overflow: 'hidden', background: 'var(--surface2)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 14,
           }}>
             {item.animated_url ? (
               /\.(mp4|webm)$/i.test(item.animated_url) ? (
                 <video
                   src={item.animated_url}
                   autoPlay loop muted playsInline
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }}
+                  style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                 />
               ) : (
                 // gif (or any still-image fallback) — browsers animate gifs natively
-                <img src={item.animated_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }} />
+                <img src={item.animated_url} alt={item.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
               )
             ) : item.image_url ? (
-              <img src={item.image_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }} />
+              <img src={item.image_url} alt={item.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
             ) : null}
           </div>
         )}
