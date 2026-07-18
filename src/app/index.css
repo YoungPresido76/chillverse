@@ -456,6 +456,11 @@
 .t-scroll::-webkit-scrollbar { display: none; }
 .t-scroll > * { scroll-snap-align: start; }
 
+/* Admin wing tabs — horizontal scroll, no visible scrollbar, no snap
+   (snap fights with quick taps between short tab buttons). */
+.admin-tab-scroll { display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.admin-tab-scroll::-webkit-scrollbar { display: none; }
+
 /* ── Tablet & responsive fixes ─────────────────────────────── */
 /* Topbar on tablet: keep proper width accounting for no sidebar offset */
 @media (max-width: 1023px) {
