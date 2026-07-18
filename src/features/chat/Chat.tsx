@@ -219,6 +219,8 @@ interface MessageLineProps {
   myId: string | null
   formatTime: (iso: string) => string
   readReceipt: ReadReceipt
+  /** Whether the viewer has starred this message — DMs only, shows a small badge. */
+  isStarred: boolean
   /** Whether this line's underline hooks in toward the avatar (only the burst's
    *  first/only avatar-aligned edge needs the hook — every line still gets its
    *  own underline, sized to itself, never to a sibling's width). */
@@ -231,7 +233,7 @@ interface MessageLineProps {
  *  each one keeps (and is pushed down by) its own line instead of one shared
  *  line stretching to fit whatever's widest in the stack. */
 const MessageLine = memo(function MessageLine({
-  msg, isMine, emojiForMsg, onContextMenu, onDoubleClick, onToggleEmojiPicker, onAddReaction, myId, formatTime, readReceipt, isGroupChat,
+  msg, isMine, emojiForMsg, onContextMenu, onDoubleClick, onToggleEmojiPicker, onAddReaction, myId, formatTime, readReceipt, isStarred, isGroupChat,
 }: MessageLineProps) {
   const lineColor = 'rgba(255,255,255,0.28)'
   return (
@@ -307,6 +309,7 @@ const MessageLine = memo(function MessageLine({
         ) : msg.content}
         {' '}
         <span style={{ display:'inline-flex', alignItems:'center', gap:3, whiteSpace:'nowrap' }}>
+          {isStarred && <Star size={10} fill="#ffc107" style={{ color:'#ffc107' }} />}
           <span style={{ fontSize:10, color:'var(--text-muted)' }}>{formatTime(msg.created_at)}</span>
           {isMine && !msg.deleted && readReceipt === 'read' && <CheckCheck size={12} style={{ color:'var(--accent)' }} />}
           {isMine && !msg.deleted && readReceipt === 'sent' && <Check size={12} style={{ color:'var(--text-muted)' }} />}
@@ -408,6 +411,8 @@ interface MessageBurstProps {
   myId: string | null
   formatTime: (iso: string) => string
   readReceiptFor: (msg: Message) => ReadReceipt
+  /** Message ids the viewer has starred — used to show the badge (DMs only). */
+  starredIds: Set<string>
   /** Avatars only make sense where more than two people share the thread (Global
    *  Chat) — a DM never shows one, since which side of the screen a message sits
    *  on already identifies the sender. */
@@ -421,7 +426,7 @@ interface MessageBurstProps {
  *  further down the stack rather than widening anything above it. */
 const MessageBurst = memo(function MessageBurst({
   burst, isMine, senderLabel, avatarUrl, myProfile, emojiForMsg,
-  onOpenProfile, onContextMenu, onDoubleClick, onToggleEmojiPicker, onAddReaction, myId, formatTime, readReceiptFor, isGroupChat,
+  onOpenProfile, onContextMenu, onDoubleClick, onToggleEmojiPicker, onAddReaction, myId, formatTime, readReceiptFor, starredIds, isGroupChat,
 }: MessageBurstProps) {
   const first = burst[0]
 
@@ -458,6 +463,7 @@ const MessageBurst = memo(function MessageBurst({
             myId={myId}
             formatTime={formatTime}
             readReceipt={readReceiptFor(msg)}
+            isStarred={starredIds.has(msg.id)}
             isGroupChat={isGroupChat}
           />
         ))}
@@ -1900,24 +1906,27 @@ export default function Chat() {
     setRooms(prev => prev.map(r => r.id === activeRoom.id ? { ...r, slowMode: enabled, slowModeSeconds: seconds } : r))
   }
 
-  /** Private per-user bookmark — everyone can star any message, any room.
-   *  Nobody else ever sees this (see migration 0041). */
+  /** Private per-user bookmark — DMs only (see toggleStar's guard below and
+   *  the context-menu condition that hides Star in Global Chat). Capped at
+   *  MAX_STARRED_PER_ROOM per conversation. Nobody else ever sees this
+   *  (see migration 0046). */
   async function toggleStar(messageId: string) {
-    if (!myId) return
+    if (!myId || !activeRoom || activeRoom.type !== 'dm') return
     const currentlyStarred = myStarredIds.has(messageId)
     setMyStarredIds(prev => {
       const next = new Set(prev)
       currentlyStarred ? next.delete(messageId) : next.add(messageId)
       return next
     })
-    const { error } = currentlyStarred ? await unstarMessage(myId, messageId) : await starMessage(myId, messageId)
+    const { error } = currentlyStarred ? await unstarMessage(myId, messageId) : await starMessage(myId, messageId, activeRoom.id)
     if (error) {
-      console.error('Failed to toggle star:', error)
       setMyStarredIds(prev => {
         const next = new Set(prev)
         currentlyStarred ? next.add(messageId) : next.delete(messageId)
         return next
       })
+      if (!currentlyStarred) setComposerError(error) // cap-reached message; unstar failures are rare enough to just log
+      else console.error('Failed to toggle star:', error)
     }
   }
 
@@ -1971,7 +1980,6 @@ export default function Chat() {
                 {totalUnread > 0 && <span style={{ background:'var(--accent)', color:'#fff', fontSize:10, fontWeight:700, padding:'2px 7px', borderRadius:10 }}>{totalUnread}</span>}
               </div>
               <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                <IBtn onClick={() => setStarredPanelOpen(true)} title="Starred messages"><Star size={15} /></IBtn>
                 <IBtn><MoreVertical size={15} /></IBtn>
               </div>
             </div>
@@ -2192,6 +2200,11 @@ export default function Chat() {
                         {ghostReadActive ? <EyeOff size={14} /> : <Eye size={14} />}
                       </IBtn>
                     )}
+                    {activeRoom.type === 'dm' && (
+                      <IBtn onClick={() => setStarredPanelOpen(true)} style={{ width:32, height:32 }} title="Starred messages">
+                        <Star size={14} />
+                      </IBtn>
+                    )}
                     <IBtn onClick={() => { setMsgSearchOpen(o => !o); if (msgSearchOpen) setMsgSearchQuery('') }} style={{ width:32, height:32 }}>
                       <Search size={14} />
                     </IBtn>
@@ -2391,6 +2404,7 @@ export default function Chat() {
                             myId={myId}
                             formatTime={formatTime}
                             readReceiptFor={readReceiptFor}
+                            starredIds={myStarredIds}
                             isGroupChat={activeRoom.type === 'global'}
                           />
                         )
@@ -2576,11 +2590,11 @@ export default function Chat() {
                     {[
                       { icon: <Smile size={14} />, label:'React', action: () => { setEmojiForMsg(ctxMsg.id); setCtxMsg(null) } },
                       { icon: <Reply size={14} />, label:'Reply', action: () => { setReplyTo(ctxMsg); setCtxMsg(null) } },
-                      {
+                      ...(activeRoom?.type === 'dm' ? [{
                         icon: <Star size={14} fill={myStarredIds.has(ctxMsg.id) ? 'currentColor' : 'none'} />,
                         label: myStarredIds.has(ctxMsg.id) ? 'Unstar' : 'Star',
                         action: () => { toggleStar(ctxMsg.id); setCtxMsg(null) }
-                      },
+                      }] : []),
                       ...(!ctxMsg.deleted && (activeRoom?.type !== 'global' || isStaff) ? [
                         activeRoom?.pinnedMessageId === ctxMsg.id
                           ? { icon: <PinOff size={14} />, label:'Unpin', action: unpinMessage }
@@ -2816,11 +2830,8 @@ export default function Chat() {
         open={starredPanelOpen}
         onClose={() => setStarredPanelOpen(false)}
         myId={myId}
-        roomLabels={new Map(rooms.map(r => [r.id, roomLabel(r)]))}
-        onJumpToRoom={(roomId) => {
-          const room = rooms.find(r => r.id === roomId)
-          if (room) openRoom(room)
-        }}
+        roomId={activeRoom?.type === 'dm' ? activeRoom.id : null}
+        roomLabel={activeRoom ? roomLabel(activeRoom) : ''}
       />
 
       <style>{`
