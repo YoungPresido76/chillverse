@@ -3,7 +3,7 @@ import { useState, useMemo, useCallback, useEffect, createContext, useContext } 
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, ChevronRight, Image as ImageIcon, Shirt, Zap,
-  Lock, Star, X, ShoppingBag, Heart,
+  Lock, Star, X, ShoppingBag, Heart, Users,
 } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { supabase } from '../../shared/lib/supabase'
@@ -283,7 +283,7 @@ const BUY_LABEL: Partial<Record<MallItem['category'], string>> = {
 }
 
 function ItemModal({
-  item, walletBalance, userId, onClose, onPurchased, onWishlist, wishlisted, previewProfile,
+  item, walletBalance, userId, onClose, onPurchased, onWishlist, wishlisted, previewProfile, ownerCount = 0,
 }: {
   item: MallItem
   walletBalance: number
@@ -293,6 +293,7 @@ function ItemModal({
   onWishlist?: (item: MallItem) => void
   wishlisted?: boolean
   previewProfile?: { avatar: string; displayName: string; username: string } | null
+  ownerCount?: number
 }) {
   const isPro = useContext(MallProContext)
   const userXp = useContext(MallXpContext)
@@ -474,6 +475,16 @@ function ItemModal({
             {item.description}
           </div>
         )}
+
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', textAlign: 'center', marginBottom: 10 }}>
+          Give your profile a distinct look
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '10px 14px', marginBottom: 18 }}>
+          <Users size={14} color="var(--text-dim)" />
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>
+            {ownerCount.toLocaleString()} {ownerCount === 1 ? 'person' : 'people'} already {item.is_consumable ? 'used' : 'have'} this
+          </span>
+        </div>
 
         {lock.locked ? (
           <div style={{ textAlign: 'center', padding: 12, background: 'var(--surface2)', borderRadius: 12, fontSize: 12, color: 'var(--text-muted)' }}>
@@ -676,6 +687,7 @@ export default function Mall() {
   const [toast, setToast] = useState<string | null>(null)
   const [purchaseToast, setPurchaseToast] = useState<string | null>(null)
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({})
+  const [ownerCounts, setOwnerCounts] = useState<Record<string, number>>({})
   const diamondBalance = wallet?.gem_balance ?? 0
 
   // Load like counts for all visible items + subscribe to realtime changes
@@ -694,6 +706,23 @@ export default function Mall() {
     }
     loadCounts()
     const poll = setInterval(loadCounts, 30_000)
+    return () => clearInterval(poll)
+  }, [items.length])
+
+  // Load "how many people own this" counts, same polling pattern as likes
+  useEffect(() => {
+    if (!items.length) return
+    async function loadOwnerCounts() {
+      const { data } = await supabase.from('item_owner_counts').select('item_id, count')
+      if (!data) return
+      const counts: Record<string, number> = {}
+      for (const row of data) {
+        counts[row.item_id as string] = row.count as number
+      }
+      setOwnerCounts(counts)
+    }
+    loadOwnerCounts()
+    const poll = setInterval(loadOwnerCounts, 30_000)
     return () => clearInterval(poll)
   }, [items.length])
 
@@ -867,6 +896,7 @@ export default function Mall() {
           onWishlist={handleWishlist}
           wishlisted={wishlisted.has(selectedItem.id)}
           previewProfile={profile ? { avatar: profile.avatar, displayName: profile.display_name ?? profile.username, username: profile.username } : null}
+          ownerCount={ownerCounts[selectedItem.id] ?? 0}
           onPurchased={(item) => {
             setPurchaseToast(`${item.name} added to your inventory!`)
             setWishlisted(prev => {
