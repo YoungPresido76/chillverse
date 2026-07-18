@@ -17,8 +17,9 @@ export interface Profile {
   gender: string | null
   play_time: 'morning' | 'night' | null
   info_tags: string[]            // up to 2 of: 'gender' | 'play_time' | 'country' | 'presence'
-  favorite_game: string | null   // matches a game's dbKey
+  favorite_game: string | null   // matches a game's dbKey — showcased on the profile page
   grid_cards: string[]           // up to 3 of: 'achievements' | 'rank' | 'leaderboard'
+  pinned_games: string[]         // Games lobby star/pin list — matches games.ts `id` values (hyphenated), NOT dbKey. Private, not shown on the profile.
   show_follow_counts: boolean | null
   // ── Halo AI ──
   halo_messages_today: number            // default 0
