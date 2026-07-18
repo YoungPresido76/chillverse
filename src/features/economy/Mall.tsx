@@ -282,6 +282,15 @@ const BUY_LABEL: Partial<Record<MallItem['category'], string>> = {
   avatar_skin: 'Buy Avatar',
 }
 
+// Shared sizing for the "profile header mockup" preview (banner + the
+// overlapping avatar + name/username). Every mall-item preview — banner,
+// profile pic, and avatar — renders inside a container of this same total
+// height so the sheet height is consistent across categories by
+// construction, instead of padding shorter previews with empty space.
+const MOCK_BANNER_H = 110
+const MOCK_AVATAR_SIZE = 56
+const MOCK_TOTAL_H = 194 // banner (110) + overlapping avatar's visible half (28) + name/username block + padding
+
 function ItemModal({
   item, walletBalance, userId, onClose, onPurchased, onWishlist, wishlisted, previewProfile, ownerCount = 0,
 }: {
@@ -292,7 +301,7 @@ function ItemModal({
   onPurchased: (item: MallItem) => void
   onWishlist?: (item: MallItem) => void
   wishlisted?: boolean
-  previewProfile?: { avatar: string; displayName: string; username: string } | null
+  previewProfile?: { avatar: string; displayName: string; username: string; banner?: string | null } | null
   ownerCount?: number
 }) {
   const isPro = useContext(MallProContext)
@@ -302,7 +311,14 @@ function ItemModal({
   const [buying, setBuying] = useState(false)
   const [alreadyOwned, setAlreadyOwned] = useState(false)
   const [checkingOwn, setCheckingOwn] = useState(true)
-  const showProfilePreview = item.category === 'banner'
+  // Banner and profile-pic items both preview inside the same profile-header
+  // mockup — banner items put the item image in the banner slot (with the
+  // user's real avatar overlapping it), profile-pic items put the item
+  // image in the avatar slot (with the user's real banner, or a neutral
+  // placeholder, behind it).
+  const showProfileMock = item.category === 'banner' || item.category === 'profile_pic'
+  const mockBannerSrc = item.category === 'banner' ? (item.animated_url || item.image_url) : previewProfile?.banner
+  const mockAvatarSrc = item.category === 'profile_pic' ? (item.animated_url || item.image_url) : previewProfile?.avatar
 
   // Check if user already owns this item
   useEffect(() => {
@@ -388,61 +404,62 @@ function ItemModal({
           </button>
         </div>
 
-        {showProfilePreview ? (
-          /* ── Banner: live preview on the user's own profile header — same
-             banner-height + half-overlapping-avatar relationship as the
-             real profile view (ProfilePreviewModal), just banner + avatar +
-             name, nothing below. ── */
-          <div style={{ borderRadius: 16, overflow: 'hidden', marginBottom: 16, border: '1px solid rgba(255,255,255,0.06)' }}>
-            <div style={{ position: 'relative', width: '100%', height: 110, background: 'var(--surface2)' }}>
-              {item.animated_url ? (
-                /\.(mp4|webm)$/i.test(item.animated_url) ? (
-                  <video src={item.animated_url} autoPlay loop muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        {showProfileMock ? (
+          /* ── Banner & profile pic: both preview inside the same
+             profile-header mockup, so both sheets land at the same total
+             height (MOCK_TOTAL_H) instead of needing empty filler space.
+             The avatar is positioned with `position: absolute`, not a
+             negative margin — a negative margin on a child with no
+             padding/border above it collapses with the parent's own
+             margin and escapes upward, which is what was clipping the
+             avatar against the banner before. Absolute positioning can't
+             collapse, so it can't get clipped. ── */
+          <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', marginBottom: 16, border: '1px solid rgba(255,255,255,0.06)', minHeight: MOCK_TOTAL_H }}>
+            <div style={{ position: 'relative', width: '100%', height: MOCK_BANNER_H, background: 'var(--surface2)' }}>
+              {mockBannerSrc ? (
+                /\.(mp4|webm)$/i.test(mockBannerSrc) ? (
+                  <video src={mockBannerSrc} autoPlay loop muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
-                  <img src={item.animated_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={mockBannerSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 )
-              ) : item.image_url ? (
-                <img src={item.image_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : null}
+              ) : (
+                <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,rgba(79,142,247,0.18),rgba(155,109,255,0.14))' }} />
+              )}
             </div>
-            <div style={{ background: 'var(--surface)', padding: '0 14px 14px' }}>
-              {/* Avatar overlapping the banner by half its height — mirrors
-                  the real profile header exactly. */}
-              <div style={{ marginTop: -28, marginBottom: 8 }}>
-                <div style={{ width: 56, height: 56, borderRadius: 16, padding: 2, background: 'linear-gradient(135deg,var(--accent),#4f8ef7)', border: '3px solid var(--surface)' }}>
-                  {previewProfile?.avatar ? (
-                    <img src={previewProfile.avatar} alt="" style={{ width: '100%', height: '100%', borderRadius: 12, objectFit: 'cover', display: 'block' }} />
-                  ) : (
-                    <div style={{ width: '100%', height: '100%', borderRadius: 12, background: 'var(--surface2)' }} />
-                  )}
-                </div>
-              </div>
+            <div style={{ background: 'var(--surface)', padding: `${MOCK_AVATAR_SIZE / 2 + 8}px 14px 14px` }}>
               <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewProfile?.displayName || 'You'}</div>
               {previewProfile?.username && (
                 <div style={{ fontSize: 11.5, color: 'var(--text-dim)', marginTop: 2 }}>@{previewProfile.username}</div>
               )}
             </div>
-          </div>
-        ) : item.category === 'profile_pic' ? (
-          /* ── Profile pic: shown at the same size it appeared as in the
-             grid card — not blown up full-width. ── */
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-            <div style={{ width: 108, height: 108, borderRadius: 14, overflow: 'hidden', background: 'var(--surface2)', flexShrink: 0 }}>
-              {item.animated_url ? (
-                /\.(mp4|webm)$/i.test(item.animated_url) ? (
-                  <video src={item.animated_url} autoPlay loop muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            {/* Avatar overlapping the banner by half its own height —
+                absolutely positioned relative to the mockup container so it
+                always renders on top and can never be clipped by a
+                collapsed margin. */}
+            <div style={{
+              position: 'absolute', left: 14, top: MOCK_BANNER_H - MOCK_AVATAR_SIZE / 2,
+              width: MOCK_AVATAR_SIZE, height: MOCK_AVATAR_SIZE, borderRadius: 16, padding: 2,
+              background: 'linear-gradient(135deg,var(--accent),#4f8ef7)', border: '3px solid var(--surface)',
+            }}>
+              {mockAvatarSrc ? (
+                /\.(mp4|webm)$/i.test(mockAvatarSrc) ? (
+                  <video src={mockAvatarSrc} autoPlay loop muted playsInline style={{ width: '100%', height: '100%', borderRadius: 12, objectFit: 'cover', display: 'block' }} />
                 ) : (
-                  <img src={item.animated_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={mockAvatarSrc} alt="" style={{ width: '100%', height: '100%', borderRadius: 12, objectFit: 'cover', display: 'block' }} />
                 )
-              ) : item.image_url ? (
-                <img src={item.image_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : null}
+              ) : (
+                <div style={{ width: '100%', height: '100%', borderRadius: 12, background: 'var(--surface2)' }} />
+              )}
             </div>
           </div>
         ) : (
+          /* ── Avatar (and any other) items: no profile-header mockup to
+             show, but framed at the same MOCK_TOTAL_H so the sheet still
+             matches the height of the banner/profile-pic sheets. ── */
           <div style={{
-            width: '100%', aspectRatio: '3 / 4', maxHeight: 340,
+            width: '100%', height: MOCK_TOTAL_H,
             borderRadius: 16, marginBottom: 16, overflow: 'hidden', background: 'var(--surface2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             {item.animated_url ? (
               /\.(mp4|webm)$/i.test(item.animated_url) ? (
@@ -895,7 +912,7 @@ export default function Mall() {
           onClose={() => setSelectedItem(null)}
           onWishlist={handleWishlist}
           wishlisted={wishlisted.has(selectedItem.id)}
-          previewProfile={profile ? { avatar: profile.avatar, displayName: profile.display_name ?? profile.username, username: profile.username } : null}
+          previewProfile={profile ? { avatar: profile.avatar, displayName: profile.display_name ?? profile.username, username: profile.username, banner: profile.banner_url } : null}
           ownerCount={ownerCounts[selectedItem.id] ?? 0}
           onPurchased={(item) => {
             setPurchaseToast(`${item.name} added to your inventory!`)
