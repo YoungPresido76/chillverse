@@ -394,6 +394,19 @@ export async function notifyMissedCall(callerId: string, calleeId: string) {
   })
 }
 
+// Rank Tag — fans out to every user currently in the tagged rank group.
+// The actual fan-out INSERT happens server-side in notify_rank_tag() (one
+// bulk query, not a client loop) since a popular group could be thousands
+// of users; this is just the thin RPC call.
+export async function notifyRankTag(senderId: string, rankGroup: string, opts: { messageId?: string; postId?: string }) {
+  await supabase.rpc('notify_rank_tag', {
+    p_rank_group: rankGroup,
+    p_sender_id:  senderId,
+    p_message_id: opts.messageId ?? null,
+    p_post_id:    opts.postId ?? null,
+  })
+}
+
 export async function notifyRankUp(userId: string, rankTitle: string) {
   await supabase.rpc('insert_notification', {
     p_user_id: userId,
