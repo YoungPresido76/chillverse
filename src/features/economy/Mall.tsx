@@ -214,39 +214,39 @@ function BannerCard({ item, onSelect, onWishlist, wishlisted, likeCount = 0 }: {
       className="ripple-wrap"
       style={{
         background: 'var(--surface)', border: isMythic ? '1px solid rgba(255,107,0,0.3)' : '1px solid rgba(255,255,255,0.05)',
-        borderRadius: 18, padding: 12, cursor: 'pointer', position: 'relative',
+        borderRadius: 14, padding: 9, cursor: 'pointer', position: 'relative',
         boxShadow: isMythic ? '0 0 0 1px rgba(255,107,0,0.18),4px 4px 10px var(--neu-dark)' : '4px 4px 10px var(--neu-dark),-2px -2px 8px var(--neu-light)',
         opacity: lock.locked ? 0.55 : 1,
       }}
     >
+      {/* Wide/landscape image slot — the shape itself is the cue that this
+          is a banner, even at small card size. */}
       <div style={{
-        width: '100%', aspectRatio: '2.4 / 1', borderRadius: 14, marginBottom: 10, overflow: 'hidden', position: 'relative',
+        width: '100%', aspectRatio: '2.2 / 1', borderRadius: 10, marginBottom: 7, overflow: 'hidden', position: 'relative',
         background: item.image_url ? `url(${item.image_url}) center/cover` : 'var(--surface2)',
         filter: lock.locked ? 'grayscale(0.6)' : 'none',
       }}>
         {!lock.locked && onWishlist && (
           <button type="button" onClick={e => { e.stopPropagation(); onWishlist(item) }}
-            style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)', border: 'none', borderRadius: 20, cursor: 'pointer', padding: '4px 8px', color: wishlisted ? '#ff4d8b' : '#fff', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Heart size={13} style={{ fill: wishlisted ? '#ff4d8b' : 'none' }} />
-            <span style={{ fontSize: 9.5, fontWeight: 700 }}>{likeCount}</span>
+            style={{ position: 'absolute', top: 5, right: 5, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)', border: 'none', borderRadius: 20, cursor: 'pointer', padding: '3px 6px', color: wishlisted ? '#ff4d8b' : '#fff', display: 'flex', alignItems: 'center', gap: 3 }}>
+            <Heart size={10.5} style={{ fill: wishlisted ? '#ff4d8b' : 'none' }} />
+            <span style={{ fontSize: 8.5, fontWeight: 700 }}>{likeCount}</span>
           </button>
         )}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)', marginBottom: 4, lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
-          <RarityBadge rarity={item.rarity} />
-        </div>
+      <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text)', marginBottom: 3, lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <RarityBadge rarity={item.rarity} />
         {lock.locked ? (
-          <Lock size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+          <Lock size={11} color="var(--text-muted)" style={{ flexShrink: 0 }} />
         ) : item.price_gems != null ? (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12.5, fontWeight: 700, color: 'var(--text)', flexShrink: 0 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10.5, fontWeight: 700, color: 'var(--text)', flexShrink: 0 }}>
             💎 {item.price_gems.toLocaleString()}
           </span>
         ) : null}
       </div>
       {lock.locked && lock.reason && (
-        <div style={{ fontSize: 9.5, color: 'var(--text-muted)', marginTop: 4 }}>{lock.reason}</div>
+        <div style={{ fontSize: 8.5, color: 'var(--text-muted)', marginTop: 4 }}>{lock.reason}</div>
       )}
     </div>
   )
@@ -367,15 +367,15 @@ function ItemModal({
       style={{ position: 'fixed', inset: 0, zIndex: 800, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
     >
       <div style={{
-        background: 'var(--surface)', borderRadius: '24px 24px 0 0', padding: '10px 20px 24px', width: '100%', maxWidth: 480,
+        background: 'var(--surface)', borderRadius: '20px 20px 0 0', padding: '0 20px 24px', width: '100%', maxWidth: 460,
         border: '1px solid rgba(255,255,255,0.08)', borderBottom: 'none', boxShadow: '0 -20px 60px rgba(0,0,0,0.55)',
         position: 'relative', maxHeight: '88vh', overflowY: 'auto', animation: 'slideUp 0.28s cubic-bezier(0.16,1,0.3,1) both',
       }}>
         {/* Drag handle */}
-        <div style={{ width: 36, height: 4, borderRadius: 3, background: 'rgba(255,255,255,0.14)', margin: '2px auto 14px' }} />
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.22)', margin: '10px auto 0' }} />
 
         {/* Header: cancel (right) + wishlist heart */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, margin: '14px 0' }}>
           {onWishlist && !lock.locked && (
             <button type="button" onClick={(e) => { e.stopPropagation(); onWishlist(item) }}
               style={{ width: 30, height: 30, borderRadius: 9, background: 'rgba(255,255,255,0.06)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: wishlisted ? '#ff4d8b' : 'var(--text-dim)' }}>
@@ -388,9 +388,12 @@ function ItemModal({
         </div>
 
         {showProfilePreview ? (
-          /* ── Banner: live preview on the user's own profile header, just banner + avatar + name (nothing below) ── */
-          <div style={{ borderRadius: 18, overflow: 'hidden', marginBottom: 16, border: '1px solid rgba(255,255,255,0.06)' }}>
-            <div style={{ position: 'relative', width: '100%', aspectRatio: '2.2 / 1', background: 'var(--surface2)' }}>
+          /* ── Banner: live preview on the user's own profile header — same
+             banner-height + half-overlapping-avatar relationship as the
+             real profile view (ProfilePreviewModal), just banner + avatar +
+             name, nothing below. ── */
+          <div style={{ borderRadius: 16, overflow: 'hidden', marginBottom: 16, border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ position: 'relative', width: '100%', height: 110, background: 'var(--surface2)' }}>
               {item.animated_url ? (
                 /\.(mp4|webm)$/i.test(item.animated_url) ? (
                   <video src={item.animated_url} autoPlay loop muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -400,29 +403,44 @@ function ItemModal({
               ) : item.image_url ? (
                 <img src={item.image_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : null}
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.45) 100%)' }} />
             </div>
-            <div style={{ background: 'var(--surface)', padding: '0 14px 14px', marginTop: -32, position: 'relative' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10 }}>
-                <div style={{ width: 56, height: 56, borderRadius: 15, padding: 2, background: 'linear-gradient(135deg,var(--accent),#4f8ef7)', border: '3px solid var(--surface)', flexShrink: 0 }}>
+            <div style={{ background: 'var(--surface)', padding: '0 14px 14px' }}>
+              {/* Avatar overlapping the banner by half its height — mirrors
+                  the real profile header exactly. */}
+              <div style={{ marginTop: -28, marginBottom: 8 }}>
+                <div style={{ width: 56, height: 56, borderRadius: 16, padding: 2, background: 'linear-gradient(135deg,var(--accent),#4f8ef7)', border: '3px solid var(--surface)' }}>
                   {previewProfile?.avatar ? (
-                    <img src={previewProfile.avatar} alt="" style={{ width: '100%', height: '100%', borderRadius: 11, objectFit: 'cover', display: 'block' }} />
+                    <img src={previewProfile.avatar} alt="" style={{ width: '100%', height: '100%', borderRadius: 12, objectFit: 'cover', display: 'block' }} />
                   ) : (
-                    <div style={{ width: '100%', height: '100%', borderRadius: 11, background: 'var(--surface2)' }} />
-                  )}
-                </div>
-                <div style={{ minWidth: 0, paddingBottom: 4 }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewProfile?.displayName || 'You'}</div>
-                  {previewProfile?.username && (
-                    <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>@{previewProfile.username}</div>
+                    <div style={{ width: '100%', height: '100%', borderRadius: 12, background: 'var(--surface2)' }} />
                   )}
                 </div>
               </div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewProfile?.displayName || 'You'}</div>
+              {previewProfile?.username && (
+                <div style={{ fontSize: 11.5, color: 'var(--text-dim)', marginTop: 2 }}>@{previewProfile.username}</div>
+              )}
+            </div>
+          </div>
+        ) : item.category === 'profile_pic' ? (
+          /* ── Profile pic: shown at the same size it appeared as in the
+             grid card — not blown up full-width. ── */
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+            <div style={{ width: 108, height: 108, borderRadius: 14, overflow: 'hidden', background: 'var(--surface2)', flexShrink: 0 }}>
+              {item.animated_url ? (
+                /\.(mp4|webm)$/i.test(item.animated_url) ? (
+                  <video src={item.animated_url} autoPlay loop muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <img src={item.animated_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                )
+              ) : item.image_url ? (
+                <img src={item.image_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : null}
             </div>
           </div>
         ) : (
           <div style={{
-            width: '100%', aspectRatio: item.category === 'profile_pic' ? '1 / 1' : '3 / 4', maxHeight: 340,
+            width: '100%', aspectRatio: '3 / 4', maxHeight: 340,
             borderRadius: 16, marginBottom: 16, overflow: 'hidden', background: 'var(--surface2)',
           }}>
             {item.animated_url ? (
@@ -613,7 +631,7 @@ function BannersPage({ items, onBack, onSelect, onWishlist, wishlisted, likeCoun
       {banners.length === 0 ? (
         <EmptyState label="No banners available yet." />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
           {banners.map(item => <BannerCard key={item.id} item={item} onSelect={onSelect} onWishlist={onWishlist} wishlisted={wishlisted?.has(item.id)} likeCount={likeCounts?.[item.id] ?? 0} />)}
         </div>
       )}
