@@ -61,6 +61,30 @@ export default function ProfileEffectPreview({
   }, [])
   const sheetWidth = isWide ? 'min(92vw, 460px)' : '100%'
 
+  // How tall the effect box can get relative to its own width before we
+  // clamp the video's height. A normal phone sheet sits around ~1.7–1.8
+  // (85vh of a normal phone height, over a phone-width sheet) and should
+  // never be touched by this. Only a genuinely tall/narrow box — a big PC
+  // monitor's browser window, where the width is capped at 460px but the
+  // height keeps growing with the screen — pushes past this and gets
+  // capped, which is the one case that was forcing `cover` to zoom in so
+  // far it cropped out the source clip's darker, see-through regions.
+  const MAX_EFFECT_ASPECT = 1.8
+  const [videoHeight, setVideoHeight] = useState<string>('100%')
+  useEffect(() => {
+    function recompute() {
+      if (typeof window === 'undefined') return
+      const wide = window.innerWidth >= 640
+      const boxWidthPx = wide ? Math.min(window.innerWidth * 0.92, 460) : window.innerWidth
+      const boxHeightPx = window.innerHeight * (SHEET_HEIGHT_VH / 100)
+      const maxVideoHeightPx = boxWidthPx * MAX_EFFECT_ASPECT
+      setVideoHeight(boxHeightPx > maxVideoHeightPx ? `${maxVideoHeightPx}px` : '100%')
+    }
+    recompute()
+    window.addEventListener('resize', recompute)
+    return () => window.removeEventListener('resize', recompute)
+  }, [])
+
   // Play/rest cadence: effect plays (looping) for EFFECT_PLAY_MS, then the
   // card sits perfectly clear for EFFECT_REST_MS, then it plays again —
   // forever, for as long as this preview/profile stays open.
@@ -158,14 +182,13 @@ export default function ProfileEffectPreview({
                     autoPlay loop muted playsInline
                     style={{
                       position: 'absolute', top: 0, left: 0, width: '100%',
-                      // Capped only on the wide/desktop breakpoint — that's
-                      // the one where a tall PC viewport was stretching the
-                      // video and forcing `cover` to crop deep into a
-                      // fully bright/opaque part of the clip. Phone never
-                      // had that problem, so it stays fully uncapped and
-                      // fills the whole sheet height, matching how it
-                      // looked before this cap was introduced.
-                      height: isWide ? 'min(100%, 640px)' : '100%',
+                      // Capped only when this device's actual box shape is
+                      // genuinely extreme (see MAX_EFFECT_ASPECT above) —
+                      // not based on a width category, since that was
+                      // wrongly catching phones/tablets that happen to
+                      // report a wide viewport but never had the crop
+                      // problem to begin with.
+                      height: videoHeight,
                       objectFit: 'cover',
                       // Opacity (not blend mode) is what's actually letting
                       // the card show through here — the source clip's
