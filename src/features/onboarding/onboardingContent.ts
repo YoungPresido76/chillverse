@@ -180,16 +180,4 @@ export const ONBOARDING_CONTENT: Record<string, OnboardingPageContent> = {
     ],
   },
 
-  gift: {
-    pageKey: 'gift',
-    title: 'Welcome to Gift',
-    slides: [
-      {
-        image: `${BASE}/0a5af88aa98f57585abbc7f8660f2a56.jpg`,
-        text:
-          "Let's show that generosity together — gift a player from this page. " +
-          'Tap the gift, input their name, or just tap your friend\u2019s wishlist on their profile and tap the item.',
-      },
-    ],
-  },
 }
