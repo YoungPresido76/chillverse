@@ -12,15 +12,29 @@ import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft, RefreshCw, AlertTriangle, Crown, ShieldCheck, ShieldBan, Gem, Gamepad2,
   ArrowDownToLine, ArrowUpFromLine, Wallet as WalletIcon, Calendar, Users,
-  Zap, Flame, TrendingUp, Ban, ShieldAlert, LayoutGrid,
+  Zap, Flame, TrendingUp, Ban, ShieldAlert, LayoutGrid, Flag, ScrollText, AlertOctagon,
 } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import Avatar from '../../shared/components/Avatar'
 import { getGameMeta } from '../games/games'
-import { banUser, unbanUser, setUserRole, type StaffRole } from '../moderation/moderation'
+import {
+  banUser, unbanUser, setUserRole, fetchStrikes, fetchOpenReports, fetchModerationLog,
+  type StaffRole, type Strike, type ContentReport, type ModerationLogEntry,
+} from '../moderation/moderation'
+import { REPORT_REASON_LABELS, SYSTEM_REPORT_REASON_LABEL } from '../safety/reports'
 import { fetchAdminUserDetail, type AdminUserDetail as AdminUserDetailType } from './adminStats'
 
 const ROLES: StaffRole[] = ['user', 'staff', 'moderator', 'admin']
+const STRIKE_CATEGORY_LABELS: Record<string, string> = {
+  hate_speech: 'Hate speech',
+  threat_of_violence: 'Threat of violence',
+  self_harm_directed: 'Self-harm language directed at someone',
+  doxxing: 'Doxxing',
+  illegal_activity: 'Illegal activity solicitation',
+  phishing_scam: 'Phishing or scam content',
+  profanity: 'Profanity',
+  personal_info_exposure: 'Personal info exposure (phone/email/key)',
+}
 const BAN_DURATIONS: { label: string; hours: number | null }[] = [
   { label: 'Permanent', hours: null },
   { label: '24 hours', hours: 24 },
@@ -53,9 +67,9 @@ function gameName(dbKey: string): string {
   return getGameMeta(dbKey)?.name ?? dbKey
 }
 
-function InfoRow({ label, value }: { label: string; value: ReactNode }) {
+function InfoRow({ label, value, last }: { label: string; value: ReactNode; last?: boolean }) {
   return (
-    <div className="flex items-center justify-between" style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+    <div className="flex items-center justify-between" style={{ padding: '9px 0', borderBottom: last ? 'none' : '1px solid rgba(255,255,255,0.07)' }}>
       <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{label}</span>
       <span style={{ fontSize: 12, color: 'var(--text)', fontWeight: 600, textAlign: 'right' }}>{value}</span>
     </div>
@@ -132,6 +146,12 @@ export default function AdminUserDetail() {
   const [banReason, setBanReason] = useState('')
   const [banHours, setBanHours] = useState<number | null>(null)
 
+  const [strikes, setStrikes] = useState<Strike[]>([])
+  const [reportsAgainst, setReportsAgainst] = useState<ContentReport[]>([])
+  const [logEntries, setLogEntries] = useState<ModerationLogEntry[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const historyLoadedFor = useRef<string | null>(null)
+
   const latestUserId = useRef<string | null>(null)
 
   function load() {
@@ -155,9 +175,26 @@ export default function AdminUserDetail() {
     setActionError('')
     setBanReason('')
     setBanHours(null)
+    historyLoadedFor.current = null
+    setStrikes([])
+    setReportsAgainst([])
+    setLogEntries([])
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId])
+
+  useEffect(() => {
+    if (activeTab !== 'profile' || !userId) return
+    if (historyLoadedFor.current === userId) return
+    historyLoadedFor.current = userId
+    setHistoryLoading(true)
+    Promise.all([fetchStrikes(userId), fetchOpenReports(), fetchModerationLog()]).then(([strikesRes, reportsRes, logRes]) => {
+      setStrikes(strikesRes.data)
+      setReportsAgainst(reportsRes.data.filter(r => r.target_type === 'user' && r.target_id === userId))
+      setLogEntries(logRes.data.filter(e => e.target_id === userId))
+      setHistoryLoading(false)
+    })
+  }, [activeTab, userId])
 
   async function handleBan() {
     if (!userId) return
@@ -261,6 +298,7 @@ export default function AdminUserDetail() {
                 <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {detail.email}
                 </p>
+                <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: '2px 0 0', fontFamily: 'monospace' }}>{detail.id}</p>
               </div>
             </div>
 
@@ -430,16 +468,84 @@ export default function AdminUserDetail() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 <div>
                   <SectionLabel icon={Users}>Profile</SectionLabel>
-                  <InfoRow label="Country" value={detail.country || '—'} />
-                  <InfoRow label="Pro status" value={detail.is_pro ? (detail.pro_tier ? `${detail.pro_tier} (expires ${formatDate(detail.pro_expires_at)})` : 'Pro') : 'Not subscribed'} />
-                  <InfoRow label="Staff role" value={detail.staff_role && detail.staff_role !== 'user' ? detail.staff_role : 'None'} />
+                  <div className="neu-inset" style={{ borderRadius: 12, padding: '2px 12px' }}>
+                    <InfoRow label="Country" value={detail.country || '—'} />
+                    <InfoRow label="Pro status" value={detail.is_pro ? (detail.pro_tier ? `${detail.pro_tier} (expires ${formatDate(detail.pro_expires_at)})` : 'Pro') : 'Not subscribed'} />
+                    <InfoRow label="Staff role" value={detail.staff_role && detail.staff_role !== 'user' ? detail.staff_role : 'None'} last />
+                  </div>
                 </div>
 
                 <div>
                   <SectionLabel icon={Calendar}>Timeline</SectionLabel>
-                  <InfoRow label="Joined" value={formatDate(detail.created_at)} />
-                  <InfoRow label="Last login" value={formatDateTime(detail.last_login_at)} />
-                  <InfoRow label="Last seen" value={formatDateTime(detail.last_seen_at)} />
+                  <div className="neu-inset" style={{ borderRadius: 12, padding: '2px 12px' }}>
+                    <InfoRow label="Joined" value={formatDate(detail.created_at)} />
+                    <InfoRow label="Last login" value={formatDateTime(detail.last_login_at)} />
+                    <InfoRow label="Last seen" value={formatDateTime(detail.last_seen_at)} last />
+                  </div>
+                </div>
+
+                <div>
+                  <SectionLabel icon={AlertOctagon}>Strike history</SectionLabel>
+                  {historyLoading ? (
+                    <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Loading…</p>
+                  ) : strikes.length === 0 ? (
+                    <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>No strikes on record.</p>
+                  ) : (
+                    <div className="neu-inset" style={{ borderRadius: 12, padding: 4 }}>
+                      {strikes.map((s, i) => (
+                        <div key={s.id} className="flex items-center justify-between" style={{ padding: '9px 10px', borderBottom: i < strikes.length - 1 ? '1px solid rgba(255,255,255,0.07)' : 'none' }}>
+                          <span style={{ fontSize: 12, color: 'var(--text)', fontWeight: 600 }}>{STRIKE_CATEGORY_LABELS[s.category] ?? s.category}</span>
+                          <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0, marginLeft: 10 }}>{s.target_type} · {formatDateTime(s.created_at)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <SectionLabel icon={Flag}>Reports against this user</SectionLabel>
+                  {historyLoading ? (
+                    <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Loading…</p>
+                  ) : reportsAgainst.length === 0 ? (
+                    <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>No open reports naming this user directly.</p>
+                  ) : (
+                    <div className="neu-inset" style={{ borderRadius: 12, padding: 4 }}>
+                      {reportsAgainst.map((r, i) => (
+                        <div key={r.id} style={{ padding: '9px 10px', borderBottom: i < reportsAgainst.length - 1 ? '1px solid rgba(255,255,255,0.07)' : 'none' }}>
+                          <div className="flex items-center justify-between">
+                            <span style={{ fontSize: 12, color: 'var(--text)', fontWeight: 600 }}>
+                              {r.reason === 'auto_flagged' ? SYSTEM_REPORT_REASON_LABEL : (REPORT_REASON_LABELS[r.reason as keyof typeof REPORT_REASON_LABELS] ?? r.reason)}
+                            </span>
+                            <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0, marginLeft: 10 }}>{formatDateTime(r.created_at)}</span>
+                          </div>
+                          {r.details && <p style={{ fontSize: 11, color: 'var(--text-dim)', margin: '3px 0 0' }}>{r.details}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <SectionLabel icon={ScrollText}>Recent moderation actions</SectionLabel>
+                  {historyLoading ? (
+                    <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Loading…</p>
+                  ) : logEntries.length === 0 ? (
+                    <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>No moderation actions on record for this user.</p>
+                  ) : (
+                    <div className="neu-inset" style={{ borderRadius: 12, padding: 4 }}>
+                      {logEntries.map((e, i) => (
+                        <div key={e.id} style={{ padding: '9px 10px', borderBottom: i < logEntries.length - 1 ? '1px solid rgba(255,255,255,0.07)' : 'none' }}>
+                          <div className="flex items-center justify-between">
+                            <span style={{ fontSize: 12, color: 'var(--text)', fontWeight: 600, textTransform: 'capitalize' }}>{e.action.replace(/_/g, ' ')}</span>
+                            <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0, marginLeft: 10 }}>{formatDateTime(e.created_at)}</span>
+                          </div>
+                          <p style={{ fontSize: 11, color: 'var(--text-dim)', margin: '3px 0 0' }}>
+                            by {e.moderator?.username ?? 'unknown'}{e.reason ? ` — ${e.reason}` : ''}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Admin actions */}
