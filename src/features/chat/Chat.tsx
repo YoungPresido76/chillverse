@@ -6,7 +6,7 @@ import {
   Smile, Send, X, Trash2, Reply, Flag, Lock,
   MessageCircle, UserPlus, ShieldOff, UserCheck,
   ExternalLink, Check, CheckCheck, Pin, PinOff, Phone,
-  Megaphone, BarChart3, Timer, Zap, Eye, EyeOff, Star, Paperclip,
+  Megaphone, BarChart3, Zap, Eye, EyeOff, Star, Paperclip,
 } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { supabase } from '../../shared/lib/supabase'
@@ -49,8 +49,6 @@ interface ChatRoom {
   pinnedMessageId: string | null // room-wide pinned message, visible to all members
   spotlightMessageId: string | null // temporary pin (Staff/Mod/Admin, Global Chat only) — see migration 0040
   spotlightExpiresAt: string | null
-  slowMode: boolean // Global Chat only
-  slowModeSeconds: number
 }
 interface Message {
   id: string
@@ -649,24 +647,9 @@ export default function Chat() {
   // Pinned message banner content — fetched separately since ChatRoom only stores the id
   const [pinnedMsgPreview, setPinnedMsgPreview] = useState<{ id: string; content: string; senderName: string } | null>(null)
   const [spotlightMsgPreview, setSpotlightMsgPreview] = useState<{ id: string; content: string; senderName: string } | null>(null)
-  // Slow Mode — client-side cooldown UX only; real enforcement is the RLS
-  // policy in migration 0040. Staff/Moderator/Admin are exempt (see there).
-  const [slowModeCooldownUntil, setSlowModeCooldownUntil] = useState<number | null>(null)
-  const [nowTick, setNowTick] = useState(Date.now())
-  useEffect(() => {
-    if (!slowModeCooldownUntil) return
-    const id = setInterval(() => setNowTick(Date.now()), 500)
-    return () => clearInterval(id)
-  }, [slowModeCooldownUntil])
-  useEffect(() => {
-    if (slowModeCooldownUntil && nowTick >= slowModeCooldownUntil) setSlowModeCooldownUntil(null)
-  }, [nowTick, slowModeCooldownUntil])
-  const [slowModePickerOpen, setSlowModePickerOpen] = useState(false)
   // Spotlight — which message's context menu currently has its duration submenu open.
   const [spotlightPickerFor, setSpotlightPickerFor] = useState<Message | null>(null)
   const [spotlightCustomMinutes, setSpotlightCustomMinutes] = useState('')
-  const slowModeCooldownRemaining = slowModeCooldownUntil ? Math.max(0, Math.ceil((slowModeCooldownUntil - nowTick) / 1000)) : 0
-  const isSlowModeCooling = activeRoom?.type === 'global' && !!activeRoom.slowMode && !isStaff && slowModeCooldownRemaining > 0
   // Per-room row menu in the room list (pin/delete), keyed by room id, null = closed
   const [roomMenuOpenFor, setRoomMenuOpenFor] = useState<string | null>(null)
   const [roomMenuPos, setRoomMenuPos] = useState({ x: 0, y: 0 })
@@ -901,7 +884,7 @@ export default function Chat() {
     if (!visibleRoomIds.length) { setRooms([]); setRoomsLoading(false); return }
 
     const { data: roomRows } = await supabase
-      .from('chat_rooms').select('id, type, name, pinned_message_id, spotlight_message_id, spotlight_expires_at, slow_mode, slow_mode_seconds').in('id', visibleRoomIds)
+      .from('chat_rooms').select('id, type, name, pinned_message_id, spotlight_message_id, spotlight_expires_at').in('id', visibleRoomIds)
 
     if (!roomRows?.length) { setRooms([]); setRoomsLoading(false); return }
 
@@ -943,8 +926,6 @@ export default function Chat() {
         pinnedMessageId: room.pinned_message_id ?? null,
         spotlightMessageId: room.spotlight_message_id ?? null,
         spotlightExpiresAt: room.spotlight_expires_at ?? null,
-        slowMode: room.slow_mode ?? false,
-        slowModeSeconds: room.slow_mode_seconds ?? 10,
       }
     }))
 
@@ -1194,29 +1175,23 @@ export default function Chat() {
         table: 'chat_rooms',
         filter: `id=eq.${room.id}`
       }, async (payload) => {
-        // Live-syncs pin/unpin, Spotlight, and Slow Mode changes made by staff.
+        // Live-syncs pin/unpin and Spotlight changes made by staff.
         const raw = payload.new as {
           pinned_message_id: string | null
           spotlight_message_id: string | null
           spotlight_expires_at: string | null
-          slow_mode: boolean
-          slow_mode_seconds: number
         }
         setActiveRoom(r => (r && r.id === room.id) ? {
           ...r,
           pinnedMessageId: raw.pinned_message_id,
           spotlightMessageId: raw.spotlight_message_id,
           spotlightExpiresAt: raw.spotlight_expires_at,
-          slowMode: raw.slow_mode,
-          slowModeSeconds: raw.slow_mode_seconds,
         } : r)
         setRooms(prev => prev.map(r => r.id === room.id ? {
           ...r,
           pinnedMessageId: raw.pinned_message_id,
           spotlightMessageId: raw.spotlight_message_id,
           spotlightExpiresAt: raw.spotlight_expires_at,
-          slowMode: raw.slow_mode,
-          slowModeSeconds: raw.slow_mode_seconds,
         } : r))
 
         if (!raw.pinned_message_id) { setPinnedMsgPreview(null) } else {
@@ -1438,8 +1413,6 @@ export default function Chat() {
         pinnedMessageId: null,
         spotlightMessageId: null,
         spotlightExpiresAt: null,
-        slowMode: false,
-        slowModeSeconds: 10,
       }
 
       setPlayerSearch('')
@@ -1513,7 +1486,6 @@ export default function Chat() {
     if (!trimmed || !activeRoom || !myId || sending) return
     if (trimmed.length > MAX_MESSAGE_LENGTH) return // guards against a pasted block over the DB check-constraint limit
     if (activeRoom.type === 'dm' && dmBlockState !== 'none') return // composer is hidden in this state, but guard defensively
-    if (activeRoom.type === 'global' && activeRoom.slowMode && !isStaff && slowModeCooldownRemaining > 0) return
     if (containsProfanity(trimmed)) { setComposerError(PROFANITY_BLOCKED_MESSAGE); return }
 
     setSending(true)
@@ -1552,9 +1524,6 @@ export default function Chat() {
           return [...ms, { ...inserted, deleted: false, senderName, senderUsername, replyPreview: replyTo?.content, replyPreviewName: replyTo?.senderName }]
         })
         setText(''); setReplyTo(null); setPendingRankTag(null)
-        if (activeRoom.type === 'global' && activeRoom.slowMode && !isStaff) {
-          setSlowModeCooldownUntil(Date.now() + activeRoom.slowModeSeconds * 1000)
-        }
       } else if (!error) {
         setText(''); setReplyTo(null); setPendingRankTag(null)
       } else if (error.message?.includes('CV_PROFANITY')) {
@@ -1767,20 +1736,6 @@ export default function Chat() {
     setActiveRoom(r => r ? { ...r, spotlightMessageId: null, spotlightExpiresAt: null } : r)
     setRooms(prev => prev.map(r => r.id === activeRoom.id ? { ...r, spotlightMessageId: null, spotlightExpiresAt: null } : r))
     setSpotlightMsgPreview(null)
-  }
-
-  /** Staff/Moderator/Admin, Global Chat only. Staff themselves are exempt
-   *  from the cooldown (enforced server-side in migration 0040). */
-  async function toggleSlowMode(enabled: boolean, seconds: 10 | 20 | 30) {
-    if (!activeRoom || activeRoom.type !== 'global' || !isStaff) return
-    const { error } = await supabase.from('chat_rooms')
-      .update({ slow_mode: enabled, slow_mode_seconds: seconds }).eq('id', activeRoom.id)
-    if (error) {
-      console.error('Failed to toggle Slow Mode:', error.message)
-      return
-    }
-    setActiveRoom(r => r ? { ...r, slowMode: enabled, slowModeSeconds: seconds } : r)
-    setRooms(prev => prev.map(r => r.id === activeRoom.id ? { ...r, slowMode: enabled, slowModeSeconds: seconds } : r))
   }
 
   /** Private per-user bookmark — DMs only (see toggleStar's guard below and
@@ -2037,11 +1992,6 @@ export default function Chat() {
                         🌐 Open to all Chillverse players
                       </div>
                     )}
-                    {activeRoom.type === 'global' && activeRoom.slowMode && (
-                      <div style={{ fontSize:10.5, color:'var(--accent)', fontWeight:600 }}>
-                        🐢 Slow mode: {activeRoom.slowModeSeconds}s
-                      </div>
-                    )}
                     {activeRoom.type === 'dm' && (() => {
                       const other = activeRoom.members.find(m => m.user_id !== myId)
                       if (!other || !onlineUserIds.has(other.user_id)) return null
@@ -2054,10 +2004,7 @@ export default function Chat() {
                 <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
                   <div style={{
                     display:'flex', alignItems:'center', gap:6,
-                    /* overflow must stay visible while the Slow Mode picker is open, otherwise
-                       the dropdown (positioned absolute, top:110%) gets clipped by this
-                       container's own bounding box and never appears — looks "non-functional". */
-                    overflow: slowModePickerOpen ? 'visible' : 'hidden',
+                    overflow: 'hidden',
                     maxWidth: headerDrawerOpen ? 220 : 0,
                     opacity: headerDrawerOpen ? 1 : 0,
                     background: headerDrawerOpen ? 'var(--surface2)' : 'transparent',
@@ -2085,31 +2032,6 @@ export default function Chat() {
                     <IBtn onClick={() => { setMsgSearchOpen(o => !o); if (msgSearchOpen) setMsgSearchQuery('') }} style={{ width:32, height:32 }}>
                       <Search size={14} />
                     </IBtn>
-                    {activeRoom.type === 'global' && isStaff && (
-                      <div style={{ position:'relative' }}>
-                        <IBtn onClick={() => setSlowModePickerOpen(v => !v)} style={{ width:32, height:32, ...(activeRoom.slowMode ? { color:'var(--accent)', borderColor:'var(--accent)' } : {}) }} title="Slow Mode">
-                          <Timer size={14} />
-                        </IBtn>
-                        {slowModePickerOpen && (
-                          <>
-                          <div style={{ position:'fixed', inset:0, zIndex:49 }} onClick={() => setSlowModePickerOpen(false)} />
-                          <div style={{ position:'absolute', top:'110%', right:0, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:14, padding:8, display:'flex', flexDirection:'column', gap:3, boxShadow:'0 12px 40px rgba(0,0,0,0.5)', minWidth:150, zIndex:50 }}>
-                            <div style={{ fontSize:10.5, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:0.3, padding:'2px 6px 4px' }}>Slow mode</div>
-                            <button type="button" onClick={() => { toggleSlowMode(false, activeRoom.slowModeSeconds as 10|20|30); setSlowModePickerOpen(false) }}
-                              style={{ textAlign:'left', background: !activeRoom.slowMode ? 'var(--surface)' : 'none', border:'none', borderRadius:8, padding:'7px 9px', fontSize:12.5, fontWeight:600, color: !activeRoom.slowMode ? 'var(--accent)' : 'var(--text)', cursor:'pointer' }}>
-                              Off
-                            </button>
-                            {([10, 20, 30] as const).map(s => (
-                              <button key={s} type="button" onClick={() => { toggleSlowMode(true, s); setSlowModePickerOpen(false) }}
-                                style={{ textAlign:'left', background: activeRoom.slowMode && activeRoom.slowModeSeconds === s ? 'var(--surface)' : 'none', border:'none', borderRadius:8, padding:'7px 9px', fontSize:12.5, fontWeight:600, color: activeRoom.slowMode && activeRoom.slowModeSeconds === s ? 'var(--accent)' : 'var(--text)', cursor:'pointer' }}>
-                                {s} seconds
-                              </button>
-                            ))}
-                          </div>
-                          </>
-                        )}
-                      </div>
-                    )}
                     {activeRoom.type === 'dm' && (
                       <IBtn onClick={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect()
@@ -2393,16 +2315,11 @@ export default function Chat() {
                     {!isRecordingVoiceNote && (
                       <div style={{ flex:1, background:'var(--surface)', boxShadow:'inset 2px 2px 6px var(--neu-dark)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:14, padding:'9px 12px', display:'flex', alignItems:'flex-end' }}>
                         <textarea rows={1} value={text} onChange={handleTextChange} onKeyDown={handleKey}
-                          placeholder={isSlowModeCooling ? `Slow mode: wait ${slowModeCooldownRemaining}s…` : 'Type a message…'} maxLength={MAX_MESSAGE_LENGTH}
+                          placeholder="Type a message…" maxLength={MAX_MESSAGE_LENGTH}
                           style={{ flex:1, background:'transparent', border:'none', outline:'none', color:'var(--text)', fontSize:13.5, resize:'none', maxHeight:80, overflowY:'auto', lineHeight:1.4, fontFamily:'inherit' }} />
                       </div>
                     )}
-                    {isSlowModeCooling ? (
-                      <button type="button" disabled title={`Slow mode: wait ${slowModeCooldownRemaining}s`}
-                        style={{ width:40, height:40, borderRadius:11, flexShrink:0, border:'none', background:'var(--surface2)', color:'var(--text-dim)', cursor:'not-allowed', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11.5, fontWeight:700, opacity:0.75 }}>
-                        {slowModeCooldownRemaining}s
-                      </button>
-                    ) : text.trim() ? (
+                    {text.trim() ? (
                       <button type="button" onClick={sendMsg} disabled={!text.trim() || sending}
                         style={{ width:40, height:40, borderRadius:11, flexShrink:0, border:'none', background:'linear-gradient(135deg,var(--accent),var(--accent2))', boxShadow:'0 4px 14px rgba(255,107,0,0.35)', color:'#fff', cursor: !text.trim() || sending ? 'not-allowed' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s', opacity: !text.trim() || sending ? 0.6 : 1 }}>
                         <Send size={16} />

@@ -24,8 +24,8 @@ export interface StarredMessageEntry {
 }
 
 /** Star a message in a specific DM. Enforces the per-room cap client-side
- *  (this is UX guidance, not a security boundary — like Slow Mode's cooldown,
- *  the only thing actually gating writes is the RLS policy on the table). */
+ *  (this is UX guidance, not a security boundary — the only thing actually
+ *  gating writes is the RLS policy on the table). */
 export async function starMessage(userId: string, messageId: string, roomId: string): Promise<{ error: string | null }> {
   const count = await countStarredInRoom(userId, roomId)
   if (count >= MAX_STARRED_PER_ROOM) {
