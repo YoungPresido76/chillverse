@@ -35,10 +35,10 @@ import ProfilePreviewModal from '../profile/ProfilePreviewModal'
 // in Mall.tsx, so the video lines up exactly with the real sheet under it.
 const SHEET_HEIGHT_VH = 85
 
-// How long the card sits fully clear after the effect finishes playing,
-// before it plays again. The "on" duration is no longer guessed — it's
-// driven by the video's own real 'ended' event (see handleEffectEnded),
-// so this works correctly no matter how long a given effect's clip is.
+// How long the effect plays (looping the clip as needed to fill this
+// window — several of these source clips are only a few seconds long)
+// before it rests, and how long it rests before playing again.
+const EFFECT_PLAY_MS = 19000
 const EFFECT_REST_MS = 20000
 
 export default function ProfileEffectPreview({
@@ -61,22 +61,26 @@ export default function ProfileEffectPreview({
   }, [])
   const sheetWidth = isWide ? 'min(92vw, 460px)' : '100%'
 
-  // Play/rest cadence: the effect plays through its real length (however
-  // long that clip actually is), then the card sits perfectly clear for
-  // EFFECT_REST_MS before the effect restarts — driven by the video's own
-  // 'ended' event rather than a guessed duration.
+  // Play/rest cadence: effect plays (looping) for EFFECT_PLAY_MS, then the
+  // card sits perfectly clear for EFFECT_REST_MS, then it plays again —
+  // forever, for as long as this preview/profile stays open.
   const [effectPlaying, setEffectPlaying] = useState(true)
   const videoRef = useRef<HTMLVideoElement>(null)
-  const restTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    return () => { if (restTimerRef.current) clearTimeout(restTimerRef.current) }
-  }, [])
-
-  function handleEffectEnded() {
-    setEffectPlaying(false)
-    restTimerRef.current = setTimeout(() => setEffectPlaying(true), EFFECT_REST_MS)
-  }
+    if (!videoUrl) return
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout>
+    function schedule(playing: boolean) {
+      timer = setTimeout(() => {
+        if (cancelled) return
+        setEffectPlaying(!playing)
+        schedule(!playing)
+      }, playing ? EFFECT_PLAY_MS : EFFECT_REST_MS)
+    }
+    schedule(true)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [videoUrl])
 
   useEffect(() => {
     const v = videoRef.current
@@ -151,20 +155,22 @@ export default function ProfileEffectPreview({
                   <video
                     ref={videoRef}
                     src={videoUrl}
-                    autoPlay muted playsInline
-                    onEnded={handleEffectEnded}
+                    autoPlay loop muted playsInline
                     style={{
-                      position: 'absolute', inset: 0, width: '100%', height: '100%',
-                      // contain, not cover — cover crops the video to fill
-                      // the box, and on a tall PC viewport (this box is
-                      // 85vh, so it gets much taller on a big monitor than
-                      // on phone) that crop was zooming straight into a
-                      // fully bright/opaque part of the clip and cutting
-                      // away the darker regions that let the card show
-                      // through. contain always shows the full frame
-                      // regardless of box shape, so the see-through parts
-                      // never get cropped away.
-                      objectFit: 'contain',
+                      position: 'absolute', top: 0, left: 0, width: '100%',
+                      // Capped instead of 100% of the box — the box itself
+                      // is 85vh, which balloons on a tall PC monitor far
+                      // beyond what it is on phone. Letting the video
+                      // stretch to that full height was forcing `cover` to
+                      // crop deep into a fully bright/opaque part of the
+                      // clip. Capping the video's own height keeps the
+                      // crop consistent with what already looks right on
+                      // phone, regardless of screen size. The dim layer
+                      // below still spans the box's full real height, so
+                      // the card is always fully covered even where the
+                      // (shorter) video doesn't reach.
+                      height: 'min(100%, 640px)',
+                      objectFit: 'cover',
                       // Opacity (not blend mode) is what's actually letting
                       // the card show through here — the source clip's
                       // "black" isn't pure enough for mixBlendMode:'screen'
