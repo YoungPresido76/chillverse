@@ -128,7 +128,7 @@ export default function HaloAI() {
           top: 0,
           background: 'var(--bg)',
           zIndex: 10,
-          borderBottom: '1px solid rgba(255,255,255,0.05)',
+          borderBottom: '1px solid var(--border)',
         }}
       >
         <button
@@ -446,7 +446,7 @@ export default function HaloAI() {
               style={{
                 flex: 1,
                 background: 'var(--surface2)',
-                border: '1px solid rgba(255,255,255,0.08)',
+                border: '1px solid var(--border)',
                 borderRadius: 16,
                 padding: '12px 16px',
                 color: 'var(--text)',
