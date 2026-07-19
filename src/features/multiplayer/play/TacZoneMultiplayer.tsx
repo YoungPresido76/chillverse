@@ -91,8 +91,8 @@ export default function TacZoneMultiplayer({ room, players, userId, isHost }: Pr
                 width: 78, height: 78, borderRadius: 18, cursor: cell || gameOver || !isMyTurn ? 'default' : 'pointer',
                 background: inLine ? (iWon ? 'rgba(62,207,142,0.18)' : 'rgba(255,77,139,0.18)') : 'var(--surface)',
                 boxShadow: inLine ? `0 0 24px ${iWon ? 'rgba(62,207,142,0.5)' : 'rgba(255,77,139,0.5)'}` : '4px 4px 12px var(--neu-dark), -3px -3px 8px var(--neu-light)',
-                border: '1px solid rgba(255,255,255,0.06)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.18s',
+                border: '1px solid var(--border)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background-color var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out)',
               }}>
               {cell === 'X' && <X size={34} style={{ color: ACCENT }} />}
               {cell === 'O' && <Circle size={30} style={{ color: 'var(--pink)' }} />}

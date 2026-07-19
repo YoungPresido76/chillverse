@@ -157,12 +157,12 @@ export default function PatternKingRelay({ room, players, userId, isHost }: Prop
               disabled={!clickable}
               onClick={() => pick(i)}
               style={{
-                aspectRatio: '1 / 1', borderRadius: 12, border: '1px solid rgba(255,255,255,0.07)',
+                aspectRatio: '1 / 1', borderRadius: 12, border: '1px solid var(--border)',
                 background: revealed ? 'var(--surface2)' : 'var(--surface)',
                 boxShadow: revealed ? 'inset 1px 1px 4px var(--neu-dark)' : '3px 3px 8px var(--neu-dark), -2px -2px 6px var(--neu-light)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 20, cursor: clickable ? 'pointer' : 'default',
-                transition: 'all 0.15s',
+                transition: 'background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out)',
               }}
             >
               {revealed ? sym : <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>✦</span>}
