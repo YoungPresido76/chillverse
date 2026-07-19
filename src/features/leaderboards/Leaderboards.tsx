@@ -97,7 +97,7 @@ export default function Leaderboards() {
           id="leaderboard-game"
           value={selectedId}
           onChange={(event) => setSelectedId(event.target.value as GameMeta['id'])}
-          style={{ width: '100%', background: 'var(--surface2)', color: 'var(--text)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '12px 14px', outline: 'none' }}
+          style={{ width: '100%', background: 'var(--surface2)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', outline: 'none' }}
         >
           {GAMES.map(game => <option key={game.id} value={game.id}>{game.name}</option>)}
         </select>
@@ -129,7 +129,7 @@ export default function Leaderboards() {
           {loading && <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>Loading…</span>}
         </div>
 
-        {error && <div style={{ color: '#ff9a3c', fontSize: 13, marginBottom: 12 }}>{error}</div>}
+        {error && <div style={{ color: 'var(--accent2)', fontSize: 13, marginBottom: 12 }}>{error}</div>}
 
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
@@ -150,7 +150,7 @@ export default function Leaderboards() {
                 <tr><td colSpan={8} style={{ padding: 24, color: 'var(--text-dim)', textAlign: 'center' }}>No completed sessions yet for this game.</td></tr>
               )}
               {leaders.map((entry, index) => (
-                <tr key={entry.userId} style={{ borderTop: '1px solid rgba(255,255,255,0.06)', color: entry.userId === userId ? 'var(--text)' : 'var(--text-dim)', background: entry.userId === userId ? `${selectedGame.accent}14` : 'transparent' }}>
+                <tr key={entry.userId} style={{ borderTop: '1px solid var(--border)', color: entry.userId === userId ? 'var(--text)' : 'var(--text-dim)', background: entry.userId === userId ? `${selectedGame.accent}14` : 'transparent' }}>
                   <td style={{ padding: '12px 8px', fontWeight: 800, color: index < 3 ? selectedGame.accent : 'inherit' }}>{index + 1}</td>
                   <td style={{ padding: '12px 8px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
