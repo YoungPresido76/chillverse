@@ -5,7 +5,7 @@ import {
   ArrowLeft, ChevronRight, Trash2,
   Calendar, Tag, Lock, Eye,
   Circle, Moon, EyeOff, Check, Mail, Key,
-  AlertTriangle, Edit2, X, LogOut, Layers, Volume2, LifeBuoy, Crown, Bell,
+  AlertTriangle, Edit2, X, LogOut, Layers, Volume2, LifeBuoy, Crown, Bell, Search,
 } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { isGameSoundEnabled, setGameSoundEnabled } from '../games/soundSettings'
@@ -177,6 +177,10 @@ export default function Settings() {
   const [pushEnabled, setPushEnabled] = useState(false)
   const [pushBlocked, setPushBlocked] = useState(false)
   const [pushBusy, setPushBusy] = useState(false)
+
+  const [search, setSearch] = useState('')
+  const q = search.trim().toLowerCase()
+  const sectionMatches = (labels: string[]) => !q || labels.some(l => l.toLowerCase().includes(q))
 
   const userEmail = session?.user?.email ?? ''
   const displayName = profile?.display_name || profile?.username || 'You'
@@ -381,6 +385,22 @@ export default function Settings() {
       <style>{`
         @keyframes popIn { from { opacity:0; transform: scale(0.92) } to { opacity:1; transform: scale(1) } }
         @keyframes feedIn { from { opacity:0; transform: translateY(12px) } to { opacity:1; transform: translateY(0) } }
+        .settings-card {
+          background: var(--surface);
+          border: 1px solid rgba(255,255,255,0.06);
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 3px 3px 9px var(--neu-dark), -2px -2px 7px var(--neu-light);
+          margin-bottom: 20px;
+        }
+        .settings-card > * {
+          border-radius: 0 !important;
+          box-shadow: none !important;
+          margin: 0 !important;
+          border: none !important;
+          border-bottom: 1px solid rgba(255,255,255,0.05) !important;
+        }
+        .settings-card > *:last-child { border-bottom: none !important; }
       `}</style>
 
       <div style={{ maxWidth: 600, margin: '0 auto', padding: '0 0 48px' }}>
@@ -389,6 +409,21 @@ export default function Settings() {
           <button onClick={() => navigate(-1)} style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--surface)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)', boxShadow: '2px 2px 6px var(--neu-dark),-1px -1px 4px var(--neu-light)' }}>
             <ArrowLeft size={15} />
           </button>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, marginBottom: 20, boxShadow: '3px 3px 9px var(--neu-dark),-2px -2px 7px var(--neu-light)' }}>
+          <Search size={15} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search settings"
+            style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 13.5, color: 'var(--text)' }}
+          />
+          {search && (
+            <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: 2 }}>
+              <X size={13} />
+            </button>
+          )}
         </div>
 
         <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 20, padding: '20px 18px', marginBottom: 8, boxShadow: '4px 4px 12px var(--neu-dark),-2px -2px 8px var(--neu-light)', animation: 'feedIn 0.3s ease-out both', display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -419,19 +454,30 @@ export default function Settings() {
           </div>
         </div>
 
-        <SectionTitle>Profile</SectionTitle>
-        {(() => {
+        {sectionMatches(['Profile', 'Username', 'Email', 'Change Password']) && (() => {
           const daysLeft = getDaysUntilUsernameChange(profile?.username_changed_at)
           const locked = daysLeft !== null && daysLeft > 0
           return (
             <>
-              <Row icon={<Tag size={15} />} iconBg="rgba(79,142,247,0.12)" iconColor="#4f8ef7"
-                label="Username" value={profile?.username ?? '—'}
-                onClick={(e) => { ripple(e); setModal('username') }}
-                rightEl={<Edit2 size={13} color="var(--text-muted)" style={{ marginRight: 4 }} />}
-              />
+              <SectionTitle>Profile</SectionTitle>
+              <div className="settings-card">
+                <Row icon={<Tag size={15} />} iconBg="rgba(79,142,247,0.12)" iconColor="#4f8ef7"
+                  label="Username" value={profile?.username ?? '—'}
+                  onClick={(e) => { ripple(e); setModal('username') }}
+                  rightEl={<Edit2 size={13} color="var(--text-muted)" style={{ marginRight: 4 }} />}
+                />
+                <Row icon={<Mail size={15} />} iconBg="rgba(62,207,142,0.12)" iconColor="#3ecf8e"
+                  label="Email" value={userEmail ? userEmail.replace(/(.{2}).+(@.+)/, '$1…$2') : '—'}
+                  onClick={(e) => { ripple(e); setModal('email') }}
+                  rightEl={<Edit2 size={13} color="var(--text-muted)" style={{ marginRight: 4 }} />}
+                />
+                <Row icon={<Key size={15} />} iconBg="rgba(245,197,66,0.12)" iconColor="#f5c542"
+                  label="Change Password"
+                  onClick={(e) => { ripple(e); setModal('password') }}
+                />
+              </div>
               {locked && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: -4, marginBottom: 10, padding: '7px 12px', background: 'rgba(245,197,66,0.08)', border: '1px solid rgba(245,197,66,0.18)', borderRadius: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: -12, marginBottom: 20, padding: '7px 12px', background: 'rgba(245,197,66,0.08)', border: '1px solid rgba(245,197,66,0.18)', borderRadius: 10 }}>
                   <Calendar size={12} color="#f5c542" style={{ flexShrink: 0 }} />
                   <span style={{ fontSize: 11.5, color: '#f5c542', fontWeight: 600 }}>
                     Username can be changed again in <strong>{daysLeft} day{daysLeft === 1 ? '' : 's'}</strong>
@@ -441,112 +487,141 @@ export default function Settings() {
             </>
           )
         })()}
-        <Row icon={<Mail size={15} />} iconBg="rgba(62,207,142,0.12)" iconColor="#3ecf8e"
-          label="Email" value={userEmail ? userEmail.replace(/(.{2}).+(@.+)/, '$1…$2') : '—'}
-          onClick={(e) => { ripple(e); setModal('email') }}
-          rightEl={<Edit2 size={13} color="var(--text-muted)" style={{ marginRight: 4 }} />}
-        />
-        <Row icon={<Key size={15} />} iconBg="rgba(245,197,66,0.12)" iconColor="#f5c542"
-          label="Change Password"
-          onClick={(e) => { ripple(e); setModal('password') }}
-        />
 
-        <SectionTitle>Status</SectionTitle>
-        {PRESENCE_OPTIONS.map(p => (
-          <div
-            key={p.id}
-            onClick={() => handleSetPresence(p.id)}
-            className="ripple-wrap"
-            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', background: 'var(--surface)', border: presence === p.id ? '1px solid var(--accent)' : '1px solid rgba(255,255,255,0.05)', borderRadius: 16, marginBottom: 8, cursor: 'pointer', boxShadow: presence === p.id ? '0 0 0 1px var(--accent)' : '3px 3px 9px var(--neu-dark),-2px -2px 7px var(--neu-light)' }}
-          >
-            <div style={{ width: 30, height: 30, borderRadius: 9, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface2)', color: p.color }}>
-              <p.Icon size={14} fill={p.id === 'online' || p.id === 'offline' ? p.color : 'none'} />
+        {sectionMatches(['Status', 'Online', 'Idle', 'Offline', 'Invisible']) && (
+          <>
+            <SectionTitle>Status</SectionTitle>
+            <div className="settings-card">
+              {PRESENCE_OPTIONS.map(p => (
+                <div
+                  key={p.id}
+                  onClick={() => handleSetPresence(p.id)}
+                  className="ripple-wrap"
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', cursor: 'pointer', background: presence === p.id ? 'rgba(255,107,0,0.06)' : 'transparent' }}
+                >
+                  <div style={{ width: 30, height: 30, borderRadius: 9, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface2)', color: p.color }}>
+                    <p.Icon size={14} fill={p.id === 'online' || p.id === 'offline' ? p.color : 'none'} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>{p.label}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 1 }}>{p.desc}</div>
+                  </div>
+                  {presence === p.id && <Check size={16} color="var(--accent)" />}
+                </div>
+              ))}
             </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>{p.label}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 1 }}>{p.desc}</div>
+          </>
+        )}
+
+        {sectionMatches(['Notifications', 'Website notifications']) && (
+          <>
+            <SectionTitle>Notifications</SectionTitle>
+            <div className="settings-card">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px' }}>
+                <div style={{ width: 30, height: 30, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,107,0,0.12)', color: 'var(--accent)' }}>
+                  <Bell size={15} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>Website notifications</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 1 }}>
+                    {!pushSupported
+                      ? "Not supported in this browser"
+                      : pushBlocked
+                        ? 'Blocked — enable notifications for this site in your browser settings'
+                        : 'Get notified on this device, even when Chillverse is closed'}
+                  </div>
+                </div>
+                <Toggle on={pushEnabled} onToggle={togglePush} disabled={pushBusy || pushBlocked || !pushSupported} />
+              </div>
             </div>
-            {presence === p.id && <Check size={16} color="var(--accent)" />}
-          </div>
-        ))}
+          </>
+        )}
 
-        <SectionTitle>Notifications</SectionTitle>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 16, marginBottom: 9, boxShadow: '3px 3px 9px var(--neu-dark),-2px -2px 7px var(--neu-light)' }}>
-          <div style={{ width: 30, height: 30, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,107,0,0.12)', color: 'var(--accent)' }}>
-            <Bell size={15} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>Website notifications</div>
-            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 1 }}>
-              {!pushSupported
-                ? "Not supported in this browser"
-                : pushBlocked
-                  ? 'Blocked — enable notifications for this site in your browser settings'
-                  : 'Get notified on this device, even when Chillverse is closed'}
+        {sectionMatches(['Privacy', 'Show follower & following counts']) && (
+          <>
+            <SectionTitle>Privacy</SectionTitle>
+            <div className="settings-card">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px' }}>
+                <div style={{ width: 30, height: 30, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(79,142,247,0.12)', color: '#4f8ef7' }}>
+                  <Eye size={15} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>Show follower & following counts</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 1 }}>Let other players see these on your profile</div>
+                </div>
+                <Toggle on={showFollowCounts} onToggle={toggleShowFollowCounts} />
+              </div>
             </div>
-          </div>
-          <Toggle on={pushEnabled} onToggle={togglePush} disabled={pushBusy || pushBlocked || !pushSupported} />
-        </div>
+          </>
+        )}
 
-        <SectionTitle>Privacy</SectionTitle>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 16, marginBottom: 9, boxShadow: '3px 3px 9px var(--neu-dark),-2px -2px 7px var(--neu-light)' }}>
-          <div style={{ width: 30, height: 30, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(79,142,247,0.12)', color: '#4f8ef7' }}>
-            <Eye size={15} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>Show follower & following counts</div>
-            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 1 }}>Let other players see these on your profile</div>
-          </div>
-          <Toggle on={showFollowCounts} onToggle={toggleShowFollowCounts} />
-        </div>
+        {sectionMatches(['Game', 'Game sound']) && (
+          <>
+            <SectionTitle>Game</SectionTitle>
+            <div className="settings-card">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px' }}>
+                <div style={{ width: 30, height: 30, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(62,207,142,0.12)', color: '#3ecf8e' }}>
+                  <Volume2 size={15} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>Game sound</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 1 }}>Play sound effects during games like Pattern King</div>
+                </div>
+                <Toggle on={gameSound} onToggle={toggleGameSound} />
+              </div>
+            </div>
+          </>
+        )}
 
-        <SectionTitle>Game</SectionTitle>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 16, marginBottom: 9, boxShadow: '3px 3px 9px var(--neu-dark),-2px -2px 7px var(--neu-light)' }}>
-          <div style={{ width: 30, height: 30, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(62,207,142,0.12)', color: '#3ecf8e' }}>
-            <Volume2 size={15} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>Game sound</div>
-            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 1 }}>Play sound effects during games like Pattern King</div>
-          </div>
-          <Toggle on={gameSound} onToggle={toggleGameSound} />
-        </div>
+        {sectionMatches(['Account info', 'Date joined']) && (
+          <>
+            <SectionTitle>Account info</SectionTitle>
+            <div className="settings-card">
+              <Row icon={<Calendar size={15} />} iconBg="var(--surface2)" iconColor="var(--text-dim)"
+                label="Date joined"
+                value={profile?.created_at ? new Date(profile.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}
+              />
+            </div>
+          </>
+        )}
 
-        <SectionTitle>Account info</SectionTitle>
-        <Row icon={<Calendar size={15} />} iconBg="var(--surface2)" iconColor="var(--text-dim)"
-          label="Date joined"
-          value={profile?.created_at ? new Date(profile.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}
-        />
+        {sectionMatches(['Chillverse', 'Support', 'Version']) && (
+          <>
+            <SectionTitle>Chillverse</SectionTitle>
+            <div className="settings-card">
+              <Row icon={<LifeBuoy size={15} />} iconBg="rgba(255,107,0,0.12)" iconColor="var(--accent)"
+                label="Support"
+                onClick={(e) => { ripple(e); navigate('/support') }}
+              />
+              <Row icon={<Layers size={15} />} iconBg="rgba(155,109,255,0.12)" iconColor="#9b6dff"
+                label="Version"
+                value="v1.0"
+                onClick={(e) => { ripple(e); navigate('/version') }}
+              />
+            </div>
+          </>
+        )}
 
-        <SectionTitle>Chillverse</SectionTitle>
-        <Row icon={<LifeBuoy size={15} />} iconBg="rgba(255,107,0,0.12)" iconColor="var(--accent)"
-          label="Support"
-          onClick={(e) => { ripple(e); navigate('/support') }}
-        />
-        <Row icon={<Layers size={15} />} iconBg="rgba(155,109,255,0.12)" iconColor="#9b6dff"
-          label="Version"
-          value="v1.0"
-          onClick={(e) => { ripple(e); navigate('/version') }}
-        />
-
-        {isPro && (
+        {isPro && sectionMatches(['Subscription', 'Orbit', 'Void', 'Cancel subscription']) && (
           <>
             <SectionTitle>Subscription</SectionTitle>
-            <Row icon={<Crown size={15} />} iconBg="rgba(255,107,0,0.12)" iconColor="var(--accent)"
-              label={profile?.pro_tier === 'void' ? 'Void' : 'Orbit'}
-              value={profile?.pro_cancel_at_period_end
-                ? `Ends ${profile?.pro_expires_at ? new Date(profile.pro_expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}`
-                : `Renews ${profile?.pro_expires_at ? new Date(profile.pro_expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}`}
-              onClick={(e) => { ripple(e); navigate('/pro') }}
-            />
-            {!profile?.pro_cancel_at_period_end && (
-              <Row icon={<X size={15} />} iconBg="rgba(255,107,107,0.12)" iconColor="#ff6b6b"
-                label="Cancel subscription" danger
-                onClick={(e) => { ripple(e); setCancelSubError(''); setCancelSubDone(false); setModal('cancelSub') }}
+            <div className="settings-card">
+              <Row icon={<Crown size={15} />} iconBg="rgba(255,107,0,0.12)" iconColor="var(--accent)"
+                label={profile?.pro_tier === 'void' ? 'Void' : 'Orbit'}
+                value={profile?.pro_cancel_at_period_end
+                  ? `Ends ${profile?.pro_expires_at ? new Date(profile.pro_expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}`
+                  : `Renews ${profile?.pro_expires_at ? new Date(profile.pro_expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}`}
+                onClick={(e) => { ripple(e); navigate('/pro') }}
               />
-            )}
+              {!profile?.pro_cancel_at_period_end && (
+                <Row icon={<X size={15} />} iconBg="rgba(255,107,107,0.12)" iconColor="#ff6b6b"
+                  label="Cancel subscription" danger
+                  onClick={(e) => { ripple(e); setCancelSubError(''); setCancelSubDone(false); setModal('cancelSub') }}
+                />
+              )}
+            </div>
             {profile?.pro_cancel_at_period_end && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7, margin: '-4px 0 10px', padding: '7px 12px', background: 'rgba(245,197,66,0.08)', border: '1px solid rgba(245,197,66,0.18)', borderRadius: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, margin: '-12px 0 20px', padding: '7px 12px', background: 'rgba(245,197,66,0.08)', border: '1px solid rgba(245,197,66,0.18)', borderRadius: 10 }}>
                 <AlertTriangle size={12} color="#f5c542" style={{ flexShrink: 0 }} />
                 <span style={{ fontSize: 11.5, color: '#f5c542', fontWeight: 600 }}>
                   Cancelled — you'll keep your perks until {profile?.pro_expires_at ? new Date(profile.pro_expires_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric' }) : 'your plan expires'}, then it won't renew.
@@ -556,19 +631,25 @@ export default function Settings() {
           </>
         )}
 
-        <SectionTitle>Danger zone</SectionTitle>
-        <Row icon={<LogOut size={15} />} iconBg="rgba(255,107,0,0.12)" iconColor="var(--accent)"
-          label="Log out"
-          onClick={(e) => { ripple(e); setModal('logout') }}
-        />
-        <Row icon={<Lock size={15} />} iconBg="rgba(255,107,107,0.12)" iconColor="#ff6b6b"
-          label="Log out all devices"
-          onClick={(e) => { ripple(e); handleLogoutAllDevices() }}
-        />
-        <Row icon={<Trash2 size={15} />} iconBg="rgba(255,107,107,0.12)"
-          label="Delete account" danger
-          onClick={(e) => { ripple(e); setModal('delete') }}
-        />
+        {sectionMatches(['Danger zone', 'Log out', 'Log out all devices', 'Delete account']) && (
+          <>
+            <SectionTitle>Danger zone</SectionTitle>
+            <div className="settings-card">
+              <Row icon={<LogOut size={15} />} iconBg="rgba(255,107,0,0.12)" iconColor="var(--accent)"
+                label="Log out"
+                onClick={(e) => { ripple(e); setModal('logout') }}
+              />
+              <Row icon={<Lock size={15} />} iconBg="rgba(255,107,107,0.12)" iconColor="#ff6b6b"
+                label="Log out all devices"
+                onClick={(e) => { ripple(e); handleLogoutAllDevices() }}
+              />
+              <Row icon={<Trash2 size={15} />} iconBg="rgba(255,107,107,0.12)"
+                label="Delete account" danger
+                onClick={(e) => { ripple(e); setModal('delete') }}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       {modal === 'cancelSub' && (
