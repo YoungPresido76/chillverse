@@ -59,6 +59,18 @@
     </script>
   </head>
   <body>
+    <script>
+      (function () {
+        try {
+          var VALID = ['white', 'grey', 'midnight', 'aurora', 'sunset', 'emerald'];
+          var t = localStorage.getItem('chillverse-theme');
+          if (VALID.indexOf(t) === -1) t = 'midnight';
+          document.documentElement.setAttribute('data-theme', t);
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'midnight');
+        }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/app/main.tsx"></script>
   </body>
