@@ -115,8 +115,8 @@ export default function PageOnboarding({ pageKey }: PageOnboardingProps) {
           maxHeight: 'min(86vh, 640px)',
           borderRadius: 24,
           background: 'linear-gradient(160deg, #1a1a1e, #111113)',
-          border: '1.5px solid rgba(255,107,0,0.28)',
-          boxShadow: '0 24px 64px rgba(255,107,0,0.12), 0 8px 32px rgba(0,0,0,0.7)',
+          border: '1.5px solid color-mix(in srgb, var(--accent) 28%, transparent)',
+          boxShadow: '0 24px 64px color-mix(in srgb, var(--accent) 12%, transparent), 0 8px 32px rgba(0,0,0,0.7)',
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
@@ -155,10 +155,10 @@ export default function PageOnboarding({ pageKey }: PageOnboardingProps) {
               style={{
                 width: '100%', height: '100%',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: 'linear-gradient(135deg, rgba(255,107,0,0.12), rgba(255,154,60,0.04))',
+                background: 'linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, transparent), rgba(255,154,60,0.04))',
               }}
             >
-              <SettingsIcon size={64} style={{ color: 'rgba(255,107,0,0.4)' }} />
+              <SettingsIcon size={64} style={{ color: 'color-mix(in srgb, var(--accent) 40%, transparent)' }} />
             </div>
           )}
 
@@ -175,8 +175,8 @@ export default function PageOnboarding({ pageKey }: PageOnboardingProps) {
                   key={i}
                   style={{
                     width: i === cardIndex ? 18 : 6, height: 6, borderRadius: 3,
-                    background: i === cardIndex ? '#ff6b00' : 'rgba(255,255,255,0.35)',
-                    transition: 'all 0.25s ease',
+                    background: i === cardIndex ? 'var(--accent)' : 'rgba(255,255,255,0.35)',
+                    transition: 'background-color var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out)',
                   }}
                 />
               ))}
@@ -195,8 +195,8 @@ export default function PageOnboarding({ pageKey }: PageOnboardingProps) {
                 padding: '8px 12px',
                 borderRadius: 100,
                 background: 'rgba(17,17,19,0.88)',
-                border: '1.5px solid rgba(255,107,0,0.5)',
-                color: '#ff9a3c',
+                border: '1.5px solid color-mix(in srgb, var(--accent) 50%, transparent)',
+                color: 'var(--accent2)',
                 fontSize: 12,
                 fontWeight: 700,
                 animation: 'onbSwipeNudge 1.3s ease-in-out infinite',
@@ -216,7 +216,7 @@ export default function PageOnboarding({ pageKey }: PageOnboardingProps) {
               style={{
                 position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
                 width: 32, height: 32, borderRadius: '50%',
-                background: 'rgba(17,17,19,0.7)', border: '1px solid rgba(255,255,255,0.15)',
+                background: 'rgba(17,17,19,0.7)', border: '1px solid var(--border-strong)',
                 color: 'var(--text)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer',
               }}
@@ -236,7 +236,7 @@ export default function PageOnboarding({ pageKey }: PageOnboardingProps) {
               style={{
                 position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
                 width: 32, height: 32, borderRadius: '50%',
-                background: 'rgba(17,17,19,0.7)', border: '1px solid rgba(255,255,255,0.15)',
+                background: 'rgba(17,17,19,0.7)', border: '1px solid var(--border-strong)',
                 color: 'var(--text)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer',
               }}
@@ -251,7 +251,7 @@ export default function PageOnboarding({ pageKey }: PageOnboardingProps) {
         <div style={{ padding: '16px 22px 0', flexShrink: 0 }}>
           <div
             style={{
-              fontSize: 10, fontWeight: 800, color: '#ff9a3c',
+              fontSize: 10, fontWeight: 800, color: 'var(--accent2)',
               textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6,
             }}
           >
