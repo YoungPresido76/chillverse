@@ -20,7 +20,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeId>(readInitialTheme)
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
+    const root = document.documentElement
+    // Cross-fade: briefly opt the whole tree into color transitions so the
+    // token swap reads as a smooth shift, not an instant repaint. The class
+    // is removed after the window so it never taxes normal interactions.
+    // (Skipped automatically under prefers-reduced-motion via the global
+    // guard in index.css.)
+    const firstPaint = !root.hasAttribute('data-theme')
+    if (!firstPaint) root.classList.add('theme-switching')
+    root.setAttribute('data-theme', theme)
+    if (firstPaint) return
+    const t = window.setTimeout(() => root.classList.remove('theme-switching'), 420)
+    return () => { window.clearTimeout(t); root.classList.remove('theme-switching') }
   }, [theme])
 
   const setTheme = useCallback((id: ThemeId) => {

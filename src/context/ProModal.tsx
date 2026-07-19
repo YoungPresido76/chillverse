@@ -129,9 +129,9 @@ export function ProModal({ visible, onClose, onGoPro }: ProModalProps) {
         <div onClick={e=>e.stopPropagation()} style={{
           width:'100%',maxWidth:360,
           background:'linear-gradient(160deg,#1c1c22,#141418)',
-          border:'1px solid rgba(255,255,255,0.09)',
+          border:'1px solid var(--border-strong)',
           borderRadius:28,
-          boxShadow:'0 32px 80px rgba(0,0,0,0.85),0 0 0 1px rgba(255,107,0,0.08)',
+          boxShadow:'0 32px 80px rgba(0,0,0,0.85),0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent)',
           overflow:'hidden',
           animation:'cv-modalIn 0.35s cubic-bezier(0.34,1.3,0.64,1) forwards',
           position:'relative',
@@ -140,7 +140,7 @@ export function ProModal({ visible, onClose, onGoPro }: ProModalProps) {
           {/* Top shimmer strip */}
           <div style={{
             position:'absolute',top:0,left:0,right:0,height:2,
-            background:'linear-gradient(90deg,transparent,#ff6b00,#ff9a3c,#ff6b00,transparent)',
+            background:'linear-gradient(90deg,transparent,var(--accent),var(--accent2),var(--accent),transparent)',
             backgroundSize:'200% 100%',animation:'cv-shimmer 3s linear infinite',
           }}/>
 
@@ -149,9 +149,9 @@ export function ProModal({ visible, onClose, onGoPro }: ProModalProps) {
             <div style={{display:'flex',alignItems:'center',gap:8}}>
               <div style={{
                 width:34,height:34,borderRadius:10,
-                background:'linear-gradient(135deg,#ff6b00,#ff9a3c)',
+                background:'linear-gradient(135deg,var(--accent),var(--accent2))',
                 display:'flex',alignItems:'center',justifyContent:'center',
-                boxShadow:'0 4px 14px rgba(255,107,0,0.45)',
+                boxShadow:'0 4px 14px color-mix(in srgb, var(--accent) 45%, transparent)',
                 animation:'cv-crown 2.5s ease-in-out infinite',
               }}>
                 <Crown size={17} color="#fff" fill="#fff"/>
@@ -164,7 +164,7 @@ export function ProModal({ visible, onClose, onGoPro }: ProModalProps) {
             <button onClick={onClose} style={{
               width:30,height:30,borderRadius:8,
               background:'rgba(255,255,255,0.07)',
-              border:'1px solid rgba(255,255,255,0.1)',
+              border:'1px solid var(--border-strong)',
               display:'flex',alignItems:'center',justifyContent:'center',
               cursor:'pointer',color:'rgba(255,255,255,0.5)',
             }}>
@@ -177,7 +177,7 @@ export function ProModal({ visible, onClose, onGoPro }: ProModalProps) {
             <div style={{
               borderRadius:20,overflow:'hidden',
               background:'rgba(255,255,255,0.03)',
-              border:'1px solid rgba(255,255,255,0.07)',
+              border:'1px solid var(--border)',
               boxShadow:'inset 0 2px 8px rgba(0,0,0,0.3)',
             }}>
               {/* Media */}
@@ -224,7 +224,7 @@ export function ProModal({ visible, onClose, onGoPro }: ProModalProps) {
             {SLIDES.map((_,i)=>(
               <div key={i} onClick={()=>jumpTo(i)} style={{
                 width:i===idx?18:6,height:6,borderRadius:3,
-                background:i===idx?'linear-gradient(90deg,#ff6b00,#ff9a3c)':'rgba(255,255,255,0.18)',
+                background:i===idx?'linear-gradient(90deg,var(--accent),var(--accent2))':'rgba(255,255,255,0.18)',
                 cursor:'pointer',
                 transition:'width 0.35s ease,background 0.35s ease',
                 animation:i===idx?'cv-dot 2s infinite':'none',
@@ -238,11 +238,11 @@ export function ProModal({ visible, onClose, onGoPro }: ProModalProps) {
               onClick={onGoPro??onClose}
               style={{
                 width:'100%',
-                background:'linear-gradient(135deg,#ff6b00,#ff9a3c)',
+                background:'linear-gradient(135deg,var(--accent),var(--accent2))',
                 border:'none',borderRadius:16,padding:'14px 20px',
                 display:'flex',alignItems:'center',justifyContent:'center',gap:8,
                 cursor:'pointer',
-                boxShadow:'0 6px 24px rgba(255,107,0,0.45)',
+                boxShadow:'0 6px 24px color-mix(in srgb, var(--accent) 45%, transparent)',
                 fontFamily:"'Inter',sans-serif",
                 transition:'opacity 0.2s,transform 0.15s',
                 position:'relative',overflow:'hidden',
