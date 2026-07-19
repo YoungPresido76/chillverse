@@ -153,7 +153,7 @@ export default function StaffComposer({ open, onClose, onPosted }: StaffComposer
               style={{
                 padding: '7px 13px', borderRadius: 999, fontSize: 12, fontWeight: 700,
                 border: postKind === opt.value ? '1px solid var(--accent)' : '1px solid rgba(255,255,255,0.08)',
-                background: postKind === opt.value ? 'rgba(255,107,0,0.12)' : 'var(--surface2)',
+                background: postKind === opt.value ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'var(--surface2)',
                 color: postKind === opt.value ? 'var(--accent)' : 'var(--text-dim)',
                 cursor: 'pointer',
               }}

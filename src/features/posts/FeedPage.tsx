@@ -28,8 +28,8 @@ export default function FeedPage() {
           style={{
             width: 38, height: 38, borderRadius: 11,
             background: 'var(--surface)',
-            border: '1px solid rgba(255,255,255,0.07)',
-            boxShadow: '2px 2px 6px var(--neu-dark)',
+            border: '1px solid var(--border)',
+            boxShadow: 'var(--elev-raise-sm)',
             color: 'var(--text-dim)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             cursor: 'pointer', flexShrink: 0,
@@ -44,7 +44,7 @@ export default function FeedPage() {
       </div>
 
       <div style={{ padding: '0 20px' }}>
-        <div style={{ display: 'flex', gap: 6, marginBottom: 14, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 14, borderBottom: '1px solid var(--border)' }}>
           {TABS.map(t => {
             const Icon = t.icon
             const active = tab === t.key

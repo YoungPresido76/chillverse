@@ -155,7 +155,7 @@ export default function PostCard({ post, onDeleted }: { post: Post; onDeleted?: 
             >
               {authorName}
               {isSystemOrAdmin && (
-                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent)', background: 'rgba(255,107,0,0.12)', padding: '1px 6px', borderRadius: 6 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 12%, transparent)', padding: '1px 6px', borderRadius: 6 }}>
                   {post.author_type === 'system' ? 'SYSTEM' : 'ADMIN'}
                 </span>
               )}
