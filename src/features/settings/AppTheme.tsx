@@ -21,6 +21,18 @@ const PREVIEW_ROWS = [
   { name: 'mac',             msg: 'What time should we start tonight?', time: '2h', color: '#ff4d8b', unread: false },
 ]
 
+// Pulls the first hex color out of a swatch (solid or gradient) and returns
+// it as a soft, low-opacity glow so the selected theme's highlight always
+// matches that theme's own color rather than a fixed accent color.
+function swatchGlow(swatch: string): string {
+  const match = swatch.match(/#[0-9a-fA-F]{6}/)
+  const hex = match ? match[0] : '#ff6b00'
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return `rgba(${r},${g},${b},0.45)`
+}
+
 export default function AppTheme() {
   const navigate = useNavigate()
   const { theme, setTheme } = useTheme()
@@ -111,7 +123,9 @@ export default function AppTheme() {
                 width: 46, height: 46, borderRadius: 12, flexShrink: 0, cursor: 'pointer',
                 background: t.swatch, border: theme === t.id ? '2px solid var(--accent)' : '1px solid rgba(255,255,255,0.12)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: theme === t.id ? '0 0 0 3px rgba(255,107,0,0.18)' : 'none',
+                transform: theme === t.id ? 'scale(1.08)' : 'scale(1)',
+                transition: 'transform 200ms cubic-bezier(0.4,0,0.2,1), box-shadow 200ms ease, border-color 200ms ease',
+                boxShadow: theme === t.id ? `0 0 16px 2px ${swatchGlow(t.swatch)}` : 'none',
               }}
             >
               {theme === t.id && <Check size={16} color={t.id === 'white' ? '#111' : '#fff'} strokeWidth={3} />}
