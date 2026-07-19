@@ -55,7 +55,7 @@ export default function CallScreen() {
       <button type="button" onClick={minimizeCall} title="Minimize"
         style={{
           position:'absolute', top:'max(20px, env(safe-area-inset-top))', left:20, zIndex:3,
-          width:40, height:40, borderRadius:'50%', border:'1px solid rgba(255,255,255,0.15)',
+          width:40, height:40, borderRadius:'50%', border:'1px solid var(--border-strong)',
           background:'rgba(255,255,255,0.1)', color:'#fff', cursor:'pointer',
           display:'flex', alignItems:'center', justifyContent:'center',
         }}>
@@ -72,7 +72,7 @@ export default function CallScreen() {
         <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:18, zIndex:1 }}>
           <div style={{
             width:120, height:120, borderRadius:'50%', overflow:'hidden', flexShrink:0,
-            boxShadow:'0 20px 60px rgba(0,0,0,0.5)',
+            boxShadow:'var(--elev-popover)',
           }}>
             <Avatar src={otherParticipant.avatar} name={name} size={120} radius="50%" disabled />
           </div>
@@ -92,7 +92,7 @@ export default function CallScreen() {
       <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:32, width:'100%', maxWidth:320, zIndex:1 }}>
         <button type="button" onClick={toggleMute} title={isMuted ? 'Unmute' : 'Mute'}
           style={{
-            width:56, height:56, borderRadius:'50%', border:'1px solid rgba(255,255,255,0.15)', cursor:'pointer',
+            width:56, height:56, borderRadius:'50%', border:'1px solid var(--border-strong)', cursor:'pointer',
             background: isMuted ? '#fff' : 'rgba(255,255,255,0.1)', color: isMuted ? '#111' : '#fff',
             display:'flex', alignItems:'center', justifyContent:'center',
           }}>

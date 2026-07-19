@@ -419,7 +419,7 @@ export default function CallProvider({ myId, children }: CallProviderProps) {
           maxWidth:'min(92vw, 420px)', padding:'12px 16px', borderRadius:12,
           background:'rgba(30,10,10,0.95)', border:'1px solid rgba(255,79,79,0.3)',
           color:'#ff6b6b', fontSize:13, fontWeight:600, textAlign:'center',
-          boxShadow:'0 12px 32px rgba(0,0,0,0.4)', backdropFilter:'blur(10px)',
+          boxShadow:'var(--elev-popover)', backdropFilter:'blur(10px)',
         }}>
           {callError}
         </div>

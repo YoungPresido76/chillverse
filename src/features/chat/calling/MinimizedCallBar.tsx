@@ -35,8 +35,8 @@ export default function MinimizedCallBar() {
         position:'fixed', top:'calc(68px + max(8px, env(safe-area-inset-top)))', left:12, right:12, zIndex:9998,
         display:'flex', alignItems:'center', gap:10, padding:'8px 10px 8px 8px',
         background:'rgba(20,20,26,0.96)', backdropFilter:'blur(14px)',
-        border:'1px solid rgba(255,107,0,0.3)', borderRadius:14,
-        boxShadow:'0 8px 24px rgba(0,0,0,0.4)', cursor:'pointer', textAlign:'left',
+        border:'1px solid color-mix(in srgb, var(--accent) 30%, transparent)', borderRadius:14,
+        boxShadow:'var(--elev-raise)', cursor:'pointer', textAlign:'left',
       }}>
       <Avatar src={otherParticipant.avatar} name={name} size={34} radius={10} disabled />
 

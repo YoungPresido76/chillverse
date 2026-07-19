@@ -23,7 +23,7 @@ export default function StartCallButton({ roomId, callee, size = 36 }: StartCall
       onClick={() => { startCall(roomId, callee, 'audio') }}
       style={{
         width:size, height:size, borderRadius:10, flexShrink:0,
-        background:'var(--surface)', border:'1px solid rgba(255,255,255,0.06)',
+        background:'var(--surface)', border:'1px solid var(--border)',
         color: busy ? 'var(--text-muted)' : 'var(--text-dim)',
         cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.5 : 1,
         display:'flex', alignItems:'center', justifyContent:'center', transition:'color 0.15s',

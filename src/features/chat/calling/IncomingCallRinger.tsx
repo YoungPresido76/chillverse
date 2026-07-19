@@ -71,7 +71,7 @@ export default function IncomingCallRinger() {
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:18 }}>
         <div style={{
           width:120, height:120, borderRadius:'50%', overflow:'hidden', flexShrink:0,
-          boxShadow:'0 0 0 4px rgba(255,107,0,0.25), 0 20px 60px rgba(0,0,0,0.5)',
+          boxShadow:'0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent), 0 20px 60px rgba(0,0,0,0.5)',
           animation:'callPulse 1.6s ease-in-out infinite',
         }}>
           <Avatar src={otherParticipant.avatar} name={name} size={120} radius="50%" disabled />
