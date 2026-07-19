@@ -48,6 +48,46 @@
     --ltext-muted:   #5a5678;
   }
 
+  /* ══════════════════════════════════
+     THEMES — accent/gold/blue/purple/green/pink/red stay constant
+     across every theme; only surfaces + text shift.
+     ══════════════════════════════════ */
+  :root, [data-theme="midnight"] {
+    --bg:        #111113;
+    --surface:   #1a1a1f;
+    --surface2:  #222228;
+    --surface3:  #2a2a32;
+    --neu-dark:  #0a0a0c;
+    --neu-light: #262630;
+    --text:      #e8e8f0;
+    --text-dim:  #888899;
+    --text-muted:#555566;
+  }
+
+  [data-theme="white"] {
+    --bg:        #eef0f4;
+    --surface:   #ffffff;
+    --surface2:  #f5f6fa;
+    --surface3:  #eceef3;
+    --neu-dark:  #cdd1db;
+    --neu-light: #ffffff;
+    --text:      #16161c;
+    --text-dim:  #5a5d6b;
+    --text-muted:#9396a3;
+  }
+
+  [data-theme="grey"] {
+    --bg:        #2b2d31;
+    --surface:   #313338;
+    --surface2:  #383a40;
+    --surface3:  #40424a;
+    --neu-dark:  #1c1d20;
+    --neu-light: #45474f;
+    --text:      #f2f3f5;
+    --text-dim:  #b5bac1;
+    --text-muted:#80848e;
+  }
+
   html { scroll-behavior: smooth; }
 
   body {

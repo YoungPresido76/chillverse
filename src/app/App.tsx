@@ -23,6 +23,7 @@ const ProfileRedirect    = lazy(() => import('../features/profile/ProfileRedirec
 const Chat               = lazy(() => import('../features/chat/Chat'))
 const Streak             = lazy(() => import('../features/missions/Streak'))
 const Settings           = lazy(() => import('../features/settings/Settings'))
+const AppTheme           = lazy(() => import('../features/settings/AppTheme'))
 const Ranks              = lazy(() => import('../features/profile/Ranks'))
 const Watch              = lazy(() => import('../features/watch/Watch'))
 const Mall               = lazy(() => import('../features/economy/Mall'))
@@ -162,6 +163,7 @@ export default function App() {
           <Route path="/chat"             element={<Suspense fallback={<Fallback />}><Chat /></Suspense>} />
           <Route path="/streak"           element={<Suspense fallback={<Fallback />}><Streak /></Suspense>} />
           <Route path="/settings"         element={<Suspense fallback={<Fallback />}><Settings /></Suspense>} />
+          <Route path="/settings/theme"   element={<Suspense fallback={<Fallback />}><AppTheme /></Suspense>} />
           <Route path="/ranks"            element={<Suspense fallback={<Fallback />}><Ranks /></Suspense>} />
           <Route path="/achievements"     element={<Suspense fallback={<Fallback />}><Achievements /></Suspense>} />
           <Route path="/artifacts"        element={<Suspense fallback={<Fallback />}><Artifacts /></Suspense>} />
