@@ -93,7 +93,7 @@ function getStreakMessage(streak: number): { emoji: string; message: string; col
     return { emoji: '🌱', message: "Day 1. The seed is planted.", color: '#3ecf8e' }
   }
   if (streak <= 3) {
-    return { emoji: '🔥', message: `${streak}-day streak — you're just warming up.`, color: '#ff9a3c' }
+    return { emoji: '🔥', message: `${streak}-day streak — you're just warming up.`, color: 'var(--accent2)' }
   }
   if (streak <= 6) {
     return { emoji: '⚡', message: `${streak} days straight. The momentum is real.`, color: '#f5c542' }
@@ -117,7 +117,7 @@ function SkeletonBlock({ style }: { style?: CSSProperties }) {
       style={{
         borderRadius: 14,
         background: 'var(--surface2)',
-        boxShadow: '6px 6px 14px var(--neu-dark), -4px -4px 10px var(--neu-light)',
+        boxShadow: 'var(--elev-raise)',
         animation: 'pulse 1.6s ease-in-out infinite',
         ...style,
       }}
@@ -274,7 +274,7 @@ export default function Dashboard() {
 
   const QUICK_ACTIONS: QuickAction[] = [
     { label: 'Play Games',  sub: onlineCount != null ? `${onlineCount} online` : '…', to: '/games',      bg: 'linear-gradient(135deg,#9b6dff,#4f8ef7)', icon: Gamepad2 },
-    { label: 'Mall',        sub: 'New drops',    to: '/mall',       bg: 'linear-gradient(135deg,#ff6b00,#ff9a3c)', icon: ShoppingBag },
+    { label: 'Mall',        sub: 'New drops',    to: '/mall',       bg: 'linear-gradient(135deg,var(--accent),var(--accent2))', icon: ShoppingBag },
     { label: 'Feed',        sub: 'See what\'s new', to: '/feed',    bg: 'linear-gradient(135deg,#00e5ff,#4f8ef7)', icon: Rss },
   ]
 
@@ -289,7 +289,7 @@ export default function Dashboard() {
           style={{ padding: '22px 20px', position: 'relative', overflow: 'hidden' }}
           onClick={(e) => ripple(e)}
         >
-          <div style={{ position: 'absolute', right: -30, top: -30, width: 160, height: 160, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,107,0,0.10) 0%, transparent 70%)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', right: -30, top: -30, width: 160, height: 160, borderRadius: '50%', background: 'radial-gradient(circle, color-mix(in srgb, var(--accent) 10%, transparent) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -347,7 +347,7 @@ export default function Dashboard() {
             const Icon = a.icon
             return (
               <Link key={a.label} to={a.to} onClick={(e) => ripple(e)} className="neu-card ripple-wrap" style={{ padding: 18, textAlign: 'center', cursor: 'pointer' }}>
-                <div style={{ width: 48, height: 48, borderRadius: 14, background: a.bg, boxShadow: '0 6px 16px rgba(0,0,0,0.3)', color: '#fff', margin: '0 auto 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 48, height: 48, borderRadius: 14, background: a.bg, boxShadow: 'var(--elev-raise)', color: '#fff', margin: '0 auto 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Icon size={22} />
                 </div>
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{a.label}</div>
@@ -405,7 +405,7 @@ export default function Dashboard() {
             const Icon = tile.icon
             return (
               <Link key={tile.label} to={tile.to} onClick={(e) => ripple(e)} className="neu-card ripple-wrap" style={{ padding: 20, cursor: 'pointer' }}>
-                <div style={{ width: 44, height: 44, borderRadius: 12, background: tile.iconBg, boxShadow: '3px 3px 9px var(--neu-dark), -2px -2px 6px var(--neu-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14, color: tile.iconColor }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: tile.iconBg, boxShadow: 'var(--elev-raise-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14, color: tile.iconColor }}>
                   <Icon size={20} />
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{tile.label}</div>
@@ -475,7 +475,7 @@ export default function Dashboard() {
             <div style={{
               flex: 1, background: 'var(--bg)', borderRadius: 10,
               padding: '10px 14px',
-              border: '1px solid rgba(255,255,255,0.06)',
+              border: '1px solid var(--border)',
               fontSize: 12, color: 'var(--text-muted)',
             }}>
               "How do I rank up faster?"
