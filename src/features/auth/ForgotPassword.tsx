@@ -77,10 +77,10 @@ export default function ForgotPassword() {
                   style={{
                     background: 'var(--surface2)', border: `1px solid ${error ? 'var(--red)' : 'rgba(255,255,255,0.07)'}`,
                     borderRadius: 12, padding: '12px 14px', fontSize: 14, color: 'var(--text)', outline: 'none',
-                    boxShadow: 'inset 2px 2px 6px var(--neu-dark)',
+                    boxShadow: 'var(--elev-inset)',
                     transition: 'border-color 0.2s',
                   }}
-                  onFocus={e => { e.target.style.borderColor = 'rgba(255,107,0,0.4)' }}
+                  onFocus={e => { e.target.style.borderColor = 'color-mix(in srgb, var(--accent) 40%, transparent)' }}
                   onBlur={e => { e.target.style.borderColor = error ? 'var(--red)' : 'rgba(255,255,255,0.07)' }}
                 />
                 {error && <span style={{ fontSize: 12, color: 'var(--red)' }}>{error}</span>}

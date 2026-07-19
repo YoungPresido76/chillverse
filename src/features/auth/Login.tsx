@@ -103,9 +103,9 @@ export default function Login() {
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
               padding: '12px', borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: 'pointer',
               background: 'var(--surface2)', color: 'var(--text)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              boxShadow: '3px 3px 8px var(--neu-dark), -2px -2px 6px var(--neu-light)',
-              transition: 'all 0.2s',
+              border: '1px solid var(--border)',
+              boxShadow: 'var(--elev-raise-sm)',
+              transition: 'background-color var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out)',
             }}
           >
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
@@ -126,7 +126,7 @@ export default function Login() {
           {/* Unconfirmed email alert */}
           {unconfirmedEmail && (
             <div style={{
-              background: 'rgba(255,107,0,0.08)', border: '1px solid rgba(255,107,0,0.25)',
+              background: 'color-mix(in srgb, var(--accent) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 25%, transparent)',
               borderRadius: 12, padding: '12px 14px',
               display: 'flex', flexDirection: 'column', gap: 8,
             }}>
@@ -159,10 +159,10 @@ export default function Login() {
               style={{
                 background: 'var(--surface2)', border: `1px solid ${errors.identifier ? 'var(--red)' : 'rgba(255,255,255,0.07)'}`,
                 borderRadius: 12, padding: '12px 14px', fontSize: 14, color: 'var(--text)', outline: 'none',
-                boxShadow: 'inset 2px 2px 6px var(--neu-dark)',
+                boxShadow: 'var(--elev-inset)',
                 transition: 'border-color 0.2s',
               }}
-              onFocus={e => { e.target.style.borderColor = 'rgba(255,107,0,0.4)' }}
+              onFocus={e => { e.target.style.borderColor = 'color-mix(in srgb, var(--accent) 40%, transparent)' }}
               onBlur={e => { e.target.style.borderColor = errors.identifier ? 'var(--red)' : 'rgba(255,255,255,0.07)' }}
             />
             {errors.identifier && <span style={{ fontSize: 12, color: 'var(--red)' }}>{errors.identifier}</span>}
@@ -182,10 +182,10 @@ export default function Login() {
                   width: '100%', boxSizing: 'border-box',
                   background: 'var(--surface2)', border: `1px solid ${errors.password ? 'var(--red)' : 'rgba(255,255,255,0.07)'}`,
                   borderRadius: 12, padding: '12px 50px 12px 14px', fontSize: 14, color: 'var(--text)', outline: 'none',
-                  boxShadow: 'inset 2px 2px 6px var(--neu-dark)',
+                  boxShadow: 'var(--elev-inset)',
                   transition: 'border-color 0.2s',
                 }}
-                onFocus={e => { e.target.style.borderColor = 'rgba(255,107,0,0.4)' }}
+                onFocus={e => { e.target.style.borderColor = 'color-mix(in srgb, var(--accent) 40%, transparent)' }}
                 onBlur={e => { e.target.style.borderColor = errors.password ? 'var(--red)' : 'rgba(255,255,255,0.07)' }}
               />
               <button
@@ -224,7 +224,7 @@ export default function Login() {
                 rel="noreferrer"
                 style={{
                   display: 'flex', alignItems: 'center', gap: 14,
-                  background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.06)',
+                  background: 'var(--surface2)', border: '1px solid var(--border)',
                   borderRadius: 14, padding: '14px 16px', cursor: 'pointer', textDecoration: 'none',
                   transition: 'border-color 0.2s',
                 }}
@@ -244,7 +244,7 @@ export default function Login() {
                 onClick={handleDiscord}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left',
-                  background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.06)',
+                  background: 'var(--surface2)', border: '1px solid var(--border)',
                   borderRadius: 14, padding: '14px 16px', cursor: 'pointer',
                   transition: 'border-color 0.2s', width: '100%',
                 }}
@@ -274,7 +274,7 @@ export default function Login() {
         <div style={{
           position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
           borderRadius: 20, padding: '10px 20px', fontSize: 13, fontWeight: 600,
-          boxShadow: '0 10px 40px rgba(0,0,0,0.4)', zIndex: 999, whiteSpace: 'nowrap',
+          boxShadow: 'var(--elev-raise)', zIndex: 999, whiteSpace: 'nowrap',
           background: 'var(--surface)',
           border: `1px solid ${toast.type === 'success' ? 'rgba(62,207,142,0.4)' : 'rgba(255,79,79,0.4)'}`,
           color: toast.type === 'success' ? 'var(--green)' : 'var(--red)',

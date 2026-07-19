@@ -102,7 +102,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
             <button type="button" onClick={handleQuit} disabled={signingOut}
-              style={{ padding: '10px 20px', borderRadius: 12, fontSize: 13, fontWeight: 700, border: '1px solid rgba(255,255,255,0.12)', background: 'transparent', color: 'var(--text-dim)', cursor: signingOut ? 'default' : 'pointer' }}>
+              style={{ padding: '10px 20px', borderRadius: 12, fontSize: 13, fontWeight: 700, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-dim)', cursor: signingOut ? 'default' : 'pointer' }}>
               {signingOut ? 'Signing out…' : 'Quit'}
             </button>
             <a href={appealHref}

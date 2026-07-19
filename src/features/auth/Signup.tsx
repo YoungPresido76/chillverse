@@ -26,7 +26,7 @@ function StepDot({ n, state }: { n: number; state: 'active' | 'done' | 'idle' })
     width: 28, height: 28, borderRadius: '50%',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: 11, fontWeight: 800, fontFamily: 'monospace', flexShrink: 0,
-    border: '2px solid', transition: 'all 0.25s',
+    border: '2px solid', transition: 'background-color var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out)',
   }
   if (state === 'done') return (
     <div style={{ ...base, borderColor: 'var(--green)', background: 'rgba(62,207,142,0.10)', color: 'var(--green)' }}>
@@ -37,7 +37,7 @@ function StepDot({ n, state }: { n: number; state: 'active' | 'done' | 'idle' })
     <div style={{ ...base, borderColor: 'var(--purple)', background: 'rgba(155,109,255,0.12)', color: '#fff' }}>{n}</div>
   )
   return (
-    <div style={{ ...base, borderColor: 'rgba(255,255,255,0.12)', background: 'var(--surface2)', color: 'var(--text-muted)' }}>{n}</div>
+    <div style={{ ...base, borderColor: 'var(--border-strong)', background: 'var(--surface2)', color: 'var(--text-muted)' }}>{n}</div>
   )
 }
 
@@ -57,7 +57,7 @@ function neuInput(hasError: boolean): React.CSSProperties {
     border: `1px solid ${hasError ? 'var(--red)' : 'rgba(255,255,255,0.07)'}`,
     borderRadius: 12, padding: '12px 14px',
     fontSize: 14, color: 'var(--text)', outline: 'none',
-    boxShadow: 'inset 2px 2px 6px var(--neu-dark)',
+    boxShadow: 'var(--elev-inset)',
     transition: 'border-color 0.2s', width: '100%', boxSizing: 'border-box' as const,
     fontFamily: 'inherit',
   }
@@ -270,30 +270,30 @@ export default function Signup() {
 
             {/* Google */}
             <button type="button" onClick={handleGoogleSignup}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '12px', borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: 'pointer', background: 'var(--surface2)', color: 'var(--text)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '3px 3px 8px var(--neu-dark), -2px -2px 6px var(--neu-light)' }}>
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '12px', borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: 'pointer', background: 'var(--surface2)', color: 'var(--text)', border: '1px solid var(--border)', boxShadow: 'var(--elev-raise-sm)' }}>
               <GoogleSVG /> Continue with Google
             </button>
             {divider}
 
             <Field label="Username" error={errors.username}>
               <input value={username} onChange={e => setUsername(e.target.value)} placeholder="e.g. NeonX_99" autoComplete="username" style={neuInput(!!errors.username)}
-                onFocus={e => { e.target.style.borderColor = 'rgba(255,107,0,0.4)' }} onBlur={e => { e.target.style.borderColor = errors.username ? 'var(--red)' : 'rgba(255,255,255,0.07)' }} />
+                onFocus={e => { e.target.style.borderColor = 'color-mix(in srgb, var(--accent) 40%, transparent)' }} onBlur={e => { e.target.style.borderColor = errors.username ? 'var(--red)' : 'rgba(255,255,255,0.07)' }} />
             </Field>
 
             <Field label="Email address" error={errors.email}>
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@email.com" autoComplete="email" style={neuInput(!!errors.email)}
-                onFocus={e => { e.target.style.borderColor = 'rgba(255,107,0,0.4)' }} onBlur={e => { e.target.style.borderColor = errors.email ? 'var(--red)' : 'rgba(255,255,255,0.07)' }} />
+                onFocus={e => { e.target.style.borderColor = 'color-mix(in srgb, var(--accent) 40%, transparent)' }} onBlur={e => { e.target.style.borderColor = errors.email ? 'var(--red)' : 'rgba(255,255,255,0.07)' }} />
             </Field>
 
             <Field label="Date of birth" error={errors.dob}>
               <input type="date" value={dob} onChange={e => setDob(e.target.value)} max={new Date().toISOString().split('T')[0]} style={neuInput(!!errors.dob)}
-                onFocus={e => { e.target.style.borderColor = 'rgba(255,107,0,0.4)' }} onBlur={e => { e.target.style.borderColor = errors.dob ? 'var(--red)' : 'rgba(255,255,255,0.07)' }} />
+                onFocus={e => { e.target.style.borderColor = 'color-mix(in srgb, var(--accent) 40%, transparent)' }} onBlur={e => { e.target.style.borderColor = errors.dob ? 'var(--red)' : 'rgba(255,255,255,0.07)' }} />
             </Field>
 
             <Field label="Password" error={errors.password}>
               <div style={{ position: 'relative' }}>
                 <input type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Min 8 characters" autoComplete="new-password" style={neuInput(!!errors.password)}
-                  onFocus={e => { e.target.style.borderColor = 'rgba(255,107,0,0.4)' }} onBlur={e => { e.target.style.borderColor = errors.password ? 'var(--red)' : 'rgba(255,255,255,0.07)' }} />
+                  onFocus={e => { e.target.style.borderColor = 'color-mix(in srgb, var(--accent) 40%, transparent)' }} onBlur={e => { e.target.style.borderColor = errors.password ? 'var(--red)' : 'rgba(255,255,255,0.07)' }} />
                 <button type="button" onClick={() => setShowPw(v => !v)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer' }}>{showPw ? 'Hide' : 'Show'}</button>
               </div>
               <PwStrength score={pwStrength(password)} />
@@ -302,7 +302,7 @@ export default function Signup() {
             <Field label="Confirm password" error={errors.confirm}>
               <div style={{ position: 'relative' }}>
                 <input type={showConfirm ? 'text' : 'password'} value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Repeat password" autoComplete="new-password" style={neuInput(!!errors.confirm)}
-                  onFocus={e => { e.target.style.borderColor = 'rgba(255,107,0,0.4)' }} onBlur={e => { e.target.style.borderColor = errors.confirm ? 'var(--red)' : 'rgba(255,255,255,0.07)' }} />
+                  onFocus={e => { e.target.style.borderColor = 'color-mix(in srgb, var(--accent) 40%, transparent)' }} onBlur={e => { e.target.style.borderColor = errors.confirm ? 'var(--red)' : 'rgba(255,255,255,0.07)' }} />
                 <button type="button" onClick={() => setShowConfirm(v => !v)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer' }}>{showConfirm ? 'Hide' : 'Show'}</button>
               </div>
             </Field>
@@ -343,7 +343,7 @@ export default function Signup() {
                   border: `1.5px solid ${selectedPlatform === p.id ? 'rgba(155,109,255,0.5)' : 'rgba(255,255,255,0.07)'}`,
                   borderRadius: 14, padding: '14px 16px',
                   boxShadow: selectedPlatform === p.id ? '0 0 20px rgba(155,109,255,0.15)' : '2px 2px 6px var(--neu-dark)',
-                  transition: 'all 0.2s',
+                  transition: 'background-color var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out)',
                 }}>
                 <div style={{ width: 44, height: 44, borderRadius: 12, background: p.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 20 }}>
                   {p.icon === 'discord' ? <DiscordSVG /> : p.icon === 'google' ? <GoogleSVG /> : p.icon}
@@ -357,7 +357,7 @@ export default function Signup() {
                   border: `2px solid ${selectedPlatform === p.id ? 'var(--purple)' : 'rgba(255,255,255,0.2)'}`,
                   background: selectedPlatform === p.id ? 'var(--purple)' : 'transparent',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  transition: 'all 0.2s',
+                  transition: 'background-color var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out)',
                 }}>
                   {selectedPlatform === p.id && <Check size={11} color="#fff" />}
                 </div>
@@ -394,7 +394,7 @@ export default function Signup() {
 
             <Field label="Display name">
               <input value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="How others see you" style={neuInput(false)}
-                onFocus={e => { e.target.style.borderColor = 'rgba(255,107,0,0.4)' }} onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.07)' }} />
+                onFocus={e => { e.target.style.borderColor = 'color-mix(in srgb, var(--accent) 40%, transparent)' }} onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.07)' }} />
             </Field>
 
             <Field label="Country / Region">
@@ -419,7 +419,7 @@ export default function Signup() {
                         background: selected ? 'rgba(155,109,255,0.12)' : 'var(--surface2)',
                         border: `1.5px solid ${selected ? 'rgba(155,109,255,0.5)' : 'rgba(255,255,255,0.07)'}`,
                         color: selected ? '#d4b8ff' : 'var(--text-dim)',
-                        transition: 'all 0.18s',
+                        transition: 'background-color var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out)',
                         boxShadow: selected ? '0 0 12px rgba(155,109,255,0.15)' : '2px 2px 5px var(--neu-dark)',
                       }}>
                       <Icon className="w-3.5 h-3.5" />
@@ -449,7 +449,7 @@ export default function Signup() {
         <div style={{
           position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
           borderRadius: 20, padding: '10px 20px', fontSize: 13, fontWeight: 600,
-          boxShadow: '0 10px 40px rgba(0,0,0,0.4)', zIndex: 999, whiteSpace: 'nowrap',
+          boxShadow: 'var(--elev-raise)', zIndex: 999, whiteSpace: 'nowrap',
           background: 'var(--surface)',
           border: `1px solid ${toast.type === 'success' ? 'rgba(62,207,142,0.4)' : 'rgba(255,79,79,0.4)'}`,
           color: toast.type === 'success' ? 'var(--green)' : 'var(--red)',
