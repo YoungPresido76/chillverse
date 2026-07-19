@@ -15,7 +15,7 @@ function CountdownChip({ days, hours, minutes }: { days: number; hours: number; 
       border: '1px solid rgba(155,109,255,0.22)',
       borderRadius: 12,
       padding: '7px 12px',
-      boxShadow: '4px 4px 12px var(--neu-dark), -2px -2px 8px var(--neu-light)',
+      boxShadow: 'var(--elev-raise)',
       display: 'flex',
       alignItems: 'center',
       gap: 7,
@@ -66,7 +66,7 @@ function RewardBadge({ mission }: { mission: MissionWithProgress }) {
     display: 'flex',
     alignItems: 'center',
     gap: 5,
-    boxShadow: 'inset 2px 2px 6px var(--neu-dark)',
+    boxShadow: 'var(--elev-inset)',
     flexShrink: 0,
   }
 
@@ -195,8 +195,8 @@ function MissionCard({ mission, index }: { mission: MissionWithProgress; index: 
         style={{
           ...cardInner,
           background: 'var(--surface2)',
-          border: '1px solid rgba(255,255,255,0.06)',
-          boxShadow: '6px 6px 14px var(--neu-dark), -4px -4px 10px var(--neu-light)',
+          border: '1px solid var(--border)',
+          boxShadow: 'var(--elev-raise)',
           transition: 'border-color 0.2s, transform 0.2s, box-shadow 0.2s',
         }}
         onMouseEnter={e => {
@@ -251,7 +251,7 @@ function MissionCard({ mission, index }: { mission: MissionWithProgress; index: 
           <div style={{
             width: '100%', height: 4, borderRadius: 4,
             background: 'var(--surface3)',
-            boxShadow: 'inset 1px 1px 4px var(--neu-dark)',
+            boxShadow: 'var(--elev-inset)',
             overflow: 'hidden',
           }}>
             <div ref={progressRef} style={{
@@ -286,7 +286,7 @@ function WeeklyProgressFooter({
       borderRadius: 16,
       padding: '16px 18px',
       marginTop: 12,
-      border: '1px solid rgba(255,255,255,0.05)',
+      border: '1px solid var(--border)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -318,7 +318,7 @@ function WeeklyProgressFooter({
             fontSize: 10,
             fontWeight: 700,
             color: pct > 0 ? '#9b6dff' : 'var(--text-muted)',
-            boxShadow: 'inset 1px 1px 4px var(--neu-dark)',
+            boxShadow: 'var(--elev-inset)',
           }}>
             {pct}%
           </div>
@@ -369,7 +369,7 @@ function SkeletonCard() {
     <div style={{
       height: 80, borderRadius: 14,
       background: 'var(--surface2)',
-      boxShadow: '6px 6px 14px var(--neu-dark), -4px -4px 10px var(--neu-light)',
+      boxShadow: 'var(--elev-raise)',
       animation: 'pulse 1.6s ease-in-out infinite',
     }} />
   )
@@ -428,7 +428,7 @@ export default function WeeklyMissions() {
           <div style={{
             height: 3, borderRadius: 3,
             background: 'var(--surface3)',
-            boxShadow: 'inset 1px 1px 4px var(--neu-dark)',
+            boxShadow: 'var(--elev-inset)',
             overflow: 'hidden',
           }}>
             <div style={{

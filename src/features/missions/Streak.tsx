@@ -111,7 +111,7 @@ function Mascot({ mood, streak }: { mood: string; streak: number }) {
   return (
     <div style={{ position:"relative", width:200, height:190, display:"flex", alignItems:"flex-end", justifyContent:"center", margin:"0 auto" }}>
       {/* ambient pulsing glow behind the flame */}
-      <div style={{ position:"absolute", bottom:16, width:150, height:150, borderRadius:"50%", background:"radial-gradient(circle, rgba(255,107,0,0.45) 0%, transparent 70%)", filter:"blur(4px)", animation:"emberPulse 2.1s ease-in-out infinite" }} />
+      <div style={{ position:"absolute", bottom:16, width:150, height:150, borderRadius:"50%", background:"radial-gradient(circle, color-mix(in srgb, var(--accent) 45%, transparent) 0%, transparent 70%)", filter:"blur(4px)", animation:"emberPulse 2.1s ease-in-out infinite" }} />
 
       {/* rising embers */}
       <div style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
@@ -148,7 +148,7 @@ function Mascot({ mood, streak }: { mood: string; streak: number }) {
           width: 128,
           height: 128,
           objectFit: "contain",
-          filter: "drop-shadow(0 12px 20px rgba(255,107,0,0.55)) brightness(1.08) saturate(1.2)",
+          filter: "drop-shadow(0 12px 20px color-mix(in srgb, var(--accent) 55%, transparent)) brightness(1.08) saturate(1.2)",
           animation: "emberFlicker 2.6s ease-in-out infinite",
         }}
       />
@@ -171,7 +171,7 @@ function WeekRow({ streak, lastStreakDate }: { streak: number; lastStreakDate: s
               width:18, height:18, borderRadius:"50%",
               border: d.lit ? "none" : "1.5px solid var(--surface3)",
               background: d.lit ? "radial-gradient(circle at 35% 30%, var(--gold), var(--accent) 70%)" : "var(--surface2)",
-              boxShadow: d.lit ? "0 0 9px 1px rgba(255,107,0,0.55)" : "inset 2px 2px 5px var(--neu-dark)",
+              boxShadow: d.lit ? "0 0 9px 1px color-mix(in srgb, var(--accent) 55%, transparent)" : "inset 2px 2px 5px var(--neu-dark)",
               outline: d.isToday ? "2px solid var(--gold)" : "none",
               outlineOffset: 2,
               animation: d.isToday ? "todayPulse 1.8s ease-in-out infinite" : undefined,
@@ -294,7 +294,7 @@ export default function Streak({ onBack }: StreakProps) {
         {/* Topbar */}
         <div style={{ position:"sticky", top:0, height:58, display:"flex", alignItems:"center", gap:14, padding:"0 20px", background:"rgba(17,17,19,0.90)", backdropFilter:"blur(16px)", borderBottom:"1px solid rgba(255,255,255,0.05)", zIndex:50 }}>
           {onBack && (
-            <button onClick={onBack} style={{ width:36, height:36, borderRadius:10, background:"var(--surface)", border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"var(--text-dim)", boxShadow:"2px 2px 6px var(--neu-dark),-1px -1px 4px var(--neu-light)" }}>
+            <button onClick={onBack} style={{ width:36, height:36, borderRadius:10, background:"var(--surface)", border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"var(--text-dim)", boxShadow:"var(--elev-raise-sm)" }}>
               <ArrowLeft size={15} />
             </button>
           )}
@@ -304,13 +304,13 @@ export default function Streak({ onBack }: StreakProps) {
         <div style={{ padding:"20px 20px 32px", display:"flex", flexDirection:"column", gap:18 }}>
 
           {/* ── Ember hero card ── */}
-          <div style={{ position:"relative", borderRadius:24, background:"var(--surface)", boxShadow:"8px 8px 20px var(--neu-dark),-6px -6px 16px var(--neu-light)", border:"1px solid rgba(255,255,255,0.04)", padding:"26px 22px 22px", overflow:"hidden" }}>
+          <div style={{ position:"relative", borderRadius:24, background:"var(--surface)", boxShadow:"var(--elev-raise)", border:"1px solid rgba(255,255,255,0.04)", padding:"26px 22px 22px", overflow:"hidden" }}>
             {/* breathing ambient glow */}
-            <div style={{ position:"absolute", top:"-34%", left:"50%", width:280, height:280, transform:"translateX(-50%)", background:"radial-gradient(circle, rgba(255,107,0,0.4) 0%, transparent 68%)", filter:"blur(8px)", animation:"emberPulse 3.4s ease-in-out infinite", pointerEvents:"none" }} />
+            <div style={{ position:"absolute", top:"-34%", left:"50%", width:280, height:280, transform:"translateX(-50%)", background:"radial-gradient(circle, color-mix(in srgb, var(--accent) 40%, transparent) 0%, transparent 68%)", filter:"blur(8px)", animation:"emberPulse 3.4s ease-in-out infinite", pointerEvents:"none" }} />
 
             <div style={{ position:"relative", zIndex:2, display:"flex", alignItems:"flex-start", justifyContent:"space-between" }}>
               <span style={{ fontSize:11, fontWeight:700, color:"var(--text-muted)", letterSpacing:"1.2px", textTransform:"uppercase" }}>Current Streak</span>
-              <span style={{ display:"flex", alignItems:"center", gap:6, fontSize:10.5, fontWeight:700, color:meta.color, background:"var(--surface2)", border:`1px solid ${meta.color}`, padding:"5px 10px 5px 8px", borderRadius:999, boxShadow:"2px 2px 6px var(--neu-dark),-1px -1px 4px var(--neu-light)" }}>
+              <span style={{ display:"flex", alignItems:"center", gap:6, fontSize:10.5, fontWeight:700, color:meta.color, background:"var(--surface2)", border:`1px solid ${meta.color}`, padding:"5px 10px 5px 8px", borderRadius:999, boxShadow:"var(--elev-raise-sm)" }}>
                 <Flame size={11} color={meta.color} /> {meta.label.toUpperCase()}
               </span>
             </div>
@@ -334,7 +334,7 @@ export default function Streak({ onBack }: StreakProps) {
           </div>
 
           {/* ── Furnace milestone track ── */}
-          <div style={{ position:"relative", borderRadius:24, background:"var(--surface)", boxShadow:"8px 8px 20px var(--neu-dark),-6px -6px 16px var(--neu-light)", border:"1px solid rgba(255,255,255,0.04)", padding:"24px 22px 20px" }}>
+          <div style={{ position:"relative", borderRadius:24, background:"var(--surface)", boxShadow:"var(--elev-raise)", border:"1px solid rgba(255,255,255,0.04)", padding:"24px 22px 20px" }}>
             <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", marginBottom:20 }}>
               <span style={{ fontSize:11, fontWeight:700, color:"var(--text-muted)", letterSpacing:"1.2px", textTransform:"uppercase" }}>Milestones</span>
               <span style={{ fontSize:11.5, color:"var(--text-dim)" }}>{reachedCount}/{MILESTONES.length} reached</span>
@@ -342,8 +342,8 @@ export default function Streak({ onBack }: StreakProps) {
 
             <div style={{ position:"relative", height:60, margin:"6px 8px 4px" }}>
               {/* track */}
-              <div style={{ position:"absolute", top:"50%", left:0, right:0, height:6, transform:"translateY(-50%)", background:"var(--surface2)", borderRadius:6, overflow:"hidden", boxShadow:"inset 2px 2px 6px var(--neu-dark)" }}>
-                <div style={{ position:"relative", left:0, top:0, bottom:0, height:"100%", width:`${trackPct}%`, borderRadius:6, background:"linear-gradient(90deg, var(--accent), var(--accent2) 55%, var(--gold))", boxShadow:"0 0 12px 1px rgba(255,107,0,0.55)", transition:"width 1s cubic-bezier(0.4,0,0.2,1)", overflow:"hidden" }}>
+              <div style={{ position:"absolute", top:"50%", left:0, right:0, height:6, transform:"translateY(-50%)", background:"var(--surface2)", borderRadius:6, overflow:"hidden", boxShadow:"var(--elev-inset)" }}>
+                <div style={{ position:"relative", left:0, top:0, bottom:0, height:"100%", width:`${trackPct}%`, borderRadius:6, background:"linear-gradient(90deg, var(--accent), var(--accent2) 55%, var(--gold))", boxShadow:"0 0 12px 1px color-mix(in srgb, var(--accent) 55%, transparent)", transition:"width 1s cubic-bezier(0.4,0,0.2,1)", overflow:"hidden" }}>
                   <div style={{ position:"absolute", inset:0, width:"40%", background:"linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent)", animation:"trackSheen 2.6s ease-in-out infinite" }} />
                 </div>
               </div>
@@ -365,8 +365,8 @@ export default function Streak({ onBack }: StreakProps) {
 
               {/* marker */}
               <div style={{ position:"absolute", top:"50%", left:`${trackPct}%`, transform:"translate(-50%,-50%)" }}>
-                <div style={{ position:"absolute", top:"50%", left:"50%", width:44, height:44, transform:"translate(-50%,-50%)", background:"radial-gradient(circle, rgba(255,107,0,0.55) 0%, transparent 70%)", filter:"blur(3px)", animation:"emberPulse 2s ease-in-out infinite" }} />
-                <img src={furnaceMarker} alt="Current position" style={{ position:"relative", width:32, height:32, zIndex:2, filter:"drop-shadow(0 6px 8px rgba(255,107,0,0.5))", animation:"markerBob 2.4s ease-in-out infinite" }} />
+                <div style={{ position:"absolute", top:"50%", left:"50%", width:44, height:44, transform:"translate(-50%,-50%)", background:"radial-gradient(circle, color-mix(in srgb, var(--accent) 55%, transparent) 0%, transparent 70%)", filter:"blur(3px)", animation:"emberPulse 2s ease-in-out infinite" }} />
+                <img src={furnaceMarker} alt="Current position" style={{ position:"relative", width:32, height:32, zIndex:2, filter:"drop-shadow(0 6px 8px color-mix(in srgb, var(--accent) 50%, transparent))", animation:"markerBob 2.4s ease-in-out infinite" }} />
               </div>
             </div>
 
