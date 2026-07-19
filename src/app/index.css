@@ -52,13 +52,29 @@
      THEMES — accent/gold/blue/purple/green/pink/red stay constant
      across every theme; only surfaces + text shift.
      ══════════════════════════════════ */
-  :root, [data-theme="midnight"] {
-    --bg:        #111113;
-    --surface:   #1a1a1f;
-    --surface2:  #222228;
-    --surface3:  #2a2a32;
-    --neu-dark:  #0a0a0c;
-    --neu-light: #262630;
+  :root, [data-theme="grey"] {
+    --bg:        #2b2d31;
+    --nav:       #232428;
+    --surface:   #313338;
+    --surface2:  #383a40;
+    --surface3:  #40424a;
+    --active:    #45474f;
+    --neu-dark:  #1c1d20;
+    --neu-light: #45474f;
+    --text:      #f2f3f5;
+    --text-dim:  #b5bac1;
+    --text-muted:#80848e;
+  }
+
+  [data-theme="midnight"] {
+    --bg:        #09090b;
+    --nav:       #101014;
+    --surface:   #18181d;
+    --surface2:  #1e1e24;
+    --surface3:  #212129;
+    --active:    #2a2a33;
+    --neu-dark:  #050506;
+    --neu-light: #1e1e26;
     --text:      #e8e8f0;
     --text-dim:  #888899;
     --text-muted:#555566;
@@ -66,26 +82,16 @@
 
   [data-theme="white"] {
     --bg:        #eef0f4;
+    --nav:       #e3e6ec;
     --surface:   #ffffff;
     --surface2:  #f5f6fa;
     --surface3:  #eceef3;
+    --active:    #e2e4ea;
     --neu-dark:  #cdd1db;
     --neu-light: #ffffff;
     --text:      #16161c;
     --text-dim:  #5a5d6b;
     --text-muted:#9396a3;
-  }
-
-  [data-theme="grey"] {
-    --bg:        #2b2d31;
-    --surface:   #313338;
-    --surface2:  #383a40;
-    --surface3:  #40424a;
-    --neu-dark:  #1c1d20;
-    --neu-light: #45474f;
-    --text:      #f2f3f5;
-    --text-dim:  #b5bac1;
-    --text-muted:#80848e;
   }
 
   html { scroll-behavior: smooth; }
@@ -97,6 +103,67 @@
     min-height: 100vh;
     overflow-x: hidden;
   }
+}
+
+/* ══════════════════════════════════
+   MIDNIGHT — premium flat-layer overrides
+   Guidelines call for calm, restrained depth: subtle 1px borders and
+   surface-contrast instead of heavy neumorphic drop-shadows. Scoped to
+   this theme only so White/Grey keep their existing neumorphic feel.
+   ══════════════════════════════════ */
+[data-theme="midnight"] .neu-card,
+[data-theme="midnight"] .neu-card-sm {
+  box-shadow: none;
+  border: 1px solid rgba(255,255,255,0.05);
+  transition: background-color 200ms ease, border-color 200ms ease, transform 200ms ease;
+}
+[data-theme="midnight"] .neu-card:hover,
+[data-theme="midnight"] .neu-card-sm:hover {
+  background: var(--surface2);
+  border-color: rgba(255,255,255,0.08);
+  box-shadow: none;
+  transform: translateY(-2px);
+}
+[data-theme="midnight"] .neu-inset {
+  box-shadow: none;
+  border: 1px solid rgba(255,255,255,0.05);
+  background: var(--surface2);
+}
+[data-theme="midnight"] .neu-icon {
+  box-shadow: none;
+  border: 1px solid rgba(255,255,255,0.05);
+  background: var(--surface2);
+}
+[data-theme="midnight"] .btn-secondary {
+  box-shadow: none;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+[data-theme="midnight"] .btn-secondary:hover {
+  background: var(--active);
+}
+[data-theme="midnight"] .chip {
+  box-shadow: none;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+[data-theme="midnight"] .nav-icon-wrap {
+  box-shadow: none;
+}
+[data-theme="midnight"] .topbar-shell {
+  background: rgba(16,16,20,0.92);
+  box-shadow: none;
+}
+[data-theme="midnight"] .sidebar-shell {
+  background: rgba(16,16,20,0.92);
+  box-shadow: none;
+  border-right: 1px solid rgba(255,255,255,0.05);
+}
+[data-theme="midnight"] .xp-track {
+  box-shadow: none;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+/* Ambient glows kept extremely soft, per guidelines (60-80% reduced opacity) */
+[data-theme="midnight"] .bubble {
+  opacity: 0.05;
 }
 
 /* ══════════════════════════════════
@@ -186,6 +253,31 @@
   background: linear-gradient(90deg, var(--purple), var(--blue));
   box-shadow: 0 0 10px rgba(79,142,247,0.4);
   transition: width 1.2s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ── Inputs (comments, composers) ── */
+.cv-input {
+  background: var(--surface2);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: var(--radius-sm);
+  padding: 11px 14px;
+  font-size: 12.5px;
+  color: var(--text);
+  outline: none;
+  box-shadow: inset 2px 2px 6px var(--neu-dark), inset -1px -1px 3px var(--neu-light);
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+[data-theme="midnight"] .cv-input {
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
+}
+.cv-input::placeholder { color: var(--text-muted); }
+.cv-input:focus {
+  border-color: rgba(255,107,0,0.45);
+  box-shadow: 0 0 0 3px rgba(255,107,0,0.12);
+}
+.cv-send-btn {
+  width: 38px; height: 38px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 
 /* ── Labels / Chips ── */
@@ -547,7 +639,7 @@
 .sheet-or-modal-inner {
   border-radius: 28px 28px 0 0;
   border-top: 1px solid rgba(255,255,255,0.08);
-  transition: transform 0.32s cubic-bezier(0.34,1.56,0.64,1);
+  transition: transform 220ms cubic-bezier(0.4,0,0.2,1);
 }
 
 /* Desktop (lg+): centered modal instead of bottom sheet */
