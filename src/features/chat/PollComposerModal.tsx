@@ -96,7 +96,7 @@ export default function PollComposerModal({ open, onClose, roomId, maxDurationHo
           placeholder="Ask a question…"
           maxLength={300}
           rows={2}
-          style={{ width: '100%', resize: 'none', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 12px', fontSize: 14, color: 'var(--text)', marginBottom: 12 }}
+          style={{ width: '100%', resize: 'none', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', fontSize: 14, color: 'var(--text)', marginBottom: 12 }}
         />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 8 }}>
@@ -107,7 +107,7 @@ export default function PollComposerModal({ open, onClose, roomId, maxDurationHo
                 onChange={e => updateOption(i, e.target.value)}
                 placeholder={`Option ${i + 1}`}
                 maxLength={80}
-                style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 9, padding: '8px 11px', fontSize: 13, color: 'var(--text)' }}
+                style={{ flex: 1, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 9, padding: '8px 11px', fontSize: 13, color: 'var(--text)' }}
               />
               {options.length > 2 && (
                 <button type="button" onClick={() => removeOption(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', flexShrink: 0 }}>

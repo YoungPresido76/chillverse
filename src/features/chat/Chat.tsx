@@ -129,7 +129,7 @@ function IBtn({ onClick, children, style, title }: {
 }) {
   return (
     <button type="button" onClick={onClick} title={title}
-      style={{ width:36, height:36, borderRadius:10, flexShrink:0, background:'var(--surface)', border:'1px solid rgba(255,255,255,0.06)', color:'var(--text-dim)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'color 0.15s', ...style }}
+      style={{ width:36, height:36, borderRadius:10, flexShrink:0, background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text-dim)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'color 0.15s', ...style }}
       onMouseEnter={e => { e.currentTarget.style.color = 'var(--text)' }}
       onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-dim)' }}>
       {children}
@@ -138,7 +138,7 @@ function IBtn({ onClick, children, style, title }: {
 }
 
 function Avatar({ name, avatarUrl, size = 40, radius = 13 }: { name: string; avatarUrl?: string | null; size?: number; radius?: number }) {
-  const colors = ['#ff6b6b','#4f8ef7','#9b6dff','#3ecf8e','#f5c542','#ff4d8b','#ff9a3c','#00e5ff']
+  const colors = ['#ff6b6b','#4f8ef7','#9b6dff','#3ecf8e','#f5c542','#ff4d8b','var(--accent2)','#00e5ff']
   const color = colors[(name.charCodeAt(0) || 0) % colors.length]
   if (avatarUrl) {
     return (
@@ -501,7 +501,7 @@ function PlayerProfileModal({ profile, myId, onClose, onStartChat, onBlockChange
   return (
     <>
       <div style={{ position:'fixed', inset:0, zIndex:200, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(4px)' }} onClick={onClose} />
-      <div style={{ position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)', zIndex:201, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.09)', borderRadius:22, padding:24, width: Math.min(300, window.innerWidth - 32), boxShadow:'0 20px 60px rgba(0,0,0,0.7)' }}>
+      <div style={{ position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)', zIndex:201, background:'var(--surface2)', border:'1px solid var(--border-strong)', borderRadius:22, padding:24, width: Math.min(300, window.innerWidth - 32), boxShadow:'var(--elev-popover)' }}>
         <button type="button" onClick={onClose} style={{ position:'absolute', top:14, right:14, background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)' }}>
           <X size={16} />
         </button>
@@ -515,12 +515,12 @@ function PlayerProfileModal({ profile, myId, onClose, onStartChat, onBlockChange
         {!isOwnProfile && (
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
             <button type="button" onClick={handleFollow} disabled={actionLoading || followStatus === 'blocked'}
-              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 16px', borderRadius:12, border:'none', cursor: actionLoading || followStatus === 'blocked' ? 'not-allowed' : 'pointer', background: followStatus === 'following' ? 'rgba(62,207,142,0.15)' : 'linear-gradient(135deg,var(--accent),var(--accent2))', color: followStatus === 'following' ? '#3ecf8e' : '#fff', fontSize:13, fontWeight:600, opacity: followStatus === 'blocked' ? 0.4 : 1, transition:'all 0.15s' }}>
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 16px', borderRadius:12, border:'none', cursor: actionLoading || followStatus === 'blocked' ? 'not-allowed' : 'pointer', background: followStatus === 'following' ? 'rgba(62,207,142,0.15)' : 'linear-gradient(135deg,var(--accent),var(--accent2))', color: followStatus === 'following' ? '#3ecf8e' : '#fff', fontSize:13, fontWeight:600, opacity: followStatus === 'blocked' ? 0.4 : 1, transition:'background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out)' }}>
               {followStatus === 'following' ? <><UserCheck size={14} /> Following</> : <><UserPlus size={14} /> Follow</>}
             </button>
             {onStartChat && (
               <button type="button" onClick={handleMessage} disabled={messaging}
-                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 16px', borderRadius:12, border:'1px solid rgba(255,255,255,0.1)', background:'transparent', color:'var(--text-dim)', fontSize:13, fontWeight:600, cursor: messaging ? 'not-allowed' : 'pointer', opacity: messaging ? 0.6 : 1, transition:'all 0.15s' }}>
+                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 16px', borderRadius:12, border:'1px solid var(--border-strong)', background:'transparent', color:'var(--text-dim)', fontSize:13, fontWeight:600, cursor: messaging ? 'not-allowed' : 'pointer', opacity: messaging ? 0.6 : 1, transition:'background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out)' }}>
                 <MessageCircle size={14} /> {messaging ? 'Opening…' : 'Message'}
               </button>
             )}
@@ -528,11 +528,11 @@ function PlayerProfileModal({ profile, myId, onClose, onStartChat, onBlockChange
               <p style={{ fontSize:11.5, color:'#ff6b6b', textAlign:'center', margin:0 }}>{messageError}</p>
             )}
             <button type="button" onClick={() => { onClose(); navigate(`/profile/${profile.id}`) }}
-              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 16px', borderRadius:12, border:'1px solid rgba(79,142,247,0.3)', background:'rgba(79,142,247,0.08)', color:'#4f8ef7', fontSize:13, fontWeight:600, cursor:'pointer', transition:'all 0.15s' }}>
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 16px', borderRadius:12, border:'1px solid rgba(79,142,247,0.3)', background:'rgba(79,142,247,0.08)', color:'#4f8ef7', fontSize:13, fontWeight:600, cursor:'pointer', transition:'background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out)' }}>
               <ExternalLink size={14} /> View Full Profile
             </button>
             <button type="button" onClick={handleBlock} disabled={actionLoading}
-              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 16px', borderRadius:12, border:'none', cursor: actionLoading ? 'not-allowed' : 'pointer', background: followStatus === 'blocked' ? 'rgba(255,107,107,0.15)' : 'rgba(255,107,107,0.08)', color: followStatus === 'blocked' ? '#ff6b6b' : 'var(--text-muted)', fontSize:13, fontWeight:600, transition:'all 0.15s' }}>
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 16px', borderRadius:12, border:'none', cursor: actionLoading ? 'not-allowed' : 'pointer', background: followStatus === 'blocked' ? 'rgba(255,107,107,0.15)' : 'rgba(255,107,107,0.08)', color: followStatus === 'blocked' ? '#ff6b6b' : 'var(--text-muted)', fontSize:13, fontWeight:600, transition:'background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out)' }}>
               <ShieldOff size={14} /> {followStatus === 'blocked' ? 'Unblock' : 'Block'}
             </button>
           </div>
@@ -540,7 +540,7 @@ function PlayerProfileModal({ profile, myId, onClose, onStartChat, onBlockChange
         {isOwnProfile && (
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
             <button type="button" onClick={() => { onClose(); navigate('/profile') }}
-              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 16px', borderRadius:12, border:'1px solid rgba(79,142,247,0.3)', background:'rgba(79,142,247,0.08)', color:'#4f8ef7', fontSize:13, fontWeight:600, cursor:'pointer', transition:'all 0.15s' }}>
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 16px', borderRadius:12, border:'1px solid rgba(79,142,247,0.3)', background:'rgba(79,142,247,0.08)', color:'#4f8ef7', fontSize:13, fontWeight:600, cursor:'pointer', transition:'background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out)' }}>
               <ExternalLink size={14} /> View My Profile
             </button>
           </div>
@@ -1830,7 +1830,7 @@ export default function Chat() {
             </div>
 
             {/* Room search */}
-            <div style={{ display:'flex', alignItems:'center', gap:8, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:12, padding:'8px 12px', marginBottom:8, marginInline: isMobile ? 12 : 0 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:12, padding:'8px 12px', marginBottom:8, marginInline: isMobile ? 12 : 0 }}>
               <Search size={14} style={{ color:'var(--text-muted)', flexShrink:0 }} />
               <input type="text" placeholder="Search chats…" value={roomSearch} onChange={e => setRoomSearch(e.target.value)}
 
@@ -1858,7 +1858,7 @@ export default function Chat() {
 
           {/* Player search results */}
           {playerSearch.trim() && (
-            <div style={{ borderBottom:'1px solid rgba(255,255,255,0.05)', paddingBottom:6 }}>
+            <div style={{ borderBottom:'1px solid var(--border)', paddingBottom:6 }}>
               <div style={{ padding:'4px 16px 6px', fontSize:10, fontWeight:600, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Players</div>
               {playerSearching ? (
                 <div style={{ display:'flex', justifyContent:'center', padding:16 }}>
@@ -1981,7 +1981,7 @@ export default function Chat() {
                   arrow + retractable action drawer on the right. The drawer is a small
                   rectangle that slides open horizontally to reveal icons, then retracts
                   cleanly back into the header on toggle. */}
-              <div style={{ display:'flex', alignItems:'center', gap:10, padding:'0 12px 0 16px', height:56, flexShrink:0, background:'rgba(17,17,19,0.90)', backdropFilter:'blur(14px)', borderBottom:'1px solid rgba(255,255,255,0.05)', position:'relative' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10, padding:'0 12px 0 16px', height:56, flexShrink:0, background:'rgba(17,17,19,0.90)', backdropFilter:'blur(14px)', borderBottom:'1px solid var(--border)', position:'relative' }}>
                 <div style={{ display:'flex', alignItems:'center', gap:10, flex:1, minWidth:0,
                   cursor: activeRoom.type === 'dm' ? 'pointer' : 'default' }}
                   onClick={() => { if (activeRoom.type === 'dm') setDmOptionsOpen(true) }}>
@@ -2064,7 +2064,7 @@ export default function Chat() {
 
               {/* Message search bar — slides in below the header when the drawer's search icon is toggled */}
               {msgSearchOpen && (
-                <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'var(--surface2)', borderBottom:'1px solid rgba(255,255,255,0.05)', flexShrink:0 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'var(--surface2)', borderBottom:'1px solid var(--border)', flexShrink:0 }}>
                   <Search size={13} style={{ color:'var(--text-muted)', flexShrink:0 }} />
                   <input
                     type="text"
@@ -2084,7 +2084,7 @@ export default function Chat() {
 
               {/* Spotlight banner — temporary pin, shows above the permanent pin below */}
               {spotlightMsgPreview && activeRoom.type === 'global' && (
-                <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 16px', background:'rgba(255,193,7,0.10)', borderBottom:'1px solid rgba(255,255,255,0.05)', flexShrink:0 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 16px', background:'rgba(255,193,7,0.10)', borderBottom:'1px solid var(--border)', flexShrink:0 }}>
                   <Zap size={13} style={{ color:'#ffc107', flexShrink:0 }} />
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontSize:10.5, fontWeight:700, color:'#ffc107' }}>Spotlight — {spotlightMsgPreview.senderName}</div>
@@ -2100,7 +2100,7 @@ export default function Chat() {
 
               {/* Pinned message banner */}
               {pinnedMsgPreview && (
-                <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 16px', background:'rgba(79,142,247,0.08)', borderBottom:'1px solid rgba(255,255,255,0.05)', flexShrink:0 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 16px', background:'rgba(79,142,247,0.08)', borderBottom:'1px solid var(--border)', flexShrink:0 }}>
                   <Pin size={13} style={{ color:'#4f8ef7', flexShrink:0 }} />
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontSize:10.5, fontWeight:700, color:'#4f8ef7' }}>{pinnedMsgPreview.senderName}</div>
@@ -2242,7 +2242,7 @@ export default function Chat() {
 
               {/* Reply bar */}
               {replyTo && (
-                <div style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 14px', background:'var(--surface2)', borderTop:'1px solid rgba(255,255,255,0.04)' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 14px', background:'var(--surface2)', borderTop:'1px solid var(--border)' }}>
                   <Reply size={14} style={{ color:'var(--accent)', flexShrink:0 }} />
                   <div style={{ flex:1, fontSize:12, color:'var(--text-dim)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                     <span style={{ color:'var(--accent)', fontWeight:600 }}>Replying to {replyTo.sender_id === myId ? 'yourself' : (replyTo.senderName || 'Unknown')}: </span>{replyTo.content}
@@ -2255,7 +2255,7 @@ export default function Chat() {
               {pendingRankTag && (() => {
                 const g = RANK_GROUPS.find(rg => rg.id === pendingRankTag)!
                 return (
-                  <div style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 14px', background:'var(--surface2)', borderTop:'1px solid rgba(255,255,255,0.04)' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 14px', background:'var(--surface2)', borderTop:'1px solid var(--border)' }}>
                     <Megaphone size={14} style={{ color: g.color, flexShrink:0 }} />
                     <div style={{ flex:1, fontSize:12, color:'var(--text-dim)' }}>
                       <span style={{ color: g.color, fontWeight:700 }}>Tagging @{g.label}</span> — notifies everyone in that rank
@@ -2294,7 +2294,7 @@ export default function Chat() {
                   {composerError && (
                     <div style={{ padding:'6px 16px', fontSize:11.5, color:'#ff6b6b', background:'rgba(255,107,107,0.08)' }}>{composerError}</div>
                   )}
-                  <div style={{ display:'flex', alignItems:'flex-end', gap:8, padding:'10px 12px', background:'rgba(17,17,19,0.92)', backdropFilter:'blur(14px)', borderTop:'1px solid rgba(255,255,255,0.05)' }}>
+                  <div style={{ display:'flex', alignItems:'flex-end', gap:8, padding:'10px 12px', background:'rgba(17,17,19,0.92)', backdropFilter:'blur(14px)', borderTop:'1px solid var(--border)' }}>
                     {!isRecordingVoiceNote && (
                       <div style={{ position:'relative', flexShrink:0 }}>
                         <IBtn onClick={() => setComposerDrawerOpen(o => !o)} style={{ background: composerDrawerOpen ? 'var(--surface2)' : 'var(--surface)' }}>
@@ -2308,10 +2308,10 @@ export default function Chat() {
                           transform: composerDrawerOpen ? 'translateY(0)' : 'translateY(8px)',
                           pointerEvents: composerDrawerOpen ? 'auto' : 'none',
                           background: 'var(--surface2)',
-                          border: '1px solid rgba(255,255,255,0.08)',
+                          border: '1px solid var(--border)',
                           borderRadius:14,
                           padding: composerDrawerOpen ? '6px' : '0 6px',
-                          boxShadow:'0 12px 40px rgba(0,0,0,0.5)',
+                          boxShadow:'var(--elev-popover)',
                           transition:'max-height 0.28s ease, opacity 0.2s ease, transform 0.28s ease, padding 0.28s ease',
                           zIndex:50,
                         }}>
@@ -2326,7 +2326,7 @@ export default function Chat() {
                       </div>
                     )}
                     {!isRecordingVoiceNote && (
-                      <div style={{ flex:1, background:'var(--surface)', boxShadow:'inset 2px 2px 6px var(--neu-dark)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:14, padding:'9px 12px', display:'flex', alignItems:'flex-end' }}>
+                      <div style={{ flex:1, background:'var(--surface)', boxShadow:'var(--elev-inset)', border:'1px solid var(--border)', borderRadius:14, padding:'9px 12px', display:'flex', alignItems:'flex-end' }}>
                         <textarea rows={1} value={text} onChange={handleTextChange} onKeyDown={handleKey}
                           placeholder="Type a message…" maxLength={MAX_MESSAGE_LENGTH}
                           style={{ flex:1, background:'transparent', border:'none', outline:'none', color:'var(--text)', fontSize:13.5, resize:'none', maxHeight:80, overflowY:'auto', lineHeight:1.4, fontFamily:'inherit' }} />
@@ -2334,7 +2334,7 @@ export default function Chat() {
                     )}
                     {text.trim() ? (
                       <button type="button" onClick={sendMsg} disabled={!text.trim() || sending}
-                        style={{ width:40, height:40, borderRadius:11, flexShrink:0, border:'none', background:'linear-gradient(135deg,var(--accent),var(--accent2))', boxShadow:'0 4px 14px rgba(255,107,0,0.35)', color:'#fff', cursor: !text.trim() || sending ? 'not-allowed' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s', opacity: !text.trim() || sending ? 0.6 : 1 }}>
+                        style={{ width:40, height:40, borderRadius:11, flexShrink:0, border:'none', background:'linear-gradient(135deg,var(--accent),var(--accent2))', boxShadow:'0 4px 14px color-mix(in srgb, var(--accent) 35%, transparent)', color:'#fff', cursor: !text.trim() || sending ? 'not-allowed' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out)', opacity: !text.trim() || sending ? 0.6 : 1 }}>
                         <Send size={16} />
                       </button>
                     ) : myIsPro ? (
@@ -2349,7 +2349,7 @@ export default function Chat() {
                         type="button"
                         onClick={() => navigate('/pro')}
                         title="Voice notes are a Chillverse Pro perk"
-                        style={{ width:40, height:40, borderRadius:11, flexShrink:0, border:'1px solid rgba(255,255,255,0.08)', background:'var(--surface2)', color:'var(--text-dim)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}
+                        style={{ width:40, height:40, borderRadius:11, flexShrink:0, border:'1px solid var(--border)', background:'var(--surface2)', color:'var(--text-dim)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}
                       >
                         <Lock size={15} />
                       </button>
@@ -2360,7 +2360,7 @@ export default function Chat() {
 
               {/* Emoji picker */}
               {emojiOpen && (
-                <div style={{ position:'absolute', bottom:70, right:14, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:16, padding:12, display:'flex', flexWrap:'wrap', gap:4, boxShadow:'0 12px 40px rgba(0,0,0,0.5)', maxWidth:230, zIndex:50 }}>
+                <div style={{ position:'absolute', bottom:70, right:14, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:16, padding:12, display:'flex', flexWrap:'wrap', gap:4, boxShadow:'var(--elev-popover)', maxWidth:230, zIndex:50 }}>
                   {EMOJIS.map(em => (
                     <button key={em} type="button" onClick={() => { setText(t => t + em); setEmojiOpen(false) }} style={{ background:'none', border:'none', cursor:'pointer', fontSize:20, padding:3 }}>{em}</button>
                   ))}
@@ -2369,7 +2369,7 @@ export default function Chat() {
 
               {/* Rank tag picker — Staff/Moderator/Admin, Global Chat only */}
               {rankTagPickerOpen && (
-                <div style={{ position:'absolute', bottom:70, right:14, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:16, padding:10, display:'flex', flexDirection:'column', gap:4, boxShadow:'0 12px 40px rgba(0,0,0,0.5)', minWidth:170, zIndex:50 }}>
+                <div style={{ position:'absolute', bottom:70, right:14, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:16, padding:10, display:'flex', flexDirection:'column', gap:4, boxShadow:'var(--elev-popover)', minWidth:170, zIndex:50 }}>
                   <div style={{ fontSize:10.5, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:0.3, padding:'2px 6px 4px' }}>Tag a rank</div>
                   {RANK_GROUPS.map(g => (
                     <button key={g.id} type="button"
@@ -2388,7 +2388,7 @@ export default function Chat() {
               {ctxMsg && (
                 <>
                   <div style={{ position:'fixed', inset:0, zIndex:90 }} onClick={() => setCtxMsg(null)} />
-                  <div style={{ position:'fixed', left: Math.min(ctxPos.x, window.innerWidth - 175), top: Math.min(ctxPos.y, window.innerHeight - 180), zIndex:100, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:14, overflow:'hidden', boxShadow:'0 12px 40px rgba(0,0,0,0.5)', minWidth:165 }}>
+                  <div style={{ position:'fixed', left: Math.min(ctxPos.x, window.innerWidth - 175), top: Math.min(ctxPos.y, window.innerHeight - 180), zIndex:100, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:14, overflow:'hidden', boxShadow:'var(--elev-popover)', minWidth:165 }}>
                     {[
                       { icon: <Reply size={14} />, label:'Reply', action: () => { setReplyTo(ctxMsg); setCtxMsg(null) } },
                       ...(activeRoom?.type === 'dm' ? [{
@@ -2457,7 +2457,7 @@ export default function Chat() {
       {spotlightPickerFor && (
         <>
           <div style={{ position:'fixed', inset:0, zIndex:90 }} onClick={() => { setSpotlightPickerFor(null); setSpotlightCustomMinutes('') }} />
-          <div style={{ position:'fixed', left: Math.min(ctxPos.x, window.innerWidth - 210), top: Math.min(ctxPos.y, window.innerHeight - 220), zIndex:100, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:14, padding:10, boxShadow:'0 12px 40px rgba(0,0,0,0.5)', minWidth:195 }}>
+          <div style={{ position:'fixed', left: Math.min(ctxPos.x, window.innerWidth - 210), top: Math.min(ctxPos.y, window.innerHeight - 220), zIndex:100, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:14, padding:10, boxShadow:'var(--elev-popover)', minWidth:195 }}>
             <div style={{ fontSize:10.5, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:0.3, padding:'2px 6px 6px' }}>Spotlight duration</div>
             {[{ label: '10 minutes', minutes: 10 }, { label: '1 hour', minutes: 60 }].map(p => (
               <button key={p.minutes} type="button"
@@ -2471,7 +2471,7 @@ export default function Chat() {
             <div style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 9px 2px' }}>
               <input type="number" min={1} max={1440} value={spotlightCustomMinutes} onChange={e => setSpotlightCustomMinutes(e.target.value)}
                 placeholder="Custom (min)"
-                style={{ width:90, background:'var(--surface)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:7, padding:'6px 8px', fontSize:12, color:'var(--text)' }} />
+                style={{ width:90, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:7, padding:'6px 8px', fontSize:12, color:'var(--text)' }} />
               <button type="button"
                 disabled={!spotlightCustomMinutes || Number(spotlightCustomMinutes) <= 0}
                 onClick={() => {
@@ -2493,7 +2493,7 @@ export default function Chat() {
       {convMenuOpen && activeRoom && (
         <>
           <div style={{ position:'fixed', inset:0, zIndex:190 }} onClick={() => setConvMenuOpen(false)} />
-          <div style={{ position:'fixed', left: Math.min(convMenuPos.x - 180, window.innerWidth - 188), top: Math.min(convMenuPos.y, window.innerHeight - 140), zIndex:200, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:14, overflow:'hidden', boxShadow:'0 12px 40px rgba(0,0,0,0.5)', minWidth:180 }}>
+          <div style={{ position:'fixed', left: Math.min(convMenuPos.x - 180, window.innerWidth - 188), top: Math.min(convMenuPos.y, window.innerHeight - 140), zIndex:200, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:14, overflow:'hidden', boxShadow:'var(--elev-popover)', minWidth:180 }}>
             {[
               {
                 icon: activeRoom.pinned ? <PinOff size={14} /> : <Pin size={14} />,
@@ -2543,7 +2543,7 @@ export default function Chat() {
         return (
           <>
             <div style={{ position:'fixed', inset:0, zIndex:190 }} onClick={() => setRoomMenuOpenFor(null)} />
-            <div style={{ position:'fixed', left: Math.min(roomMenuPos.x - 170, window.innerWidth - 178), top: Math.min(roomMenuPos.y, window.innerHeight - 100), zIndex:200, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:14, overflow:'hidden', boxShadow:'0 12px 40px rgba(0,0,0,0.5)', minWidth:170 }}>
+            <div style={{ position:'fixed', left: Math.min(roomMenuPos.x - 170, window.innerWidth - 178), top: Math.min(roomMenuPos.y, window.innerHeight - 100), zIndex:200, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:14, overflow:'hidden', boxShadow:'var(--elev-popover)', minWidth:170 }}>
               {[
                 {
                   icon: menuRoom.pinned ? <PinOff size={14} /> : <Pin size={14} />,
@@ -2589,7 +2589,7 @@ export default function Chat() {
       {dmOptionsOpen && activeRoom && activeRoom.type === 'dm' && (
         <>
           <div style={{ position:'fixed', inset:0, zIndex:200, background:'rgba(0,0,0,0.5)', backdropFilter:'blur(3px)' }} onClick={() => setDmOptionsOpen(false)} />
-          <div style={{ position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)', zIndex:201, background:'var(--surface2)', border:'1px solid rgba(255,255,255,0.09)', borderRadius:18, padding:'20px 20px 16px', width: Math.min(260, window.innerWidth - 32), boxShadow:'0 20px 60px rgba(0,0,0,0.7)' }}>
+          <div style={{ position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)', zIndex:201, background:'var(--surface2)', border:'1px solid var(--border-strong)', borderRadius:18, padding:'20px 20px 16px', width: Math.min(260, window.innerWidth - 32), boxShadow:'var(--elev-popover)' }}>
             <button type="button" onClick={() => setDmOptionsOpen(false)} style={{ position:'absolute', top:12, right:12, background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)' }}>
               <X size={15} />
             </button>

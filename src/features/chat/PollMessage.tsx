@@ -107,7 +107,7 @@ export default function PollMessage({ pollId, myId, isStaff, refreshToken }: Pol
     (pendingMulti.length !== poll.myVotes.length || pendingMulti.some(id => !poll.myVotes.includes(id)))
 
   return (
-    <div style={{ margin: '10px 0', padding: '12px 14px', borderRadius: 14, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.08)', maxWidth: 340 }}>
+    <div style={{ margin: '10px 0', padding: '12px 14px', borderRadius: 14, background: 'var(--surface2)', border: '1px solid var(--border)', maxWidth: 340 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
         <BarChart3 size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />
         <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.3 }}>

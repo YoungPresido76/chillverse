@@ -74,7 +74,7 @@ export default function StarredMessagesPanel({ open, onClose, myId, roomId, room
             {entries.map(entry => (
               <div
                 key={entry.messageId}
-                style={{ display: 'flex', flexDirection: 'column', gap: 4, textAlign: 'left', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '10px 12px' }}
+                style={{ display: 'flex', flexDirection: 'column', gap: 4, textAlign: 'left', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 12px' }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
                   <button
