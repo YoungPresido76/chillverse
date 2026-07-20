@@ -45,6 +45,6 @@ create trigger protect_author_flags_trg
 -- (and harmless) if that username isn't present yet.
 update public.profiles
   set can_author = true, is_founder = true
-  where lower(username) = 'victor_vk';
+  where lower(username) = 'Victor_00';
 
 notify pgrst, 'reload schema';
