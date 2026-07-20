@@ -1,9 +1,11 @@
 // src/pages/Exploration.tsx
 import { useState, useEffect, useRef } from 'react'
-import { Battery, Lock, Zap, MapPin, ChevronLeft, Crown, Star, Trophy, GamepadIcon } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Battery, Lock, Zap, MapPin, ChevronLeft, Crown, Star, Trophy, GamepadIcon, Newspaper } from 'lucide-react'
 import { supabase } from '../../shared/lib/supabase'
 import { useAuth } from '../auth/useAuth'
 import { useProfile } from '../profile/useProfile'
+import { ripple } from '../../shared/lib/ripple'
 import StoryCheckpointOverlay from './story/StoryCheckpointOverlay'
 import { STORY_CONTENT } from './story/content'
 import type { CheckpointStage, StoryChoiceOption } from './story/types'
@@ -1071,6 +1073,7 @@ function MapView({
 
 // ── Main Page ─────────────────────────────────────────────────
 export default function Exploration() {
+  const navigate = useNavigate()
   const { session } = useAuth()
   const userId = session?.user?.id ?? null
   const { profile } = useProfile()
@@ -1198,19 +1201,36 @@ export default function Exploration() {
       <div style={{ padding: '20px 20px 0', filter: pageGrey ? 'grayscale(1) brightness(0.4)' : 'none', transition: 'filter 0.3s' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-          <div style={{
-            width: 44, height: 44, borderRadius: 14,
-            background: 'linear-gradient(135deg,#9b6dff,#4f8ef7)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 20px rgba(155,109,255,0.35)',
-          }}>
-            <GamepadIcon size={22} style={{ color: '#fff' }} />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{
+              width: 44, height: 44, borderRadius: 14,
+              background: 'linear-gradient(135deg,#9b6dff,#4f8ef7)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 20px rgba(155,109,255,0.35)',
+            }}>
+              <GamepadIcon size={22} style={{ color: '#fff' }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)' }}>Exploration</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Discover chambers & earn artifacts</div>
+            </div>
           </div>
-          <div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)' }}>Exploration</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Discover chambers & earn artifacts</div>
-          </div>
+
+          <button
+            type="button"
+            onClick={(e) => { ripple(e); navigate('/blog') }}
+            className="ripple-wrap"
+            title="Chillverse Blog"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', flexShrink: 0,
+              background: 'var(--surface)', border: '1.5px solid rgba(255,255,255,0.06)', borderRadius: 12,
+              padding: '9px 12px', boxShadow: 'var(--elev-raise-sm)',
+            }}
+          >
+            <Newspaper size={15} color="var(--accent)" />
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>Blog</span>
+          </button>
         </div>
 
         {/* Energy row */}
