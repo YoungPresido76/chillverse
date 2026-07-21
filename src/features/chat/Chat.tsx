@@ -720,7 +720,16 @@ export default function Chat() {
         if (status === 'SUBSCRIBED') await channel.track({ online: true })
       })
     return () => {
-      channel.untrack().finally(() => supabase.removeChannel(channel))
+      // removeChannel() must run synchronously so the 'chat-online-presence'
+      // topic is freed from the client's registry immediately. If it were
+      // gated behind untrack()'s promise instead, a fast remount (e.g.
+      // navigating straight to a profile page) could re-request this same
+      // topic before cleanup finished — supabase-js would then hand back
+      // the still-registered, already-subscribed channel, and the new
+      // effect's .on('presence', ...) call would throw "cannot add
+      // presence callbacks ... after subscribe()", crashing the app.
+      channel.untrack()
+      supabase.removeChannel(channel)
       supabase.from('profiles').update({ last_seen_at: new Date().toISOString() }).eq('id', myId)
     }
   }, [myId])
@@ -745,7 +754,11 @@ export default function Chat() {
       })
     return () => {
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
-      channel.untrack().finally(() => supabase.removeChannel(channel))
+      // Same fix as the online-presence effect above: remove synchronously
+      // so a fast room switch can't collide with a stale, still-subscribed
+      // channel for the same topic.
+      channel.untrack()
+      supabase.removeChannel(channel)
       if (presenceChannelRef.current === channel) presenceChannelRef.current = null
     }
   }, [activeRoom?.id, myId])
