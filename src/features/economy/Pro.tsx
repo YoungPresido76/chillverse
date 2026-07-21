@@ -184,26 +184,6 @@ export default function Pro() {
               boxShadow: `0 0 32px ${t.glow}, 4px 4px 14px var(--neu-dark), -2px -2px 8px var(--neu-light)`,
               animation: `cvproIn 0.4s ease-out ${0.1 + i * 0.05}s both`,
             }}>
-              {/* Plan card image — per-tier illustration from Zaya, falls
-                  back to the icon tile if the image 404s/fails to load. */}
-              <div style={{
-                height: 140, position: 'relative', overflow: 'hidden',
-                background: `linear-gradient(135deg, ${t.color}33, ${t.color}0d)`,
-              }}>
-                {imageFailed[t.tier] ? (
-                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {tierIcon(t.tier, 34, t.color)}
-                  </div>
-                ) : (
-                  <img
-                    src={t.image}
-                    alt=""
-                    onError={() => setImageFailed(prev => ({ ...prev, [t.tier]: true }))}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                  />
-                )}
-              </div>
-
               <div style={{ padding: 22 }}>
                 {t.badge && (
                   <div style={{
@@ -216,17 +196,40 @@ export default function Pro() {
                   </div>
                 )}
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>{t.name}</span>
-                  {isCurrent && (
-                    <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--green)', background: 'rgba(62,207,142,0.15)', padding: '2px 8px', borderRadius: 6 }}>
-                      CURRENT PLAN
-                    </span>
-                  )}
-                </div>
-                <p style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 14 }}>{t.tagline}</p>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>{t.name}</span>
+                      {isCurrent && (
+                        <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--green)', background: 'rgba(62,207,142,0.15)', padding: '2px 8px', borderRadius: 6 }}>
+                          CURRENT PLAN
+                        </span>
+                      )}
+                    </div>
+                    <p style={{ fontSize: 12, color: 'var(--text-dim)' }}>{t.tagline}</p>
+                  </div>
 
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 16 }}>
+                  {/* Small character thumbnail — per-tier illustration, falls
+                      back to the icon tile if the image 404s/fails to load. */}
+                  <div style={{
+                    width: 56, height: 56, borderRadius: 14, flexShrink: 0, overflow: 'hidden',
+                    background: `linear-gradient(135deg, ${t.color}33, ${t.color}0d)`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {imageFailed[t.tier] ? (
+                      tierIcon(t.tier, 26, t.color)
+                    ) : (
+                      <img
+                        src={t.image}
+                        alt=""
+                        onError={() => setImageFailed(prev => ({ ...prev, [t.tier]: true }))}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, margin: '16px 0' }}>
                   <span style={{ fontSize: 26, fontWeight: 800, color: 'var(--text)' }}>{plan.priceDisplay}</span>
                   <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>/mo</span>
                 </div>
