@@ -9,6 +9,7 @@ import { ripple } from '../../shared/lib/ripple'
 import StoryCheckpointOverlay from './story/StoryCheckpointOverlay'
 import { STORY_CONTENT } from './story/content'
 import type { CheckpointStage, StoryChoiceOption } from './story/types'
+import { useFeatureFlags } from '../../shared/lib/featureFlags'
 
 // ── Types ─────────────────────────────────────────────────────
 interface Chamber {
@@ -319,17 +320,20 @@ function EnergyTooltip({ onClose }: { onClose: () => void }) {
 
 // ── Map Card ──────────────────────────────────────────────────
 function MapCard({
-  map, playerXP, previousMap, previousMapComplete, onClick,
+  map, playerXP, previousMap, previousMapComplete, onClick, disabledByFlag,
 }: {
   map: ExplorationMap
   playerXP: number
   previousMap: ExplorationMap | null   // null for the first map — nothing to gate on
   previousMapComplete: boolean         // ignored when previousMap is null
   onClick: (m: ExplorationMap) => void
+  /** True when an admin has flipped this map's kill-switch off (Admin
+   *  Dashboard → Ops console → Feature flags). */
+  disabledByFlag?: boolean
 }) {
   const xpLocked = playerXP < map.xpRequired
   const chainLocked = previousMap !== null && !previousMapComplete
-  const locked = xpLocked || chainLocked
+  const locked = xpLocked || chainLocked || !!disabledByFlag
   const xpNeeded = map.xpRequired - playerXP
 
   const tierColors: Record<string, string> = {
@@ -387,9 +391,14 @@ function MapCard({
             padding: '0 16px', textAlign: 'center',
           }}>
             <Lock size={20} style={{ color: 'rgba(255,255,255,0.2)' }} />
-            {/* Chain gate takes priority in the label — clearing it is
-                the actionable next step even if the XP gate is also unmet. */}
-            {chainLocked ? (
+            {/* Priority: an admin kill-switch beats the chain gate, which
+                beats the XP gate — each is the actionable-or-not reason,
+                in order of "can the player do anything about this". */}
+            {disabledByFlag ? (
+              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', fontWeight: 700 }}>
+                Temporarily unavailable
+              </span>
+            ) : chainLocked ? (
               <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', fontWeight: 700, lineHeight: 1.4 }}>
                 Fully explore {previousMap!.name} first
               </span>
@@ -1078,6 +1087,7 @@ export default function Exploration() {
   const userId = session?.user?.id ?? null
   const { profile } = useProfile()
   const playerXP = profile?.xp ?? 0
+  const { isEnabled: isFlagEnabled } = useFeatureFlags()
 
   const [energy, setEnergy] = useState(MAX_ENERGY)
 
@@ -1303,7 +1313,9 @@ export default function Exploration() {
                   playerXP={playerXP}
                   previousMap={i === 0 ? null : MAPS[i - 1]}
                   previousMapComplete={i === 0 ? true : !!mapCompletion[MAPS[i - 1].id]}
+                  disabledByFlag={!isFlagEnabled(`map:${map.id}`)}
                   onClick={m => {
+                    if (!isFlagEnabled(`map:${m.id}`)) return
                     if (!hasAvatar) { setShowNoAvatar(true); return }
                     setActiveMap(m)
                   }}
