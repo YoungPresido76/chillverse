@@ -228,6 +228,14 @@ export interface SupportTicket {
   contact_email: string | null
   status: SupportTicketStatus
   priority: SupportTicketPriority
+  assigned_to: string | null
+  claimed_at: string | null
+  escalated_to_mod: boolean
+  escalation_note: string | null
+  escalated_by: string | null
+  escalated_at: string | null
+  resolved_by: string | null
+  closed_at: string | null
   created_at: string
   updated_at: string
 }
@@ -237,6 +245,31 @@ export interface NewSupportTicketInput {
   subject: string
   message: string
   contactEmail: string | null
+}
+
+/** A staff-queue ticket row, joined with the reporting user's basic profile info. */
+export interface StaffSupportTicket extends SupportTicket {
+  user?: { username: string; display_name: string | null } | null
+  assignee?: { username: string } | null
+}
+
+export interface SupportTicketReply {
+  id: string
+  ticket_id: string
+  author_id: string
+  is_staff: boolean
+  body: string
+  created_at: string
+  author?: { username: string } | null
+}
+
+export interface SupportTicketNote {
+  id: string
+  ticket_id: string
+  author_id: string
+  body: string
+  created_at: string
+  author?: { username: string } | null
 }
 
 // ── Blog ───────────────────────────────────────────────────────────────────
