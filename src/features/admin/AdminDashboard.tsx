@@ -8,8 +8,9 @@ import {
 } from 'lucide-react'
 import { useModRole } from '../moderation/useModRole'
 import { ripple } from '../../shared/lib/ripple'
-import { fetchAdminDashboardStats, type AdminDashboardStats } from './adminStats'
+import { fetchAdminDashboardStats, type AdminDashboardStats, type AdminUserFilter } from './adminStats'
 import AdminUserSearch from './AdminUserSearch'
+import ScrollFadeRow from '../../shared/components/ScrollFadeRow'
 
 function StatCard({
   icon: Icon, label, value, tint, onClick,
@@ -115,6 +116,14 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
+  // Drives the modal drill-down opened by clicking an Overview stat card
+  // (New (7d), Active (7d), Staff members, Banned users, etc.) — separate
+  // from `searchOpen`, which is the small anchored dropdown next to the
+  // wing tabs. `null` filter + flaggedOnly=true reuses the same modal for
+  // the "Flagged balances" economy card, which isn't a category the RPC
+  // knows about (it's a wallet-balance threshold, not a user column), so
+  // that one still opens the dropdown-style free-text search instead.
+  const [drillDown, setDrillDown] = useState<{ filter?: AdminUserFilter; title: string } | null>(null)
   const [activeSection, setActiveSection] = useState<AdminSection>(() => {
     if (typeof window === 'undefined') return 'overview'
     const stored = sessionStorage.getItem(ADMIN_WING_STORAGE_KEY) as AdminSection | null
@@ -206,7 +215,7 @@ export default function AdminDashboard() {
             </div>
 
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div className="admin-tab-scroll" style={{ flex: 1, minWidth: 0 }}>
+              <ScrollFadeRow style={{ flex: 1, minWidth: 0 }}>
                 {ADMIN_SECTIONS.map(section => {
                   const Icon = section.icon
                   const active = activeSection === section.key
@@ -228,7 +237,7 @@ export default function AdminDashboard() {
                     </button>
                   )
                 })}
-              </div>
+              </ScrollFadeRow>
 
               <button
                 type="button"
@@ -263,14 +272,49 @@ export default function AdminDashboard() {
                 icon={Users}
                 label="Total users"
                 value={stats.overview.total_users}
-                onClick={(e) => { ripple(e); setSearchOpen(true) }}
+                onClick={(e) => { ripple(e); setDrillDown({ title: 'All users' }) }}
               />
-              <StatCard icon={UserPlus} label="New (7d)" value={stats.overview.new_users_7d} tint="var(--gold)" />
-              <StatCard icon={UserPlus} label="New (30d)" value={stats.overview.new_users_30d} tint="var(--gold)" />
-              <StatCard icon={Users} label="Active (7d)" value={stats.overview.active_7d} tint="var(--blue)" />
-              <StatCard icon={Crown} label="Pro subscribers" value={stats.overview.pro_subscribers} tint="var(--purple)" />
-              <StatCard icon={ShieldAlert} label="Staff members" value={stats.overview.staff_count} />
-              <StatCard icon={ShieldBan} label="Banned users" value={stats.overview.banned_users} tint="var(--red)" />
+              <StatCard
+                icon={UserPlus}
+                label="New (7d)"
+                value={stats.overview.new_users_7d}
+                tint="var(--gold)"
+                onClick={(e) => { ripple(e); setDrillDown({ filter: 'new_7d', title: 'New users (7d)' }) }}
+              />
+              <StatCard
+                icon={UserPlus}
+                label="New (30d)"
+                value={stats.overview.new_users_30d}
+                tint="var(--gold)"
+                onClick={(e) => { ripple(e); setDrillDown({ filter: 'new_30d', title: 'New users (30d)' }) }}
+              />
+              <StatCard
+                icon={Users}
+                label="Active (7d)"
+                value={stats.overview.active_7d}
+                tint="var(--blue)"
+                onClick={(e) => { ripple(e); setDrillDown({ filter: 'active_7d', title: 'Active users (7d)' }) }}
+              />
+              <StatCard
+                icon={Crown}
+                label="Pro subscribers"
+                value={stats.overview.pro_subscribers}
+                tint="var(--purple)"
+                onClick={(e) => { ripple(e); setDrillDown({ filter: 'pro', title: 'Pro subscribers' }) }}
+              />
+              <StatCard
+                icon={ShieldAlert}
+                label="Staff members"
+                value={stats.overview.staff_count}
+                onClick={(e) => { ripple(e); setDrillDown({ filter: 'staff', title: 'Staff members' }) }}
+              />
+              <StatCard
+                icon={ShieldBan}
+                label="Banned users"
+                value={stats.overview.banned_users}
+                tint="var(--red)"
+                onClick={(e) => { ripple(e); setDrillDown({ filter: 'banned', title: 'Banned users' }) }}
+              />
             </div>}
 
             {activeSection === 'economy' && <>
@@ -343,7 +387,13 @@ export default function AdminDashboard() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
               <StatCard icon={Flag} label="Open reports" value={stats.moderation.open_reports} tint="var(--red)" />
               <StatCard icon={ShieldAlert} label="Mod actions (7d)" value={stats.moderation.actions_7d} />
-              <StatCard icon={ShieldBan} label="Currently banned" value={stats.moderation.currently_banned} tint="var(--red)" />
+              <StatCard
+                icon={ShieldBan}
+                label="Currently banned"
+                value={stats.moderation.currently_banned}
+                tint="var(--red)"
+                onClick={(e) => { ripple(e); setDrillDown({ filter: 'currently_banned', title: 'Currently banned' }) }}
+              />
               <StatCard icon={LifeBuoy} label="Open tickets" value={stats.support.open_tickets} tint="var(--gold)" />
               <StatCard icon={LifeBuoy} label="Tickets (7d)" value={stats.support.tickets_7d} />
             </div>
@@ -351,6 +401,15 @@ export default function AdminDashboard() {
           </>
         )}
       </div>
+
+      {drillDown && (
+        <AdminUserSearch
+          variant="modal"
+          filter={drillDown.filter}
+          title={drillDown.title}
+          onClose={() => setDrillDown(null)}
+        />
+      )}
     </div>
   )
 }

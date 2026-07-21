@@ -113,20 +113,30 @@ export interface AdminUserListResult {
   page_size: number
 }
 
+/** Category filters mirroring the Overview stat cards — each branch in the
+ *  `admin_list_users` RPC (migration 0054) matches the exact predicate
+ *  `admin_dashboard_stats` used to produce that same card's number, so a
+ *  drill-down list's count always lines up with what's printed on the card. */
+export type AdminUserFilter = 'new_7d' | 'new_30d' | 'active_7d' | 'pro' | 'staff' | 'banned' | 'currently_banned'
+
 /** Fetches one page of the admin user list, optionally filtered by a
- *  username / display name / email search term. `search` is trimmed and
+ *  username / display name / email search term and/or a category filter
+ *  (e.g. "banned", "active_7d") — the two combine with AND, so a long
+ *  filtered list can still be narrowed by name. `search` is trimmed and
  *  sent as `null` when empty so the RPC's `p_search is null or p_search = ''`
  *  short-circuit returns everyone rather than matching on an empty string. */
 export async function fetchAdminUserList(
   page: number,
   pageSize: number,
   search: string,
+  filter?: AdminUserFilter | null,
 ): Promise<{ data: AdminUserListResult | null; error: string | null }> {
   const trimmed = search.trim()
   const { data, error } = await supabase.rpc('admin_list_users', {
     p_page: page,
     p_page_size: pageSize,
     p_search: trimmed === '' ? null : trimmed,
+    p_filter: filter ?? null,
   })
 
   if (error) {
