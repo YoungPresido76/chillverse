@@ -1,5 +1,6 @@
 // src/components/ErrorBoundary.tsx
 import { Component, type ReactNode } from 'react'
+import { supabase } from '../lib/supabase'
 
 interface Props { children: ReactNode }
 interface State { crashed: boolean; message: string }
@@ -13,6 +14,15 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error('[Chillverse crash]', error, info)
+    // Best-effort, fire-and-forget — feeds the Admin Dashboard's System
+    // Health panel with real error volume (migration 0056). Never awaited
+    // and any failure here is swallowed; a broken error-reporting call
+    // must never itself crash the crash screen.
+    supabase.rpc('client_log_error', {
+      p_message: error?.message ?? 'Unknown error',
+      p_stack: error?.stack ?? null,
+      p_path: typeof window !== 'undefined' ? window.location.pathname : null,
+    }).then(undefined, () => {})
   }
 
   render() {
