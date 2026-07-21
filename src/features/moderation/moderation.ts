@@ -42,7 +42,7 @@ export interface ModerationLogEntry {
   moderator?: { username: string } | null
 }
 
-/** Shared across moderation.ts and staffTickets.ts — both call the same family of mod_*/staff_* RPCs. */
+/** Shared across moderation.ts and staffTickets.ts — both call the same family of mod_ and staff_ RPCs. */
 export function friendlyError(error: { message: string } | null): string | null {
   if (!error) return null
   const msg = error.message
