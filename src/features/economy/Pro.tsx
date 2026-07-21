@@ -56,6 +56,7 @@ export default function Pro() {
   const { profile, refetch } = useProfile()
 
   const [loading, setLoading] = useState<ProTier | null>(null)
+  const [imageFailed, setImageFailed] = useState<Partial<Record<ProTier, boolean>>>({})
   const [modal, setModal] = useState<ModalKind>(null)
   const [modalTier, setModalTier] = useState<ProTier | null>(null)
   const paystackScriptLoaded = useRef(false)
@@ -183,14 +184,24 @@ export default function Pro() {
               boxShadow: `0 0 32px ${t.glow}, 4px 4px 14px var(--neu-dark), -2px -2px 8px var(--neu-light)`,
               animation: `cvproIn 0.4s ease-out ${0.1 + i * 0.05}s both`,
             }}>
-              {/* Plan card image — TODO(Zaya): drop in the Orbit/Void PNG
-                  here once sent; this placeholder keeps the layout slot
-                  reserved so nothing needs restructuring later. */}
+              {/* Plan card image — per-tier illustration from Zaya, falls
+                  back to the icon tile if the image 404s/fails to load. */}
               <div style={{
-                height: 96, background: `linear-gradient(135deg, ${t.color}33, ${t.color}0d)`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                height: 140, position: 'relative', overflow: 'hidden',
+                background: `linear-gradient(135deg, ${t.color}33, ${t.color}0d)`,
               }}>
-                {tierIcon(t.tier, 34, t.color)}
+                {imageFailed[t.tier] ? (
+                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {tierIcon(t.tier, 34, t.color)}
+                  </div>
+                ) : (
+                  <img
+                    src={t.image}
+                    alt=""
+                    onError={() => setImageFailed(prev => ({ ...prev, [t.tier]: true }))}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  />
+                )}
               </div>
 
               <div style={{ padding: 22 }}>
