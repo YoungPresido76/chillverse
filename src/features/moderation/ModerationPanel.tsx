@@ -1,6 +1,6 @@
 // src/features/moderation/ModerationPanel.tsx
 import { useEffect, useState } from 'react'
-import { ShieldAlert, Flag, Users as UsersIcon, ScrollText, Search, Ban, ShieldCheck, Trash2, Bell, Eye, BadgeCheck, Award } from 'lucide-react'
+import { ShieldAlert, Flag, Users as UsersIcon, ScrollText, Search, Ban, ShieldCheck, Trash2, Bell, Eye, BadgeCheck, Award, UserCog } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { useModRole } from './useModRole'
 import {
@@ -9,13 +9,14 @@ import {
   fetchModerationLog, fetchStrikes, fetchUnresolvedAlerts, resolveAlert, unhideContent,
   type ContentReport, type ModerationLogEntry, type StaffRole, type Strike, type StaffAlert, type StaffUserSearchRow,
 } from './moderation'
+import { fetchAdminUserList, type AdminUserRow } from '../admin/adminStats'
 import { REPORT_REASON_LABELS, SYSTEM_REPORT_REASON_LABEL } from '../safety/reports'
 import { getAllBadges, getPlayerBadges, grantManualBadge, revokeManualBadge, setBadgeAvailability, BADGE_RARITY_COLOR, type BadgeDef } from '../badges/badges'
 import { BadgeIcon } from '../badges/badgeIcons'
 import Avatar from '../../shared/components/Avatar'
 import ScrollFadeRow from '../../shared/components/ScrollFadeRow'
 
-type Tab = 'alerts' | 'reports' | 'users' | 'badges' | 'log'
+type Tab = 'alerts' | 'reports' | 'users' | 'badges' | 'roles' | 'log'
 
 const REASON_COLORS: Record<ContentReport['status'], string> = {
   open: 'var(--accent2)',
@@ -53,6 +54,7 @@ export default function ModerationPanel() {
     { key: 'reports', label: 'Reports', icon: Flag },
     { key: 'users', label: 'Users', icon: UsersIcon },
     { key: 'badges', label: 'Badges', icon: Award },
+    ...(isAdmin ? [{ key: 'roles' as Tab, label: 'Roles', icon: UserCog }] : []),
     { key: 'log', label: 'Audit log', icon: ScrollText },
   ]
 
@@ -106,6 +108,7 @@ export default function ModerationPanel() {
       {tab === 'reports' && <ReportsTab />}
       {tab === 'users' && <UsersTab isAdmin={isAdmin} isModOrAdmin={isModOrAdmin} />}
       {tab === 'badges' && <BadgesTab />}
+      {tab === 'roles' && isAdmin && <RolesTab />}
       {tab === 'log' && <LogTab />}
     </div>
   )
@@ -741,6 +744,157 @@ function BadgesTab() {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// ── Roles (admin only) ────────────────────────────────────────────────
+
+function StaffRow({ u, busy, onSetRole }: { u: AdminUserRow; busy: boolean; onSetRole: (id: string, role: StaffRole) => void }) {
+  const role = (u.staff_role ?? 'user') as StaffRole
+  return (
+    <div style={{ ...cardStyle, padding: '10px 14px', opacity: busy ? 0.6 : 1 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+        <Avatar src={u.avatar} name={u.display_name || u.username} size={28} />
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <p style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', margin: 0 }}>{u.display_name || u.username}</p>
+          <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: '1px 0 0' }}>@{u.username}</p>
+        </div>
+        <RoleBadge role={role} />
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {(['user', 'staff', 'moderator', 'admin'] as StaffRole[]).map(r => (
+          <SmallButton key={r} disabled={busy || role === r} onClick={() => onSetRole(u.id, r)}>
+            Make {r}
+          </SmallButton>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function RolesTab() {
+  const [staff, setStaff] = useState<AdminUserRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [error, setError] = useState('')
+
+  const [query, setQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const [suggestions, setSuggestions] = useState<StaffUserSearchRow[]>([])
+  const [searching, setSearching] = useState(false)
+  const [promoteBusyId, setPromoteBusyId] = useState<string | null>(null)
+
+  function loadStaff() {
+    setLoading(true)
+    fetchAdminUserList(1, 100, '', 'staff').then(({ data, error }) => {
+      if (error) setError(error)
+      setStaff(data?.rows ?? [])
+      setLoading(false)
+    })
+  }
+
+  useEffect(loadStaff, [])
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 300)
+    return () => clearTimeout(t)
+  }, [query])
+
+  useEffect(() => {
+    let active = true
+    if (!debouncedQuery.trim()) { setSuggestions([]); setSearching(false); return }
+    setSearching(true)
+    searchStaffUsers(debouncedQuery).then(({ data }) => {
+      if (!active) return
+      // Anyone already in the staff list below doesn't need to show up
+      // again in the "promote someone new" search results.
+      setSuggestions(data.filter(u => !staff.some(s => s.id === u.user_id)))
+      setSearching(false)
+    })
+    return () => { active = false }
+  }, [debouncedQuery, staff])
+
+  async function changeRole(userId: string, role: StaffRole, isPromotion: boolean) {
+    if (isPromotion) setPromoteBusyId(userId); else setBusyId(userId)
+    setError('')
+    const { error } = await setUserRole(userId, role)
+    setPromoteBusyId(null)
+    setBusyId(null)
+    if (error) { setError(error); return }
+    if (isPromotion) setQuery('')
+    loadStaff()
+  }
+
+  return (
+    <div>
+      <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 14px' }}>
+        Admin-only. Changing someone's role takes effect immediately — they don't need to sign out.
+      </p>
+      {error && <div style={errorBox}>{error}</div>}
+
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+          Promote a user
+        </div>
+        <div style={{ position: 'relative' }}>
+          <Search size={13} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Search by username or display name…"
+            style={{
+              width: '100%', padding: '9px 12px 9px 32px', borderRadius: 10, border: '1px solid var(--border)',
+              background: 'var(--surface2)', color: 'var(--text)', fontSize: 12.5,
+            }}
+          />
+        </div>
+        {query.trim() && (
+          <div style={{ marginTop: 8 }}>
+            {searching ? (
+              <p style={{ fontSize: 11.5, color: 'var(--text-muted)', padding: '8px 4px' }}>Searching…</p>
+            ) : suggestions.length === 0 ? (
+              <p style={{ fontSize: 11.5, color: 'var(--text-muted)', padding: '8px 4px' }}>No matches.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {suggestions.map(u => (
+                  <div key={u.user_id} style={{ ...cardStyle, padding: '10px 14px', opacity: promoteBusyId === u.user_id ? 0.6 : 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                      <Avatar src={u.avatar} name={u.display_name || u.username} size={26} />
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <p style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', margin: 0 }}>{u.display_name || u.username}</p>
+                        <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: '1px 0 0' }}>@{u.username}</p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {(['staff', 'moderator', 'admin'] as StaffRole[]).map(r => (
+                        <SmallButton key={r} disabled={promoteBusyId === u.user_id} onClick={() => changeRole(u.user_id, r, true)}>
+                          Make {r}
+                        </SmallButton>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+        Current staff ({staff.length})
+      </div>
+      {loading ? (
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: 20 }}>Loading…</p>
+      ) : staff.length === 0 ? (
+        <EmptyState icon={UserCog} text="No staff members yet." />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {staff.map(u => (
+            <StaffRow key={u.id} u={u} busy={busyId === u.id} onSetRole={(id, r) => changeRole(id, r, false)} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
