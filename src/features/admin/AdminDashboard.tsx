@@ -4,13 +4,14 @@ import type { MouseEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, ShieldAlert, Users, UserPlus, Crown, ShieldBan, Gem,
-  ShoppingBag, Gamepad2, Swords, Sparkles, Flag, LifeBuoy, RefreshCw, AlertTriangle, Search,
+  ShoppingBag, Gamepad2, Swords, Sparkles, Flag, LifeBuoy, RefreshCw, AlertTriangle, Search, Settings2,
 } from 'lucide-react'
 import { useModRole } from '../moderation/useModRole'
 import { ripple } from '../../shared/lib/ripple'
 import { fetchAdminDashboardStats, type AdminDashboardStats, type AdminUserFilter } from './adminStats'
 import AdminUserSearch from './AdminUserSearch'
 import ScrollFadeRow from '../../shared/components/ScrollFadeRow'
+import AdminOpsPanel from './AdminOpsPanel'
 
 function StatCard({
   icon: Icon, label, value, tint, onClick,
@@ -96,7 +97,7 @@ function RankedList({ rows, primaryKey, countKey, secondaryKey }: {
   )
 }
 
-type AdminSection = 'overview' | 'economy' | 'games' | 'multiplayer' | 'halo' | 'operations'
+type AdminSection = 'overview' | 'economy' | 'games' | 'multiplayer' | 'halo' | 'operations' | 'ops'
 
 const ADMIN_SECTIONS: { key: AdminSection; label: string; description: string; icon: typeof Users }[] = [
   { key: 'overview', label: 'Atrium', description: 'Platform pulse and account growth', icon: Users },
@@ -105,6 +106,7 @@ const ADMIN_SECTIONS: { key: AdminSection; label: string; description: string; i
   { key: 'multiplayer', label: 'Arena', description: 'Rooms and multiplayer traffic', icon: Swords },
   { key: 'halo', label: 'Halo AI', description: 'Assistant usage and providers', icon: Sparkles },
   { key: 'operations', label: 'Support desk', description: 'Reports, bans, tickets, actions', icon: LifeBuoy },
+  { key: 'ops', label: 'Ops console', description: 'Flags, maintenance mode, broadcasts, exports', icon: Settings2 },
 ]
 
 const ADMIN_WING_STORAGE_KEY = 'cv_admin_active_wing'
@@ -397,6 +399,11 @@ export default function AdminDashboard() {
               <StatCard icon={LifeBuoy} label="Open tickets" value={stats.support.open_tickets} tint="var(--gold)" />
               <StatCard icon={LifeBuoy} label="Tickets (7d)" value={stats.support.tickets_7d} />
             </div>
+            </>}
+
+            {activeSection === 'ops' && <>
+            <SectionHeader title="Ops console" kicker="Feature flags · Maintenance · Broadcast · Export" />
+            <AdminOpsPanel />
             </>}
           </>
         )}
