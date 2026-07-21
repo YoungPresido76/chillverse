@@ -2,6 +2,19 @@
 // Central config for Chillverse Premium (Orbit / Void). Plan codes come
 // from the Paystack dashboard (Payments → Plans) — update PLAN_CODES if
 // you ever recreate a plan there, since the code changes.
+//
+// UPDATE: pricing changed to monthly-only (yearly retired) — ₦1,400 Orbit,
+// ₦3,500 Void — with new Paystack plan codes. This file previously still
+// had the OLD ₦3,500/₦7,500 codes, which had drifted out of sync with
+// supabase/functions/paystack-webhook/index.ts (already using the new
+// codes) and supabase/functions/activate-premium/index.ts (fixed to match
+// in the same pass as this file). The old codes are kept commented below
+// for reference only — do NOT reuse them for new plans, they're retired
+// but existing subscribers' renewals still recognize them server-side.
+//
+//   Old (retired):
+//     orbit monthly PLN_9jnq69avo1tr60t  ₦3,500   orbit yearly PLN_iqt6skasttaqc79  ₦35,000
+//     void  monthly PLN_aaz0myfn9x3s819  ₦7,500   void  yearly PLN_9bhvy7t70adfro9  ₦75,000
 
 export type ProTier = 'orbit' | 'void'
 export type BillingInterval = 'monthly' | 'yearly'
@@ -11,56 +24,48 @@ export interface ProPlanOption {
   interval: BillingInterval
   planCode: string
   amountKobo: number      // Paystack amount in kobo (NGN × 100)
-  priceDisplay: string    // "₦3,500"
+  priceDisplay: string    // "₦1,400"
 }
 
+// Yearly billing is retired — Pro.tsx only ever reads `.monthly` now. The
+// `yearly` entries below are kept ONLY so PLAN_CODES keeps its existing
+// Record<ProTier, Record<BillingInterval, ProPlanOption>> shape (nothing
+// currently reads them, but removing the key would be a breaking type
+// change for no benefit). They intentionally still point at the old
+// legacy codes/prices, since nothing new is ever sold under them.
 export const PLAN_CODES: Record<ProTier, Record<BillingInterval, ProPlanOption>> = {
   orbit: {
-    monthly: { tier: 'orbit', interval: 'monthly', planCode: 'PLN_9jnq69avo1tr60t', amountKobo: 350_000,  priceDisplay: '₦3,500' },
-    yearly:  { tier: 'orbit', interval: 'yearly',  planCode: 'PLN_iqt6skasttaqc79', amountKobo: 3_500_000, priceDisplay: '₦35,000' },
+    monthly: { tier: 'orbit', interval: 'monthly', planCode: 'PLN_4jnmmlz3nslvwhy', amountKobo: 140_000,  priceDisplay: '₦1,400' },
+    yearly:  { tier: 'orbit', interval: 'yearly',  planCode: 'PLN_iqt6skasttaqc79', amountKobo: 3_500_000, priceDisplay: '₦35,000' }, // retired, legacy-only
   },
   void: {
-    monthly: { tier: 'void', interval: 'monthly', planCode: 'PLN_aaz0myfn9x3s819', amountKobo: 750_000,  priceDisplay: '₦7,500' },
-    yearly:  { tier: 'void', interval: 'yearly',  planCode: 'PLN_9bhvy7t70adfro9', amountKobo: 7_500_000, priceDisplay: '₦75,000' },
+    monthly: { tier: 'void', interval: 'monthly', planCode: 'PLN_vdn3njvnkm67ci6', amountKobo: 350_000,  priceDisplay: '₦3,500' },
+    yearly:  { tier: 'void', interval: 'yearly',  planCode: 'PLN_9bhvy7t70adfro9', amountKobo: 7_500_000, priceDisplay: '₦75,000' }, // retired, legacy-only
   },
 }
 
 export interface ProTierInfo {
-  tier: 'free' | ProTier
+  tier: ProTier
   name: string
   tagline: string
   color: string
   glow: string
   monthlyDisplay: string   // what's shown next to the toggle price, always monthly-equivalent
-  yearlyEquivDisplay?: string // "≈ ₦2,917/mo billed yearly"
   badge?: string
   features: string[]
 }
 
+// Free tier removed from this array — Pro.tsx's pricing cards are Orbit +
+// Void only now (per the redesign). isProActive/getSessionLimits below
+// still handle a non-Pro profile fine without a 'free' entry existing here.
 export const TIERS: ProTierInfo[] = [
-  {
-    tier: 'free',
-    name: 'Free',
-    tagline: 'The basic Chillverse experience',
-    color: 'var(--text-dim)',
-    glow: 'rgba(255,255,255,0.08)',
-    monthlyDisplay: '₦0',
-    features: [
-      'Exploration & Artifacts',
-      'Basic Halo AI model',
-      'Free sessions, daily auto-renewal',
-      'Version 1.0',
-      'Basic games',
-    ],
-  },
   {
     tier: 'orbit',
     name: 'Orbit',
     tagline: 'For players who want more room to play',
     color: 'var(--blue)',
     glow: 'rgba(79,142,247,0.35)',
-    monthlyDisplay: '₦3,500',
-    yearlyEquivDisplay: '≈ ₦2,917/mo billed yearly',
+    monthlyDisplay: '₦1,400',
     badge: 'POPULAR',
     features: [
       'Everything in Free',
@@ -76,8 +81,7 @@ export const TIERS: ProTierInfo[] = [
     tagline: 'Full access, no limits worth mentioning',
     color: 'var(--purple)',
     glow: 'rgba(155,109,255,0.4)',
-    monthlyDisplay: '₦7,500',
-    yearlyEquivDisplay: '≈ ₦6,250/mo billed yearly',
+    monthlyDisplay: '₦3,500',
     badge: 'BEST VALUE',
     features: [
       'Everything in Free + Orbit',
@@ -126,6 +130,8 @@ export function getSessionLimits(
   return { limit: 19, cooldownHours: 3.5 } // orbit (also the safe default for any active-but-unrecognized tier)
 }
 
+// Kept for any external caller still importing it (harmless — just no
+// longer surfaced in the Pro.tsx UI since yearly billing is retired).
 export function getYearlySavingsPct(tier: ProTier): number {
   const m = PLAN_CODES[tier].monthly.amountKobo * 12
   const y = PLAN_CODES[tier].yearly.amountKobo
