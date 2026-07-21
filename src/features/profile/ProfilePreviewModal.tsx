@@ -33,6 +33,7 @@ import { usePlayerBadges } from '../badges/usePlayerBadges'
 import { BadgeIcon } from '../badges/badgeIcons'
 import { BADGE_RARITY_COLOR, BADGE_RARITY_RANK, badgeDisplayTitle, type BadgeDef } from '../badges/badges'
 import BadgeToast from '../badges/BadgeToast'
+import ProBadge from '../badges/ProBadge'
 import { AchIcon, RARITY_COLOR as ACH_RARITY_COLOR } from '../achievements/Achievements'
 import AchievementMiniToast from '../achievements/AchievementMiniToast'
 import { getGameById, getGameMeta } from '../games/games'
@@ -72,6 +73,9 @@ interface PreviewProfile {
   created_at: string
   presence: Presence | null
   is_pro: boolean
+  pro_tier: 'orbit' | 'void' | null
+  pro_badge_color: string | null
+  pro_first_subscribed_at: string | null
   original_username: string
   staff_member_since: string | null
   banner_url: string | null
@@ -695,8 +699,16 @@ export default function ProfilePreviewModal({ userId, onClose, isPreview = false
                   {/* Badge strip — rank tier is the first icon, then real
                       badges by rarity, one straight horizontal line inside
                       a single bordered box (never a wrapping grid). */}
-                  {!isModerator && (rank || ownedBadges.length > 0) && (
-                    <div style={{ display: 'flex', flexWrap: 'nowrap', gap: 4, padding: 4, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border-strong)', flexShrink: 0 }}>
+                  {!isModerator && (profile.is_pro || rank || ownedBadges.length > 0) && (
+                    <div style={{ display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: 4, padding: 4, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border-strong)', flexShrink: 0 }}>
+                      {profile.is_pro && profile.pro_tier && (
+                        <ProBadge
+                          tier={profile.pro_tier}
+                          color={profile.pro_badge_color}
+                          memberSince={profile.pro_first_subscribed_at}
+                          size={32}
+                        />
+                      )}
                       {rank && (
                         <button
                           type="button"

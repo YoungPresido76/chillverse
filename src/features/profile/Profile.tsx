@@ -22,6 +22,7 @@ import SharedAvatar from '../../shared/components/Avatar'
 import { usePlayerBadges } from '../badges/usePlayerBadges'
 import { checkAndAwardAutoBadges } from '../badges/badges'
 import BadgeRow from '../badges/BadgeRow'
+import ProBadge from '../badges/ProBadge'
 import BadgesStatRow from '../badges/BadgesStatRow'
 import BadgesModal from '../badges/BadgesModal'
 
@@ -820,6 +821,14 @@ export default function Profile() {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
               <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>@{profile.username}</div>
+              {isPro && profile.pro_tier && (
+                <ProBadge
+                  tier={profile.pro_tier}
+                  color={profile.pro_badge_color}
+                  memberSince={profile.pro_first_subscribed_at}
+                  size={32}
+                />
+              )}
               <BadgeRow badges={playerBadges} defs={badgeDefs} originalUsername={profile.original_username ?? profile.username} onOpenAll={() => setShowBadgesModal(true)} />
             </div>
           </div>
