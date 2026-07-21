@@ -86,6 +86,30 @@ export async function reviewReport(reportId: string, status: 'reviewed' | 'actio
   return { error: friendlyError(error) }
 }
 
+export interface StaffUserSearchRow {
+  user_id: string
+  username: string
+  display_name: string | null
+  avatar: string | null
+  role: StaffRole
+  is_banned: boolean
+}
+
+// ── Live-typeahead search for the Users tab. Unlike searchUserByUsername
+//    (which requires the exact, full username), this matches partial
+//    username/display-name substrings — so a moderator can start typing
+//    and pick from a short list instead of having to already know exactly
+//    who they're looking for. Staff-gated server-side, capped at 8 rows,
+//    and returns only what's needed to render a result row (no email or
+//    wallet data — that's the admin-only search on the Admin dashboard). ─
+export async function searchStaffUsers(query: string): Promise<{ data: StaffUserSearchRow[]; error: string | null }> {
+  const trimmed = query.trim()
+  if (!trimmed) return { data: [], error: null }
+  const { data, error } = await supabase.rpc('mod_search_users', { p_search: trimmed, p_limit: 8 })
+  if (error) return { data: [], error: friendlyError(error) }
+  return { data: (data ?? []) as StaffUserSearchRow[], error: null }
+}
+
 export async function searchUserByUsername(username: string): Promise<{ data: (UserModerationRow & { username: string; display_name: string | null }) | null; error: string | null }> {
   const { data: profile, error: pErr } = await supabase
     .from('profiles')

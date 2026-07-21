@@ -1,19 +1,20 @@
 // src/features/moderation/ModerationPanel.tsx
 import { useEffect, useState } from 'react'
-import { ShieldAlert, Flag, Users as UsersIcon, ScrollText, Search, Ban, ShieldCheck, Trash2, Bell, Eye, BadgeCheck } from 'lucide-react'
+import { ShieldAlert, Flag, Users as UsersIcon, ScrollText, Search, Ban, ShieldCheck, Trash2, Bell, Eye, BadgeCheck, Award } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { useModRole } from './useModRole'
 import {
-  fetchOpenReports, getReportContext, reviewReport, searchUserByUsername,
+  fetchOpenReports, getReportContext, reviewReport, searchUserByUsername, searchStaffUsers,
   banUser, unbanUser, setUserRole, setVerified, deleteMessage, deletePost, deleteComment,
   fetchModerationLog, fetchStrikes, fetchUnresolvedAlerts, resolveAlert, unhideContent,
-  type ContentReport, type ModerationLogEntry, type StaffRole, type Strike, type StaffAlert,
+  type ContentReport, type ModerationLogEntry, type StaffRole, type Strike, type StaffAlert, type StaffUserSearchRow,
 } from './moderation'
 import { REPORT_REASON_LABELS, SYSTEM_REPORT_REASON_LABEL } from '../safety/reports'
-import { getAllBadges, getPlayerBadges, grantManualBadge, revokeManualBadge, BADGE_RARITY_COLOR, type BadgeDef } from '../badges/badges'
+import { getAllBadges, getPlayerBadges, grantManualBadge, revokeManualBadge, setBadgeAvailability, BADGE_RARITY_COLOR, type BadgeDef } from '../badges/badges'
 import { BadgeIcon } from '../badges/badgeIcons'
+import Avatar from '../../shared/components/Avatar'
 
-type Tab = 'alerts' | 'reports' | 'users' | 'log'
+type Tab = 'alerts' | 'reports' | 'users' | 'badges' | 'log'
 
 const REASON_COLORS: Record<ContentReport['status'], string> = {
   open: 'var(--accent2)',
@@ -50,6 +51,7 @@ export default function ModerationPanel() {
     { key: 'alerts', label: 'Alerts', icon: Bell },
     { key: 'reports', label: 'Reports', icon: Flag },
     { key: 'users', label: 'Users', icon: UsersIcon },
+    { key: 'badges', label: 'Badges', icon: Award },
     { key: 'log', label: 'Audit log', icon: ScrollText },
   ]
 
@@ -102,6 +104,7 @@ export default function ModerationPanel() {
       {tab === 'alerts' && <AlertsTab onResolved={() => setAlertCount(c => Math.max(0, c - 1))} />}
       {tab === 'reports' && <ReportsTab />}
       {tab === 'users' && <UsersTab isAdmin={isAdmin} isModOrAdmin={isModOrAdmin} />}
+      {tab === 'badges' && <BadgesTab />}
       {tab === 'log' && <LogTab />}
     </div>
   )
@@ -357,6 +360,8 @@ function ReportsTab() {
 function UsersTab({ isAdmin, isModOrAdmin }: { isAdmin: boolean; isModOrAdmin: boolean }) {
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
+  const [suggestions, setSuggestions] = useState<StaffUserSearchRow[]>([])
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false)
   const [result, setResult] = useState<Awaited<ReturnType<typeof searchUserByUsername>>['data']>(null)
   const [error, setError] = useState<string | null>(null)
   const [searching, setSearching] = useState(false)
@@ -375,33 +380,45 @@ function UsersTab({ isAdmin, isModOrAdmin }: { isAdmin: boolean; isModOrAdmin: b
     getPlayerBadges(result.user_id).then(rows => setOwnedBadgeIds(new Set(rows.map(r => r.badge_id))))
   }, [result])
 
-  // Live search: debounce keystrokes, then look up automatically — no
-  // explicit submit needed. searchUserByUsername still requires an exact
-  // match server-side, so this fires the same lookup, just on a timer
-  // instead of a button press.
+  // Live typeahead: debounce keystrokes, then fetch a short list of
+  // partial matches — the moderator doesn't need to know the full,
+  // exact username up front, just enough to spot the right person in
+  // the dropdown below the input.
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedQuery(query), 350)
+    const t = setTimeout(() => setDebouncedQuery(query), 300)
     return () => clearTimeout(t)
   }, [query])
 
   useEffect(() => {
     let active = true
     if (!debouncedQuery.trim()) {
-      setResult(null)
-      setError(null)
+      setSuggestions([])
       setSearching(false)
       return
     }
     setSearching(true)
-    setError(null)
-    searchUserByUsername(debouncedQuery).then(({ data, error }) => {
+    searchStaffUsers(debouncedQuery).then(({ data, error }) => {
       if (!active) return
-      setResult(data)
-      setError(error)
+      setSuggestions(data)
+      if (error) setError(error)
       setSearching(false)
     })
     return () => { active = false }
   }, [debouncedQuery])
+
+  // Picking a suggestion resolves the exact user detail (ban status, role,
+  // owned badges, etc.) that the rest of this tab already knows how to
+  // render — the partial-match RPC only returns enough to show a row.
+  async function selectSuggestion(row: StaffUserSearchRow) {
+    setSuggestionsOpen(false)
+    setSuggestions([])
+    setQuery(row.username)
+    setSearching(true)
+    const { data, error } = await searchUserByUsername(row.username)
+    setResult(data)
+    setError(error)
+    setSearching(false)
+  }
 
   async function refresh() {
     if (!result) return
@@ -473,8 +490,15 @@ function UsersTab({ isAdmin, isModOrAdmin }: { isAdmin: boolean; isModOrAdmin: b
         <Search size={14} color="var(--text-muted)" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
         <input
           value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder="Search by exact username…"
+          onChange={e => {
+            const v = e.target.value
+            setQuery(v)
+            setSuggestionsOpen(true)
+            if (!v.trim()) { setResult(null); setError(null) }
+          }}
+          onFocus={() => { if (suggestions.length > 0) setSuggestionsOpen(true) }}
+          onBlur={() => { setTimeout(() => setSuggestionsOpen(false), 150) }}
+          placeholder="Search by username or display name…"
           style={{
             width: '100%', padding: '10px 12px 10px 34px', borderRadius: 10, border: '1px solid var(--border)',
             background: 'var(--surface2)', color: 'var(--text)', fontSize: 13,
@@ -484,6 +508,50 @@ function UsersTab({ isAdmin, isModOrAdmin }: { isAdmin: boolean; isModOrAdmin: b
           <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: 'var(--text-muted)' }}>
             Searching…
           </span>
+        )}
+
+        {suggestionsOpen && query.trim() && (
+          <div
+            className="neu-card"
+            style={{
+              position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 20,
+              borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)',
+              boxShadow: '0 12px 28px rgba(0,0,0,0.35), 4px 4px 12px var(--neu-dark)',
+              maxHeight: 300, overflowY: 'auto', padding: 6,
+            }}
+          >
+            {suggestions.length === 0 ? (
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '14px 10px' }}>
+                {searching ? 'Searching…' : 'No matches.'}
+              </p>
+            ) : (
+              suggestions.map(u => (
+                <button
+                  key={u.user_id}
+                  type="button"
+                  onMouseDown={() => selectSuggestion(u)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 9, width: '100%', textAlign: 'left',
+                    borderRadius: 9, padding: '7px 8px', cursor: 'pointer', background: 'transparent', border: 'none',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                >
+                  <Avatar src={u.avatar} name={u.display_name || u.username} size={26} />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div className="flex items-center gap-1.5">
+                      <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {u.display_name || u.username}
+                      </span>
+                      {u.is_banned && <ShieldAlert size={10} style={{ color: 'var(--red)', flexShrink: 0 }} />}
+                    </div>
+                    <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: '1px 0 0' }}>@{u.username}</p>
+                  </div>
+                  <RoleBadge role={u.role} />
+                </button>
+              ))
+            )}
+          </div>
         )}
       </div>
 
@@ -600,6 +668,78 @@ function UsersTab({ isAdmin, isModOrAdmin }: { isAdmin: boolean; isModOrAdmin: b
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Badges ──────────────────────────────────────────────────────────────
+
+function BadgesTab() {
+  const [badges, setBadges] = useState<BadgeDef[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
+
+  function load() {
+    setLoading(true)
+    getAllBadges().then(all => {
+      setBadges(all)
+      setLoading(false)
+    })
+  }
+
+  useEffect(load, [])
+
+  async function toggleAvailability(badge: BadgeDef) {
+    setBusyId(badge.id)
+    setError(null)
+    const nextAvailable = !badge.is_available
+    const { error } = await setBadgeAvailability(badge.id, nextAvailable)
+    setBusyId(null)
+    if (error) { setError(error); return }
+    setBadges(prev => prev.map(b => (b.id === badge.id ? { ...b, is_available: nextAvailable } : b)))
+  }
+
+  if (loading) return <div style={{ textAlign: 'center', padding: 30, color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>
+  if (badges.length === 0) return <EmptyState icon={Award} text="No badges have been created yet." />
+
+  return (
+    <div>
+      <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 14px' }}>
+        Toggling a badge unavailable stops it from being newly earned — automatically or granted by staff.
+        Players who already hold it keep it.
+      </p>
+      {error && <div style={errorBox}>{error}</div>}
+      {badges.map(b => {
+        const color = BADGE_RARITY_COLOR[b.rarity] ?? '#888899'
+        const busy = busyId === b.id
+        return (
+          <div key={b.id} style={{ ...cardStyle, padding: '12px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{
+                width: 32, height: 32, borderRadius: 10, flexShrink: 0, display: 'flex',
+                alignItems: 'center', justifyContent: 'center', background: color + '1c',
+              }}>
+                <BadgeIcon iconKey={b.icon} size={15} color={color} />
+              </div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div className="flex items-center gap-1.5">
+                  <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>{b.title}</span>
+                  <StatusPill label={b.rarity} color={color} />
+                  <StatusPill label={b.grant_type} color="var(--text-muted)" />
+                </div>
+                <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: '3px 0 0' }}>{b.description}</p>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                <StatusPill label={b.is_available ? 'available' : 'unavailable'} color={b.is_available ? '#4fd18a' : 'var(--red)'} />
+                <SmallButton danger={b.is_available} disabled={busy} onClick={() => toggleAvailability(b)}>
+                  {busy ? 'Saving…' : b.is_available ? 'Mark unavailable' : 'Mark available'}
+                </SmallButton>
+              </div>
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
