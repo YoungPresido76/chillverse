@@ -13,6 +13,7 @@ import { REPORT_REASON_LABELS, SYSTEM_REPORT_REASON_LABEL } from '../safety/repo
 import { getAllBadges, getPlayerBadges, grantManualBadge, revokeManualBadge, setBadgeAvailability, BADGE_RARITY_COLOR, type BadgeDef } from '../badges/badges'
 import { BadgeIcon } from '../badges/badgeIcons'
 import Avatar from '../../shared/components/Avatar'
+import ScrollFadeRow from '../../shared/components/ScrollFadeRow'
 
 type Tab = 'alerts' | 'reports' | 'users' | 'badges' | 'log'
 
@@ -68,7 +69,7 @@ export default function ModerationPanel() {
         </span>
       </div>
 
-      <div className="admin-tab-scroll" style={{ marginBottom: 20 }}>
+      <ScrollFadeRow style={{ marginBottom: 20 }}>
         {tabs.map(t => {
           const Icon = t.icon
           const active = tab === t.key
@@ -99,7 +100,7 @@ export default function ModerationPanel() {
             </button>
           )
         })}
-      </div>
+      </ScrollFadeRow>
 
       {tab === 'alerts' && <AlertsTab onResolved={() => setAlertCount(c => Math.max(0, c - 1))} />}
       {tab === 'reports' && <ReportsTab />}
