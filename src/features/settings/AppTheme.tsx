@@ -61,7 +61,9 @@ export default function AppTheme() {
   const navigate = useNavigate()
   const { theme, setTheme } = useTheme()
   const { profile } = useProfile()
-  const isPro = isProActive(profile)
+  // Theme unlock is Void-exclusive (Orbit does not unlock themes) — see
+  // proPlans.ts TIERS feature lists.
+  const isPro = isProActive(profile) && profile?.pro_tier === 'void'
   const [showProModal, setShowProModal] = useState(false)
   const [previewId, setPreviewId] = useState<ThemeId | null>(null)
 
@@ -169,7 +171,7 @@ export default function AppTheme() {
           <div className="su" style={{ display: 'flex', alignItems: 'center', gap: 10, maxWidth: 600, margin: '0 auto 12px', padding: '10px 14px', borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border-strong)', boxShadow: 'var(--elev-raise-sm)' }}>
             <Sparkles size={15} style={{ color: 'var(--accent)', flexShrink: 0 }} />
             <span style={{ flex: 1, fontSize: 12, color: 'var(--text-dim)' }}>
-              {getTheme(panelTheme).label} is a Premium theme.
+              {getTheme(panelTheme).label} is a Void theme.
             </span>
             <button
               onClick={(e) => { ripple(e); setShowProModal(true) }}
@@ -224,7 +226,7 @@ export default function AppTheme() {
 
           <div>
             <div className="t-label" style={{ textAlign: 'center', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-              {!isPro && <Lock size={9} />} Premium
+              {!isPro && <Lock size={9} />} Void
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               {premiumThemes.map(t => {
@@ -234,7 +236,7 @@ export default function AppTheme() {
                     key={t.id}
                     onClick={(e) => { ripple(e); handlePick(t.id, true) }}
                     className="ripple-wrap"
-                    aria-label={isPro ? `${t.label} theme` : `Preview ${t.label} theme (Premium)`}
+                    aria-label={isPro ? `${t.label} theme` : `Preview ${t.label} theme (Void)`}
                     aria-pressed={selected}
                     style={{
                       ...swatchBase,
