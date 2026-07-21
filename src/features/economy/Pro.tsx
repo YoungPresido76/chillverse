@@ -1,12 +1,25 @@
 // src/features/economy/Pro.tsx
+//
+// Redesigned pricing page — monthly billing only (yearly retired), Free
+// tier dropped from the pricing cards entirely, down to Orbit + Void.
+// Structural reference: Discord's "Manage Nitro" page (card w/ image →
+// comparison table). Not copying Discord's assets/branding, just the
+// layout pattern.
+//
+// STILL PENDING from Zaya, wired with clear TODOs below:
+//  - Plan card PNGs (currently a placeholder tile per card)
+//  - New Paystack plan codes for ₦1,400/₦3,500 monthly (proPlans.ts)
+//  - "Favourite perks" scrollable carousel — copy/images not sent yet,
+//    so that section is deliberately left out rather than guessed at.
+//    Slot it in below the cards, above the comparison table, once ready.
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Crown, Check, X, Zap, Orbit as OrbitIcon, Sparkles } from 'lucide-react'
+import { ArrowLeft, Crown, Check, X, Zap, Orbit as OrbitIcon, Sparkles, Minus } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { supabase } from '../../shared/lib/supabase'
 import { useAuth } from '../auth/useAuth'
 import { useProfile } from '../profile/useProfile'
-import { TIERS, PLAN_CODES, getYearlySavingsPct, type ProTier, type BillingInterval } from '../../shared/lib/proPlans'
+import { TIERS, PLAN_CODES, type ProTier } from '../../shared/lib/proPlans'
 import { checkAndAwardAutoBadges } from '../badges/badges'
 
 declare global {
@@ -21,16 +34,27 @@ type ModalKind = 'success' | 'cancelled' | 'error' | null
 
 function tierIcon(tier: string, size: number, color: string) {
   if (tier === 'orbit') return <OrbitIcon size={size} color={color} />
-  if (tier === 'void') return <Sparkles size={size} color={color} />
-  return <Crown size={size} color={color} />
+  return <Sparkles size={size} color={color} />
 }
+
+// Comparison table — Orbit vs Void only (Free excluded per Zaya's call).
+// `orbit`/`void` cells: true = check, false = dash, string = literal value.
+const COMPARISON_ROWS: { label: string; orbit: boolean | string; void: boolean | string }[] = [
+  { label: 'Daily sessions', orbit: '19/day', void: '25/day' },
+  { label: 'Set polls', orbit: true, void: true },
+  { label: 'Evolving loyalty badge', orbit: true, void: true },
+  { label: 'Voice notes', orbit: false, void: true },
+  { label: 'Image uploads', orbit: false, void: true },
+  { label: 'Fully customizable profile', orbit: false, void: true },
+  { label: 'Pick any movie', orbit: false, void: true },
+  { label: 'Pick any theme', orbit: false, void: true },
+]
 
 export default function Pro() {
   const navigate = useNavigate()
   const { user, session } = useAuth()
   const { profile, refetch } = useProfile()
 
-  const [interval, setIntervalVal] = useState<BillingInterval>('monthly')
   const [loading, setLoading] = useState<ProTier | null>(null)
   const [modal, setModal] = useState<ModalKind>(null)
   const [modalTier, setModalTier] = useState<ProTier | null>(null)
@@ -60,7 +84,7 @@ export default function Pro() {
       return
     }
 
-    const plan = PLAN_CODES[tier][interval]
+    const plan = PLAN_CODES[tier].monthly
     const ref = `cvpro_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
 
     const handler = window.PaystackPop.setup({
@@ -72,7 +96,7 @@ export default function Pro() {
       metadata: {
         user_id: user.id,
         tier,
-        interval,
+        interval: 'monthly',
         plan_code: plan.planCode,
       },
       callback: function (response: { reference: string }) {
@@ -130,10 +154,7 @@ export default function Pro() {
       </div>
 
       {/* Hero */}
-      <div style={{
-        textAlign: 'center', marginBottom: 28,
-        animation: 'cvproIn 0.4s ease-out both',
-      }}>
+      <div style={{ textAlign: 'center', marginBottom: 28, animation: 'cvproIn 0.4s ease-out both' }}>
         <div style={{
           width: 56, height: 56, borderRadius: 16, margin: '0 auto 14px',
           background: 'linear-gradient(135deg,var(--accent),var(--accent2))',
@@ -148,141 +169,133 @@ export default function Pro() {
         </p>
       </div>
 
-      {/* Billing toggle */}
-      <div style={{
-        display: 'flex', justifyContent: 'center', marginBottom: 24,
-        animation: 'cvproIn 0.4s ease-out 0.05s both',
-      }}>
-        <div style={{
-          display: 'inline-flex', background: 'var(--surface)', borderRadius: 14, padding: 4,
-          boxShadow: 'var(--elev-inset)',
-        }}>
-          {(['monthly', 'yearly'] as BillingInterval[]).map(iv => (
-            <button
-              key={iv}
-              onClick={(e) => { ripple(e); setIntervalVal(iv) }}
-              className="ripple-wrap"
-              style={{
-                padding: '9px 20px', borderRadius: 10, border: 'none', cursor: 'pointer',
-                fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
-                background: interval === iv ? 'linear-gradient(135deg,var(--accent),var(--accent2))' : 'transparent',
-                color: interval === iv ? '#fff' : 'var(--text-dim)',
-                transition: 'background 0.2s, color 0.2s',
-                position: 'relative',
-              }}
-            >
-              {iv === 'monthly' ? 'Monthly' : 'Yearly'}
-              {iv === 'yearly' && (
-                <span style={{
-                  marginLeft: 6, fontSize: 10, fontWeight: 800, padding: '2px 6px', borderRadius: 6,
-                  background: interval === iv ? 'rgba(255,255,255,0.25)' : 'rgba(62,207,142,0.15)',
-                  color: interval === iv ? '#fff' : 'var(--green)',
-                }}>
-                  SAVE {getYearlySavingsPct('orbit')}%
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Tier cards */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {TIERS.map((t, i) => {
-          const isFree = t.tier === 'free'
           const isCurrent = currentTier === t.tier
-          const plan = !isFree ? PLAN_CODES[t.tier as ProTier][interval] : null
-          const priceDisplay = isFree ? '₦0' : (plan?.priceDisplay ?? t.monthlyDisplay)
+          const plan = PLAN_CODES[t.tier].monthly
 
           return (
             <div key={t.tier} style={{
-              background: isFree ? 'var(--surface)' : `linear-gradient(135deg, ${t.color}14, ${t.color}05)`,
-              border: `1.5px solid ${isFree ? 'rgba(255,255,255,0.08)' : t.color + '35'}`,
-              borderRadius: 22, padding: 22, position: 'relative', overflow: 'hidden',
-              boxShadow: isFree ? 'none' : `0 0 32px ${t.glow}, 4px 4px 14px var(--neu-dark), -2px -2px 8px var(--neu-light)`,
+              background: `linear-gradient(135deg, ${t.color}14, ${t.color}05)`,
+              border: `1.5px solid ${t.color}35`,
+              borderRadius: 22, overflow: 'hidden', position: 'relative',
+              boxShadow: `0 0 32px ${t.glow}, 4px 4px 14px var(--neu-dark), -2px -2px 8px var(--neu-light)`,
               animation: `cvproIn 0.4s ease-out ${0.1 + i * 0.05}s both`,
             }}>
-              {t.badge && (
-                <div style={{
-                  position: 'absolute', top: 0, right: 22,
-                  background: `linear-gradient(135deg, ${t.color}, ${t.color}cc)`,
-                  color: '#fff', fontSize: 10, fontWeight: 800, letterSpacing: 0.5,
-                  padding: '5px 12px', borderRadius: '0 0 10px 10px',
-                }}>
-                  {t.badge}
-                </div>
-              )}
+              {/* Plan card image — TODO(Zaya): drop in the Orbit/Void PNG
+                  here once sent; this placeholder keeps the layout slot
+                  reserved so nothing needs restructuring later. */}
+              <div style={{
+                height: 96, background: `linear-gradient(135deg, ${t.color}33, ${t.color}0d)`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {tierIcon(t.tier, 34, t.color)}
+              </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                <div style={{
-                  width: 44, height: 44, borderRadius: 12, flexShrink: 0,
-                  background: isFree ? 'rgba(255,255,255,0.06)' : `${t.color}22`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  {tierIcon(t.tier, 20, isFree ? 'var(--text-dim)' : t.color)}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>{t.name}</span>
-                    {isCurrent && (
-                      <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--green)', background: 'rgba(62,207,142,0.15)', padding: '2px 8px', borderRadius: 6 }}>
-                        CURRENT PLAN
-                      </span>
-                    )}
+              <div style={{ padding: 22 }}>
+                {t.badge && (
+                  <div style={{
+                    position: 'absolute', top: 0, right: 22,
+                    background: `linear-gradient(135deg, ${t.color}, ${t.color}cc)`,
+                    color: '#fff', fontSize: 10, fontWeight: 800, letterSpacing: 0.5,
+                    padding: '5px 12px', borderRadius: '0 0 10px 10px',
+                  }}>
+                    {t.badge}
                   </div>
-                  <p style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 2 }}>{t.tagline}</p>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 16 }}>
-                <span style={{ fontSize: 26, fontWeight: 800, color: 'var(--text)' }}>{priceDisplay}</span>
-                {!isFree && <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>/ {interval === 'monthly' ? 'mo' : 'yr'}</span>}
-              </div>
-              {!isFree && interval === 'yearly' && t.yearlyEquivDisplay && (
-                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -12, marginBottom: 16 }}>{t.yearlyEquivDisplay}</p>
-              )}
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginBottom: 18 }}>
-                {t.features.map((f, fi) => (
-                  <div key={fi} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                    <Check size={14} color={isFree ? 'var(--text-dim)' : t.color} style={{ flexShrink: 0, marginTop: 2 }} />
-                    <span style={{ fontSize: 12.5, color: 'var(--text-dim)', lineHeight: 1.4 }}>{f}</span>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                disabled={isFree || isCurrent || loading === t.tier}
-                onClick={(e) => { if (isFree || isCurrent) return; ripple(e); openPaystack(t.tier as ProTier) }}
-                className={isFree || isCurrent ? '' : 'ripple-wrap'}
-                style={{
-                  width: '100%', padding: '13px 0', borderRadius: 14, border: 'none',
-                  fontSize: 13.5, fontWeight: 800, fontFamily: 'inherit',
-                  cursor: isFree || isCurrent ? 'default' : 'pointer',
-                  background: isFree || isCurrent
-                    ? 'var(--surface2)'
-                    : `linear-gradient(135deg, ${t.color}, ${t.color}cc)`,
-                  color: isFree || isCurrent ? 'var(--text-dim)' : '#fff',
-                  boxShadow: isFree || isCurrent ? 'none' : `0 6px 20px ${t.color}40`,
-                  opacity: loading === t.tier ? 0.7 : 1,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                }}
-              >
-                {isCurrent ? 'Your Current Plan' : isFree ? 'Included' : (
-                  <>
-                    <Zap size={14} fill="#fff" />
-                    {loading === t.tier ? 'Processing…' : `Upgrade to ${t.name}`}
-                  </>
                 )}
-              </button>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>{t.name}</span>
+                  {isCurrent && (
+                    <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--green)', background: 'rgba(62,207,142,0.15)', padding: '2px 8px', borderRadius: 6 }}>
+                      CURRENT PLAN
+                    </span>
+                  )}
+                </div>
+                <p style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 14 }}>{t.tagline}</p>
+
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 16 }}>
+                  <span style={{ fontSize: 26, fontWeight: 800, color: 'var(--text)' }}>{plan.priceDisplay}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>/mo</span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginBottom: 18 }}>
+                  {t.features.map((f, fi) => (
+                    <div key={fi} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                      <Check size={14} color={t.color} style={{ flexShrink: 0, marginTop: 2 }} />
+                      <span style={{ fontSize: 12.5, color: 'var(--text-dim)', lineHeight: 1.4 }}>{f}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  disabled={isCurrent || loading === t.tier}
+                  onClick={(e) => { if (isCurrent) return; ripple(e); openPaystack(t.tier) }}
+                  className={isCurrent ? '' : 'ripple-wrap'}
+                  style={{
+                    width: '100%', padding: '13px 0', borderRadius: 14, border: 'none',
+                    fontSize: 13.5, fontWeight: 800, fontFamily: 'inherit',
+                    cursor: isCurrent ? 'default' : 'pointer',
+                    background: isCurrent ? 'var(--surface2)' : `linear-gradient(135deg, ${t.color}, ${t.color}cc)`,
+                    color: isCurrent ? 'var(--text-dim)' : '#fff',
+                    boxShadow: isCurrent ? 'none' : `0 6px 20px ${t.color}40`,
+                    opacity: loading === t.tier ? 0.7 : 1,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  }}
+                >
+                  {isCurrent ? 'Your Current Plan' : (
+                    <>
+                      <Zap size={14} fill="#fff" />
+                      {loading === t.tier ? 'Processing…' : `Upgrade to ${t.name}`}
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           )
         })}
       </div>
 
+      {/* ── Comparison table — Orbit vs Void only ── */}
+      <div style={{ marginTop: 32, animation: 'cvproIn 0.4s ease-out 0.25s both' }}>
+        <h2 style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', marginBottom: 12, textAlign: 'center' }}>
+          Compare plans
+        </h2>
+        <div style={{ background: 'var(--surface)', borderRadius: 18, overflow: 'hidden', border: '1px solid var(--border-strong)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 76px 76px', padding: '10px 14px', borderBottom: '1px solid var(--border-strong)' }}>
+            <span />
+            <span style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--blue)', textAlign: 'center' }}>Orbit</span>
+            <span style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--purple)', textAlign: 'center' }}>Void</span>
+          </div>
+          {COMPARISON_ROWS.map((row, i) => (
+            <div key={row.label} style={{
+              display: 'grid', gridTemplateColumns: '1fr 76px 76px', alignItems: 'center', padding: '11px 14px',
+              borderBottom: i < COMPARISON_ROWS.length - 1 ? '1px solid var(--border)' : 'none',
+            }}>
+              <span style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>{row.label}</span>
+              <span style={{ display: 'flex', justifyContent: 'center' }}>
+                {typeof row.orbit === 'string'
+                  ? <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text)' }}>{row.orbit}</span>
+                  : row.orbit
+                    ? <Check size={15} color="var(--blue)" />
+                    : <Minus size={13} color="var(--text-muted)" />}
+              </span>
+              <span style={{ display: 'flex', justifyContent: 'center' }}>
+                {typeof row.void === 'string'
+                  ? <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text)' }}>{row.void}</span>
+                  : row.void
+                    ? <Check size={15} color="var(--purple)" />
+                    : <Minus size={13} color="var(--text-muted)" />}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <p style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', marginTop: 24, lineHeight: 1.6 }}>
-        Subscriptions renew automatically at the end of each billing period.
-        Cancel anytime from Settings. Payments are processed securely by Paystack.
+        Subscriptions renew automatically each month. Cancel anytime from Settings.
+        Payments are processed securely by Paystack.
       </p>
 
       {/* Result modal */}
