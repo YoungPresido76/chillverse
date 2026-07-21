@@ -1,14 +1,17 @@
 // src/features/moderation/ModerationPanel.tsx
 import { useEffect, useState } from 'react'
-import { ShieldAlert, Flag, Users as UsersIcon, ScrollText, Search, Ban, ShieldCheck, Trash2, Bell, Eye, BadgeCheck, Award, UserCog } from 'lucide-react'
+import { ShieldAlert, Flag, Users as UsersIcon, ScrollText, Search, Ban, ShieldCheck, Trash2, Bell, Eye, BadgeCheck, Award, UserCog, Ticket, ArrowUpCircle } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { useModRole } from './useModRole'
+import { useAuth } from '../auth/useAuth'
 import {
-  fetchOpenReports, getReportContext, reviewReport, searchUserByUsername, searchStaffUsers,
+  fetchOpenReports, getReportContext, reviewReport, escalateReport, searchUserByUsername, searchStaffUsers,
   banUser, unbanUser, setUserRole, setVerified, deleteMessage, deletePost, deleteComment,
-  fetchModerationLog, fetchStrikes, fetchUnresolvedAlerts, resolveAlert, unhideContent,
+  fetchModerationLog, fetchStrikes, fetchUnresolvedAlerts, resolveAlert, escalateAlert, unhideContent,
   type ContentReport, type ModerationLogEntry, type StaffRole, type Strike, type StaffAlert, type StaffUserSearchRow,
 } from './moderation'
+import { fetchStaffTickets } from './staffTickets'
+import StaffTicketsTab from './StaffTicketsTab'
 import { fetchAdminUserList, type AdminUserRow } from '../admin/adminStats'
 import { REPORT_REASON_LABELS, SYSTEM_REPORT_REASON_LABEL } from '../safety/reports'
 import { getAllBadges, getPlayerBadges, grantManualBadge, revokeManualBadge, setBadgeAvailability, BADGE_RARITY_COLOR, type BadgeDef } from '../badges/badges'
@@ -16,7 +19,7 @@ import { BadgeIcon } from '../badges/badgeIcons'
 import Avatar from '../../shared/components/Avatar'
 import ScrollFadeRow from '../../shared/components/ScrollFadeRow'
 
-type Tab = 'alerts' | 'reports' | 'users' | 'badges' | 'roles' | 'log'
+type Tab = 'alerts' | 'reports' | 'tickets' | 'users' | 'badges' | 'roles' | 'log'
 
 const REASON_COLORS: Record<ContentReport['status'], string> = {
   open: 'var(--accent2)',
@@ -27,13 +30,20 @@ const REASON_COLORS: Record<ContentReport['status'], string> = {
 
 export default function ModerationPanel() {
   const { role, isStaff, isAdmin, isModOrAdmin, loading } = useModRole()
+  const { user } = useAuth()
   const [tab, setTab] = useState<Tab>('alerts')
   const [alertCount, setAlertCount] = useState(0)
+  const [ticketCount, setTicketCount] = useState(0)
 
   useEffect(() => {
     if (!isStaff) return
     fetchUnresolvedAlerts().then(({ data }) => setAlertCount(data.length))
   }, [isStaff])
+
+  useEffect(() => {
+    if (!isStaff || !user) return
+    fetchStaffTickets('unclaimed', user.id).then(({ data }) => setTicketCount(data.length))
+  }, [isStaff, user])
 
   if (loading) {
     return <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-dim)', fontSize: 13.5 }}>Loading…</div>
@@ -52,6 +62,7 @@ export default function ModerationPanel() {
   const tabs: { key: Tab; label: string; icon: typeof Flag }[] = [
     { key: 'alerts', label: 'Alerts', icon: Bell },
     { key: 'reports', label: 'Reports', icon: Flag },
+    { key: 'tickets', label: 'Tickets', icon: Ticket },
     { key: 'users', label: 'Users', icon: UsersIcon },
     { key: 'badges', label: 'Badges', icon: Award },
     ...(isAdmin ? [{ key: 'roles' as Tab, label: 'Roles', icon: UserCog }] : []),
@@ -99,13 +110,23 @@ export default function ModerationPanel() {
                   {alertCount}
                 </span>
               )}
+              {t.key === 'tickets' && ticketCount > 0 && (
+                <span style={{
+                  fontSize: 10, fontWeight: 800, color: '#fff', background: 'var(--accent)',
+                  borderRadius: 999, minWidth: 16, height: 16, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '0 4px',
+                }}>
+                  {ticketCount}
+                </span>
+              )}
             </button>
           )
         })}
       </ScrollFadeRow>
 
-      {tab === 'alerts' && <AlertsTab onResolved={() => setAlertCount(c => Math.max(0, c - 1))} />}
-      {tab === 'reports' && <ReportsTab />}
+      {tab === 'alerts' && <AlertsTab onResolved={() => setAlertCount(c => Math.max(0, c - 1))} isModOrAdmin={isModOrAdmin} />}
+      {tab === 'reports' && <ReportsTab isModOrAdmin={isModOrAdmin} />}
+      {tab === 'tickets' && <StaffTicketsTab isModOrAdmin={isModOrAdmin} />}
       {tab === 'users' && <UsersTab isAdmin={isAdmin} isModOrAdmin={isModOrAdmin} />}
       {tab === 'badges' && <BadgesTab />}
       {tab === 'roles' && isAdmin && <RolesTab />}
@@ -127,7 +148,7 @@ const STRIKE_CATEGORY_LABELS: Record<string, string> = {
   personal_info_exposure: 'Personal info exposure (phone/email/key)',
 }
 
-function AlertsTab({ onResolved }: { onResolved: () => void }) {
+function AlertsTab({ onResolved, isModOrAdmin }: { onResolved: () => void; isModOrAdmin: boolean }) {
   const [alerts, setAlerts] = useState<StaffAlert[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -136,6 +157,8 @@ function AlertsTab({ onResolved }: { onResolved: () => void }) {
   const [strikesLoading, setStrikesLoading] = useState(false)
   const [busy, setBusy] = useState(false)
   const [banReason, setBanReason] = useState('')
+  const [escalating, setEscalating] = useState(false)
+  const [escalationNote, setEscalationNote] = useState('')
 
   function load() {
     setLoading(true)
@@ -152,6 +175,8 @@ function AlertsTab({ onResolved }: { onResolved: () => void }) {
     if (expanded === alert.id) { setExpanded(null); return }
     setExpanded(alert.id)
     setBanReason('')
+    setEscalating(false)
+    setEscalationNote('')
     setStrikesLoading(true)
     const { data } = await fetchStrikes(alert.user_id)
     setStrikes(data)
@@ -180,13 +205,30 @@ function AlertsTab({ onResolved }: { onResolved: () => void }) {
     onResolved()
   }
 
+  async function handleEscalate(alert: StaffAlert) {
+    if (!escalationNote.trim()) { setError('Please add a note explaining why this needs a moderator.'); return }
+    setBusy(true)
+    const { error } = await escalateAlert(alert.id, escalationNote.trim())
+    setBusy(false)
+    if (error) { setError(error); return }
+    setError(null)
+    setEscalating(false)
+    setEscalationNote('')
+    setAlerts(a => a.map(x => (x.id === alert.id ? { ...x, escalated: true } : x)))
+  }
+
   if (loading) return <div style={{ textAlign: 'center', padding: 30, color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>
   if (error) return <div style={errorBox}>{error}</div>
   if (alerts.length === 0) return <EmptyState icon={Bell} text="No pending alerts — nobody has crossed the strike threshold." />
 
   return (
     <div>
-      {alerts.map(a => (
+      {alerts.map(a => {
+        // Plain staff can view/dismiss a not-yet-escalated alert, but any real
+        // action (ban) — or closing one out once it's been escalated — needs
+        // a moderator/admin.
+        const canDismiss = isModOrAdmin || !a.escalated
+        return (
         <div key={a.id} style={cardStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
             <div>
@@ -195,15 +237,44 @@ function AlertsTab({ onResolved }: { onResolved: () => void }) {
                 {a.strike_count} strikes · flagged {new Date(a.created_at).toLocaleString()}
               </div>
             </div>
-            <StatusPill label={`${a.strike_count} strikes`} color="var(--red)" />
+            <div style={{ display: 'flex', gap: 6 }}>
+              {a.escalated && <StatusPill label="Escalated" color="var(--red)" />}
+              <StatusPill label={`${a.strike_count} strikes`} color="var(--red)" />
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
             <SmallButton onClick={() => toggleExpand(a)}>
               <Eye size={12} /> {expanded === a.id ? 'Hide history' : 'View strike history'}
             </SmallButton>
-            <SmallButton onClick={() => handleDismiss(a)} disabled={busy}>Dismiss (no action)</SmallButton>
+            {canDismiss && (
+              <SmallButton onClick={() => handleDismiss(a)} disabled={busy}>Dismiss (no action)</SmallButton>
+            )}
+            {!isModOrAdmin && !a.escalated && (
+              <SmallButton onClick={() => setEscalating(v => !v)} disabled={busy}>
+                <ArrowUpCircle size={12} /> Escalate to moderator
+              </SmallButton>
+            )}
           </div>
+
+          {a.escalated && a.escalation_note && (
+            <div style={{ marginTop: 10, padding: 10, borderRadius: 10, background: 'rgba(255,79,79,0.07)', border: '1px solid rgba(255,79,79,0.2)' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--red)', marginBottom: 3 }}>Escalation note</div>
+              <div style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>{a.escalation_note}</div>
+            </div>
+          )}
+
+          {escalating && (
+            <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+              <input
+                value={escalationNote}
+                onChange={e => setEscalationNote(e.target.value)}
+                placeholder="Why does this need a moderator? (required)"
+                style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12.5 }}
+              />
+              <SmallButton danger onClick={() => handleEscalate(a)} disabled={busy}>Send</SmallButton>
+            </div>
+          )}
 
           {expanded === a.id && (
             <div style={{ marginTop: 12, padding: 12, borderRadius: 10, background: 'var(--surface2)' }}>
@@ -221,32 +292,41 @@ function AlertsTab({ onResolved }: { onResolved: () => void }) {
                 </div>
               )}
 
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', marginBottom: 8 }}>Take action</div>
-              <input
-                value={banReason}
-                onChange={e => setBanReason(e.target.value)}
-                placeholder="Reason (required)"
-                style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12.5, marginBottom: 8 }}
-              />
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <SmallButton danger onClick={() => handleBan(a, 168)} disabled={busy}>
-                  <Ban size={12} /> Suspend 7 days
-                </SmallButton>
-                <SmallButton danger onClick={() => handleBan(a, null)} disabled={busy}>
-                  <Ban size={12} /> Ban permanently
-                </SmallButton>
-              </div>
+              {isModOrAdmin ? (
+                <>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', marginBottom: 8 }}>Take action</div>
+                  <input
+                    value={banReason}
+                    onChange={e => setBanReason(e.target.value)}
+                    placeholder="Reason (required)"
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12.5, marginBottom: 8 }}
+                  />
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <SmallButton danger onClick={() => handleBan(a, 168)} disabled={busy}>
+                      <Ban size={12} /> Suspend 7 days
+                    </SmallButton>
+                    <SmallButton danger onClick={() => handleBan(a, null)} disabled={busy}>
+                      <Ban size={12} /> Ban permanently
+                    </SmallButton>
+                  </div>
+                </>
+              ) : (
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
+                  Bans require a moderator — use "Escalate to moderator" above to hand this off.
+                </p>
+              )}
             </div>
           )}
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
 
 // ── Reports ─────────────────────────────────────────────────────────────
 
-function ReportsTab() {
+function ReportsTab({ isModOrAdmin }: { isModOrAdmin: boolean }) {
   const [reports, setReports] = useState<ContentReport[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -254,6 +334,9 @@ function ReportsTab() {
   const [context, setContext] = useState<Record<string, unknown> | null>(null)
   const [contextLoading, setContextLoading] = useState(false)
   const [actionMsg, setActionMsg] = useState<string | null>(null)
+  const [escalatingId, setEscalatingId] = useState<string | null>(null)
+  const [escalationNote, setEscalationNote] = useState('')
+  const [busy, setBusy] = useState(false)
 
   function load() {
     setLoading(true)
@@ -302,6 +385,18 @@ function ReportsTab() {
     await handleReview(report.id, 'dismissed')
   }
 
+  async function handleEscalate(report: ContentReport) {
+    if (!escalationNote.trim()) { setActionMsg('Please add a note explaining why this needs a moderator.'); return }
+    setBusy(true)
+    const { error } = await escalateReport(report.id, escalationNote.trim())
+    setBusy(false)
+    if (error) { setActionMsg(error); return }
+    setActionMsg(null)
+    setEscalatingId(null)
+    setEscalationNote('')
+    load()
+  }
+
   if (loading) return <div style={{ textAlign: 'center', padding: 30, color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>
   if (error) return <div style={errorBox}>{error}</div>
   if (reports.length === 0) return <EmptyState icon={Flag} text="No reports yet." />
@@ -324,7 +419,10 @@ function ReportsTab() {
               </div>
               {r.details && <div style={{ fontSize: 12.5, color: 'var(--text-dim)', marginTop: 6 }}>{r.details}</div>}
             </div>
-            <StatusPill label={r.status} color={REASON_COLORS[r.status]} />
+            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+              {r.escalated_to_mod && <StatusPill label="Escalated" color="var(--red)" />}
+              <StatusPill label={r.status} color={REASON_COLORS[r.status]} />
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
@@ -337,12 +435,37 @@ function ReportsTab() {
             {r.status === 'open' && (
               <>
                 <SmallButton onClick={() => handleReview(r.id, 'dismissed')}>Dismiss</SmallButton>
-                <SmallButton danger onClick={() => handleDeleteTarget(r)}>
-                  <Trash2 size={12} /> Delete & action
-                </SmallButton>
+                {isModOrAdmin ? (
+                  <SmallButton danger onClick={() => handleDeleteTarget(r)}>
+                    <Trash2 size={12} /> Delete & action
+                  </SmallButton>
+                ) : !r.escalated_to_mod ? (
+                  <SmallButton onClick={() => { setEscalatingId(escalatingId === r.id ? null : r.id); setEscalationNote('') }}>
+                    <ArrowUpCircle size={12} /> Escalate to moderator
+                  </SmallButton>
+                ) : null}
               </>
             )}
           </div>
+
+          {r.escalated_to_mod && r.escalation_note && (
+            <div style={{ marginTop: 10, padding: 10, borderRadius: 10, background: 'rgba(255,79,79,0.07)', border: '1px solid rgba(255,79,79,0.2)' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--red)', marginBottom: 3 }}>Escalation note</div>
+              <div style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>{r.escalation_note}</div>
+            </div>
+          )}
+
+          {escalatingId === r.id && (
+            <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+              <input
+                value={escalationNote}
+                onChange={e => setEscalationNote(e.target.value)}
+                placeholder="Why does this need a moderator? (required)"
+                style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12.5 }}
+              />
+              <SmallButton danger onClick={() => handleEscalate(r)} disabled={busy}>Send</SmallButton>
+            </div>
+          )}
 
           {expanded === r.id && (
             <div style={{ marginTop: 10, padding: 12, borderRadius: 10, background: 'var(--surface2)', fontSize: 12.5, color: 'var(--text-dim)' }}>

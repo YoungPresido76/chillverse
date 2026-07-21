@@ -22,6 +22,10 @@ export interface ContentReport {
   reason: string
   details: string | null
   status: 'open' | 'reviewed' | 'actioned' | 'dismissed'
+  escalated_to_mod: boolean
+  escalation_note: string | null
+  escalated_by: string | null
+  escalated_at: string | null
   created_at: string
   reporter?: { username: string } | null
 }
@@ -38,14 +42,15 @@ export interface ModerationLogEntry {
   moderator?: { username: string } | null
 }
 
-function friendlyError(error: { message: string } | null): string | null {
+/** Shared across moderation.ts and staffTickets.ts — both call the same family of mod_*/staff_* RPCs. */
+export function friendlyError(error: { message: string } | null): string | null {
   if (!error) return null
   const msg = error.message
   if (msg.includes('CV_MOD_FORBIDDEN')) return "You don't have permission to do that."
   if (msg.includes('CV_MOD_SELF')) return "You can't do that to your own account."
   if (msg.includes('CV_MOD_NOT_FOUND')) return 'That could not be found — it may have already been removed.'
   if (msg.includes('CV_MOD_REASON_REQUIRED')) return 'Please enter a reason.'
-  if (msg.includes('CV_MOD_INSUFFICIENT')) return 'Only admins can action other staff members.'
+  if (msg.includes('CV_MOD_INSUFFICIENT')) return 'Only a moderator or admin can do that — escalate this instead.'
   if (msg.includes('CV_MOD_BAD_ROLE')) return 'Invalid role.'
   if (msg.includes('CV_MOD_BAD_STATUS')) return 'Invalid status.'
   if (msg.includes('CV_MOD_SELF_DEMOTE')) return 'Ask another admin to change your own role.'
@@ -83,6 +88,12 @@ export async function getReportContext(reportId: string): Promise<{ data: Record
 
 export async function reviewReport(reportId: string, status: 'reviewed' | 'actioned' | 'dismissed'): Promise<{ error: string | null }> {
   const { error } = await supabase.rpc('mod_review_report', { p_report_id: reportId, p_status: status })
+  return { error: friendlyError(error) }
+}
+
+/** Staff-tier: hand a report to a moderator instead of deleting/banning directly. */
+export async function escalateReport(reportId: string, note: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('mod_escalate_report', { p_report_id: reportId, p_note: note })
   return { error: friendlyError(error) }
 }
 
@@ -210,6 +221,10 @@ export interface StaffAlert {
   user_id: string
   strike_count: number
   resolved: boolean
+  escalated: boolean
+  escalation_note: string | null
+  escalated_by: string | null
+  escalated_at: string | null
   created_at: string
   user?: { username: string } | null
 }
@@ -238,6 +253,12 @@ export async function fetchUnresolvedAlerts(): Promise<{ data: StaffAlert[]; err
 
 export async function resolveAlert(alertId: string): Promise<{ error: string | null }> {
   const { error } = await supabase.rpc('mod_resolve_alert', { p_alert_id: alertId })
+  return { error: friendlyError(error) }
+}
+
+/** Staff-tier: hand a strike alert to a moderator instead of banning directly. */
+export async function escalateAlert(alertId: string, note: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('mod_escalate_alert', { p_alert_id: alertId, p_note: note })
   return { error: friendlyError(error) }
 }
 
