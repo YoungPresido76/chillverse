@@ -1,6 +1,6 @@
 // src/features/moderation/ModerationPanel.tsx
 import { useEffect, useState } from 'react'
-import { ShieldAlert, Flag, Users as UsersIcon, ScrollText, Search, Ban, ShieldCheck, Trash2, Bell, Eye, BadgeCheck, Award, UserCog, Ticket, ArrowUpCircle } from 'lucide-react'
+import { ShieldAlert, Flag, Users as UsersIcon, ScrollText, Search, Ban, ShieldCheck, Trash2, Bell, Eye, BadgeCheck, Award, UserCog, Ticket, ArrowUpCircle, SlidersHorizontal, Settings, Plus, X, History, NotebookPen, CheckSquare, Square } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { useModRole } from './useModRole'
 import { useAuth } from '../auth/useAuth'
@@ -8,7 +8,12 @@ import {
   fetchOpenReports, getReportContext, reviewReport, escalateReport, searchUserByUsername, searchStaffUsers,
   banUser, unbanUser, setUserRole, setVerified, deleteMessage, deletePost, deleteComment,
   fetchModerationLog, fetchStrikes, fetchUnresolvedAlerts, resolveAlert, escalateAlert, unhideContent,
+  bulkDismissReports, bulkDeleteAndActionReports, bulkBanReportedUsers,
+  fetchBannedTerms, addBannedTerm, updateBannedTerm, deleteBannedTerm, BANNED_TERM_CATEGORY_LABELS,
+  fetchModerationSettings, updateStrikeThreshold,
+  fetchUserHistory, addUserNote,
   type ContentReport, type ModerationLogEntry, type StaffRole, type Strike, type StaffAlert, type StaffUserSearchRow,
+  type BannedTerm, type BannedTermCategory, type UserHistoryEntry,
 } from './moderation'
 import { fetchStaffTickets } from './staffTickets'
 import StaffTicketsTab from './StaffTicketsTab'
@@ -19,7 +24,7 @@ import { BadgeIcon } from '../badges/badgeIcons'
 import Avatar from '../../shared/components/Avatar'
 import ScrollFadeRow from '../../shared/components/ScrollFadeRow'
 
-type Tab = 'alerts' | 'reports' | 'tickets' | 'users' | 'badges' | 'roles' | 'log'
+type Tab = 'alerts' | 'reports' | 'tickets' | 'users' | 'badges' | 'filters' | 'settings' | 'roles' | 'log'
 
 const REASON_COLORS: Record<ContentReport['status'], string> = {
   open: 'var(--accent2)',
@@ -65,6 +70,8 @@ export default function ModerationPanel() {
     { key: 'tickets', label: 'Tickets', icon: Ticket },
     { key: 'users', label: 'Users', icon: UsersIcon },
     { key: 'badges', label: 'Badges', icon: Award },
+    ...(isAdmin ? [{ key: 'filters' as Tab, label: 'Filters', icon: SlidersHorizontal }] : []),
+    ...(isAdmin ? [{ key: 'settings' as Tab, label: 'Settings', icon: Settings }] : []),
     ...(isAdmin ? [{ key: 'roles' as Tab, label: 'Roles', icon: UserCog }] : []),
     { key: 'log', label: 'Audit log', icon: ScrollText },
   ]
@@ -129,6 +136,8 @@ export default function ModerationPanel() {
       {tab === 'tickets' && <StaffTicketsTab isModOrAdmin={isModOrAdmin} />}
       {tab === 'users' && <UsersTab isAdmin={isAdmin} isModOrAdmin={isModOrAdmin} />}
       {tab === 'badges' && <BadgesTab />}
+      {tab === 'filters' && isAdmin && <FiltersTab />}
+      {tab === 'settings' && isAdmin && <SettingsTab />}
       {tab === 'roles' && isAdmin && <RolesTab />}
       {tab === 'log' && <LogTab />}
     </div>
@@ -337,6 +346,9 @@ function ReportsTab({ isModOrAdmin }: { isModOrAdmin: boolean }) {
   const [escalatingId, setEscalatingId] = useState<string | null>(null)
   const [escalationNote, setEscalationNote] = useState('')
   const [busy, setBusy] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkBanReason, setBulkBanReason] = useState('')
+  const [bulkBanning, setBulkBanning] = useState(false)
 
   function load() {
     setLoading(true)
@@ -344,10 +356,58 @@ function ReportsTab({ isModOrAdmin }: { isModOrAdmin: boolean }) {
       setReports(data)
       setError(error)
       setLoading(false)
+      setSelected(new Set())
     })
   }
 
   useEffect(load, [])
+
+  function toggleSelected(id: string) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  const openReports = reports.filter(r => r.status === 'open')
+  const selectedReports = openReports.filter(r => selected.has(r.id))
+  const selectedUserReports = selectedReports.filter(r => r.target_type === 'user')
+  const selectedContentReports = selectedReports.filter(r => r.target_type !== 'user')
+
+  async function handleBulkDismiss() {
+    if (selected.size === 0) return
+    setBusy(true)
+    const { count, error } = await bulkDismissReports([...selected])
+    setBusy(false)
+    if (error) { setActionMsg(error); return }
+    setActionMsg(`Dismissed ${count} report${count === 1 ? '' : 's'}.`)
+    load()
+  }
+
+  async function handleBulkDeleteAndAction() {
+    if (selectedContentReports.length === 0) return
+    setBusy(true)
+    const { succeeded, failed } = await bulkDeleteAndActionReports(selectedContentReports)
+    setBusy(false)
+    setActionMsg(failed.length > 0
+      ? `Actioned ${succeeded.length}, failed on ${failed.length}.`
+      : `Actioned ${succeeded.length} report${succeeded.length === 1 ? '' : 's'}.`)
+    load()
+  }
+
+  async function handleBulkBan() {
+    if (selectedUserReports.length === 0) return
+    if (!bulkBanReason.trim()) { setActionMsg('Please enter a reason.'); return }
+    setBulkBanning(true)
+    const { succeeded, failed } = await bulkBanReportedUsers(selectedUserReports, bulkBanReason.trim(), null)
+    setBulkBanning(false)
+    setBulkBanReason('')
+    setActionMsg(failed.length > 0
+      ? `Banned ${succeeded.length}, failed on ${failed.length}.`
+      : `Banned ${succeeded.length} user${succeeded.length === 1 ? '' : 's'}.`)
+    load()
+  }
 
   async function toggleExpand(report: ContentReport) {
     if (expanded === report.id) { setExpanded(null); setContext(null); return }
@@ -404,20 +464,70 @@ function ReportsTab({ isModOrAdmin }: { isModOrAdmin: boolean }) {
   return (
     <div>
       {actionMsg && <div style={errorBox}>{actionMsg}</div>}
+
+      {openReports.length > 0 && (
+        <div style={{ ...cardStyle, padding: '12px 14px', background: 'var(--surface2)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: selected.size > 0 ? 10 : 0 }}>
+            <SmallButton onClick={() => setSelected(selected.size === openReports.length ? new Set() : new Set(openReports.map(r => r.id)))}>
+              {selected.size === openReports.length ? <CheckSquare size={12} /> : <Square size={12} />}
+              {selected.size === openReports.length ? 'Deselect all' : 'Select all'}
+            </SmallButton>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{selected.size} selected</span>
+          </div>
+
+          {selected.size > 0 && (
+            <div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <SmallButton onClick={handleBulkDismiss} disabled={busy}>Dismiss selected</SmallButton>
+                {isModOrAdmin && selectedContentReports.length > 0 && (
+                  <SmallButton danger onClick={handleBulkDeleteAndAction} disabled={busy}>
+                    <Trash2 size={12} /> Delete & action {selectedContentReports.length} content
+                  </SmallButton>
+                )}
+              </div>
+              {isModOrAdmin && selectedUserReports.length > 0 && (
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <input
+                    value={bulkBanReason}
+                    onChange={e => setBulkBanReason(e.target.value)}
+                    placeholder={`Reason to ban ${selectedUserReports.length} reported user${selectedUserReports.length === 1 ? '' : 's'}…`}
+                    style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12.5 }}
+                  />
+                  <SmallButton danger onClick={handleBulkBan} disabled={bulkBanning}>
+                    <Ban size={12} /> Ban {selectedUserReports.length}
+                  </SmallButton>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {reports.map(r => (
         <div key={r.id} style={cardStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>
-                {r.reason === 'auto_flagged' ? SYSTEM_REPORT_REASON_LABEL : (REPORT_REASON_LABELS[r.reason as keyof typeof REPORT_REASON_LABELS] ?? r.reason)}
-                <span style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--text-muted)', marginLeft: 8 }}>
-                  on a {r.target_type}
-                </span>
+            <div style={{ display: 'flex', gap: 10, minWidth: 0 }}>
+              {r.status === 'open' && (
+                <button
+                  type="button"
+                  onClick={() => toggleSelected(r.id)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginTop: 2, color: selected.has(r.id) ? 'var(--accent)' : 'var(--text-muted)', flexShrink: 0 }}
+                >
+                  {selected.has(r.id) ? <CheckSquare size={16} /> : <Square size={16} />}
+                </button>
+              )}
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>
+                  {r.reason === 'auto_flagged' ? SYSTEM_REPORT_REASON_LABEL : (REPORT_REASON_LABELS[r.reason as keyof typeof REPORT_REASON_LABELS] ?? r.reason)}
+                  <span style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--text-muted)', marginLeft: 8 }}>
+                    on a {r.target_type}
+                  </span>
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 3 }}>
+                  Reported by {r.reporter?.username ?? (r.reason === 'auto_flagged' ? 'System (word filter)' : 'unknown')} · {new Date(r.created_at).toLocaleString()}
+                </div>
+                {r.details && <div style={{ fontSize: 12.5, color: 'var(--text-dim)', marginTop: 6 }}>{r.details}</div>}
               </div>
-              <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 3 }}>
-                Reported by {r.reporter?.username ?? (r.reason === 'auto_flagged' ? 'System (word filter)' : 'unknown')} · {new Date(r.created_at).toLocaleString()}
-              </div>
-              {r.details && <div style={{ fontSize: 12.5, color: 'var(--text-dim)', marginTop: 6 }}>{r.details}</div>}
             </div>
             <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
               {r.escalated_to_mod && <StatusPill label="Escalated" color="var(--red)" />}
@@ -497,6 +607,11 @@ function UsersTab({ isAdmin, isModOrAdmin }: { isAdmin: boolean; isModOrAdmin: b
   const [busy, setBusy] = useState(false)
   const [manualBadges, setManualBadges] = useState<BadgeDef[]>([])
   const [ownedBadgeIds, setOwnedBadgeIds] = useState<Set<string>>(new Set())
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [history, setHistory] = useState<UserHistoryEntry[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [noteText, setNoteText] = useState('')
+  const [noteBusy, setNoteBusy] = useState(false)
 
   useEffect(() => {
     getAllBadges().then(all => setManualBadges(all.filter(b => b.grant_type === 'manual')))
@@ -506,6 +621,39 @@ function UsersTab({ isAdmin, isModOrAdmin }: { isAdmin: boolean; isModOrAdmin: b
     if (!result) { setOwnedBadgeIds(new Set()); return }
     getPlayerBadges(result.user_id).then(rows => setOwnedBadgeIds(new Set(rows.map(r => r.badge_id))))
   }, [result])
+
+  // Switching to a different user closes any open history panel rather
+  // than showing stale data while the new one loads.
+  useEffect(() => {
+    setHistoryOpen(false)
+    setHistory([])
+    setNoteText('')
+  }, [result?.user_id])
+
+  async function toggleHistory() {
+    if (!result) return
+    if (historyOpen) { setHistoryOpen(false); return }
+    setHistoryOpen(true)
+    setHistoryLoading(true)
+    const { data, error } = await fetchUserHistory(result.user_id)
+    if (error) setError(error)
+    setHistory(data)
+    setHistoryLoading(false)
+  }
+
+  async function handleAddNote() {
+    if (!result || !noteText.trim()) return
+    setNoteBusy(true)
+    const { error } = await addUserNote(result.user_id, noteText.trim())
+    setNoteBusy(false)
+    if (error) { setError(error); return }
+    setError(null)
+    setNoteText('')
+    setHistoryLoading(true)
+    const { data } = await fetchUserHistory(result.user_id)
+    setHistory(data)
+    setHistoryLoading(false)
+  }
 
   // Live typeahead: debounce keystrokes, then fetch a short list of
   // partial matches — the moderator doesn't need to know the full,
@@ -691,10 +839,13 @@ function UsersTab({ isAdmin, isModOrAdmin }: { isAdmin: boolean; isModOrAdmin: b
               <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>{result.display_name || result.username}</div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>@{result.username}</div>
             </div>
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <RoleBadge role={result.role} />
               {result.is_verified && <StatusPill label="verified" color="#5b9cff" />}
               {result.is_banned && <StatusPill label="banned" color="var(--red)" />}
+              <SmallButton onClick={toggleHistory}>
+                <History size={12} /> {historyOpen ? 'Hide history' : 'History'}
+              </SmallButton>
             </div>
           </div>
 
@@ -793,8 +944,70 @@ function UsersTab({ isAdmin, isModOrAdmin }: { isAdmin: boolean; isModOrAdmin: b
               </div>
             </div>
           )}
+          {historyOpen && (
+            <div style={{ marginTop: 14, padding: 12, borderRadius: 10, background: 'var(--surface2)' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', marginBottom: 8 }}>
+                <History size={12} style={{ verticalAlign: -1, marginRight: 4 }} /> Account history
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                <input
+                  value={noteText}
+                  onChange={e => setNoteText(e.target.value)}
+                  placeholder="Add a staff note…"
+                  style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12.5 }}
+                />
+                <SmallButton disabled={noteBusy || !noteText.trim()} onClick={handleAddNote}>
+                  <NotebookPen size={12} /> Add
+                </SmallButton>
+              </div>
+
+              {historyLoading ? (
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Loading…</div>
+              ) : history.length === 0 ? (
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>No history yet.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 320, overflowY: 'auto' }}>
+                  {history.map(h => <HistoryRow key={`${h.type}-${h.id}`} entry={h} />)}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
+    </div>
+  )
+}
+
+const HISTORY_ENTRY_COLOR: Record<UserHistoryEntry['type'], string> = {
+  strike: 'var(--red)',
+  log: '#5b9cff',
+  note: '#4fd18a',
+}
+
+function HistoryRow({ entry }: { entry: UserHistoryEntry }) {
+  const color = HISTORY_ENTRY_COLOR[entry.type]
+  let label: string
+  let detail: string | null = null
+
+  if (entry.type === 'strike') {
+    label = `Strike · ${STRIKE_CATEGORY_LABELS[entry.category] ?? entry.category}`
+    detail = `on a ${entry.target_type}`
+  } else if (entry.type === 'note') {
+    label = `Note by ${entry.author ?? 'unknown'}`
+    detail = entry.note
+  } else {
+    label = entry.action.replace(/_/g, ' ')
+    detail = [entry.moderator ? `by ${entry.moderator}` : null, entry.reason].filter(Boolean).join(' — ') || null
+  }
+
+  return (
+    <div style={{ borderLeft: `2px solid ${color}`, paddingLeft: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', textTransform: 'capitalize' }}>{label}</span>
+        <span style={{ fontSize: 10.5, color: 'var(--text-muted)', flexShrink: 0 }}>{new Date(entry.created_at).toLocaleString()}</span>
+      </div>
+      {detail && <div style={{ fontSize: 11.5, color: 'var(--text-dim)', marginTop: 2 }}>{detail}</div>}
     </div>
   )
 }
@@ -1018,6 +1231,185 @@ function RolesTab() {
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Word filter (admin only) ──────────────────────────────────────────
+
+const BANNED_TERM_CATEGORIES = Object.keys(BANNED_TERM_CATEGORY_LABELS) as BannedTermCategory[]
+
+function FiltersTab() {
+  const [terms, setTerms] = useState<BannedTerm[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [category, setCategory] = useState<BannedTermCategory>('profanity')
+  const [pattern, setPattern] = useState('')
+  const [adding, setAdding] = useState(false)
+
+  function load() {
+    setLoading(true)
+    fetchBannedTerms().then(({ data, error }) => {
+      setTerms(data)
+      setError(error)
+      setLoading(false)
+    })
+  }
+
+  useEffect(load, [])
+
+  async function handleAdd() {
+    if (!pattern.trim()) { setError('Enter a word or phrase.'); return }
+    setAdding(true)
+    const { data, error } = await addBannedTerm(category, pattern.trim())
+    setAdding(false)
+    if (error) { setError(error); return }
+    setError(null)
+    setPattern('')
+    if (data) setTerms(prev => [...prev, data].sort((a, b) => a.category.localeCompare(b.category) || a.pattern.localeCompare(b.pattern)))
+  }
+
+  async function handleToggleActive(term: BannedTerm) {
+    setBusyId(term.id)
+    const { data, error } = await updateBannedTerm(term.id, { active: !term.active })
+    setBusyId(null)
+    if (error) { setError(error); return }
+    if (data) setTerms(prev => prev.map(t => (t.id === term.id ? data : t)))
+  }
+
+  async function handleDelete(term: BannedTerm) {
+    setBusyId(term.id)
+    const { error } = await deleteBannedTerm(term.id)
+    setBusyId(null)
+    if (error) { setError(error); return }
+    setTerms(prev => prev.filter(t => t.id !== term.id))
+  }
+
+  const byCategory = BANNED_TERM_CATEGORIES.map(cat => ({ cat, rows: terms.filter(t => t.category === cat) }))
+
+  return (
+    <div>
+      <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 14px' }}>
+        Admin-only. Words and phrases below feed the automated content filter directly — changes apply immediately
+        to new messages, posts, and comments, no deploy needed. Turning a term off keeps it here but stops it from matching.
+      </p>
+      {error && <div style={errorBox}>{error}</div>}
+
+      <div style={{ ...cardStyle, padding: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', marginBottom: 8 }}>Add a term</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <select
+            value={category}
+            onChange={e => setCategory(e.target.value as BannedTermCategory)}
+            style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12.5 }}
+          >
+            {BANNED_TERM_CATEGORIES.map(c => <option key={c} value={c}>{BANNED_TERM_CATEGORY_LABELS[c]}</option>)}
+          </select>
+          <input
+            value={pattern}
+            onChange={e => setPattern(e.target.value)}
+            placeholder="Word or phrase (regex ok, e.g. kill\s*yourself)"
+            style={{ flex: 1, minWidth: 180, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12.5 }}
+          />
+          <SmallButton onClick={handleAdd} disabled={adding}>
+            <Plus size={12} /> Add
+          </SmallButton>
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 30, color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>
+      ) : (
+        byCategory.map(({ cat, rows }) => (
+          <div key={cat} style={{ marginTop: 18 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+              {BANNED_TERM_CATEGORY_LABELS[cat]} ({rows.length})
+            </div>
+            {rows.length === 0 ? (
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', padding: '4px 4px 0' }}>No terms in this category.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {rows.map(t => (
+                  <div key={t.id} style={{ ...cardStyle, margin: 0, padding: '9px 12px', display: 'flex', alignItems: 'center', gap: 8, opacity: busyId === t.id ? 0.6 : 1 }}>
+                    <code style={{ flex: 1, fontSize: 12, color: t.active ? 'var(--text)' : 'var(--text-muted)', wordBreak: 'break-word', textDecoration: t.active ? 'none' : 'line-through' }}>
+                      {t.pattern}
+                    </code>
+                    <SmallButton disabled={busyId === t.id} onClick={() => handleToggleActive(t)}>
+                      {t.active ? 'Disable' : 'Enable'}
+                    </SmallButton>
+                    <SmallButton danger disabled={busyId === t.id} onClick={() => handleDelete(t)}>
+                      <X size={12} />
+                    </SmallButton>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))
+      )}
+    </div>
+  )
+}
+
+// ── Strike threshold (admin only) ──────────────────────────────────────
+
+function SettingsTab() {
+  const [threshold, setThreshold] = useState<number | null>(null)
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    fetchModerationSettings().then(({ data, error }) => {
+      setError(error)
+      if (data) { setThreshold(data.strike_alert_threshold); setInput(String(data.strike_alert_threshold)) }
+      setLoading(false)
+    })
+  }, [])
+
+  async function handleSave() {
+    const n = Number(input)
+    if (!Number.isInteger(n) || n < 1 || n > 100) { setError('Enter a whole number between 1 and 100.'); return }
+    setSaving(true)
+    const { data, error } = await updateStrikeThreshold(n)
+    setSaving(false)
+    if (error) { setError(error); return }
+    setError(null)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+    if (data) setThreshold(data.strike_alert_threshold)
+  }
+
+  if (loading) return <div style={{ textAlign: 'center', padding: 30, color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>
+
+  return (
+    <div>
+      <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 14px' }}>
+        Admin-only. This is how many strikes (auto-removed hate speech, threats, profanity, etc.) an account can
+        accumulate before it pings the Alerts tab for a ban/no-ban decision.
+      </p>
+      {error && <div style={errorBox}>{error}</div>}
+
+      <div style={{ ...cardStyle }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', marginBottom: 8 }}>Strike alert threshold</div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input
+            type="number"
+            min={1}
+            max={100}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            style={{ width: 90, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }}
+          />
+          <SmallButton onClick={handleSave} disabled={saving || Number(input) === threshold}>
+            {saving ? 'Saving…' : saved ? 'Saved' : 'Save'}
+          </SmallButton>
+        </div>
+        {threshold !== null && <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: '10px 0 0' }}>Currently {threshold} strikes.</p>}
+      </div>
     </div>
   )
 }

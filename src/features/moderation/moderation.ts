@@ -266,3 +266,134 @@ export async function unhideContent(targetType: 'message' | 'post' | 'comment', 
   const { error } = await supabase.rpc('mod_unhide_content', { p_target_type: targetType, p_target_id: targetId })
   return { error: friendlyError(error) }
 }
+
+// ── Bulk report actions ───────────────────────────────────────────────
+
+/** Flips every currently-open report in the list to 'dismissed' in one call. Returns how many were actually changed. */
+export async function bulkDismissReports(reportIds: string[]): Promise<{ count: number; error: string | null }> {
+  const { data, error } = await supabase.rpc('mod_bulk_dismiss_reports', { p_report_ids: reportIds })
+  return { count: (data as number | null) ?? 0, error: friendlyError(error) }
+}
+
+/**
+ * Bulk delete-and-action and bulk ban loop over the existing single-item
+ * RPCs (mod_delete_*/mod_ban_user already carry the right permission
+ * checks and audit logging per item; report targets are heterogeneous by
+ * type, so there's no single atomic RPC that would meaningfully simplify
+ * this). Best-effort: one failure doesn't block the rest of the batch.
+ */
+export async function bulkDeleteAndActionReports(reports: ContentReport[]): Promise<{ succeeded: string[]; failed: string[] }> {
+  const succeeded: string[] = []
+  const failed: string[] = []
+  await Promise.all(reports.map(async r => {
+    let result: { error: string | null }
+    if (r.target_type === 'message') result = await deleteMessage(r.target_id, 'Deleted from report review (bulk)')
+    else if (r.target_type === 'post') result = await deletePost(r.target_id, 'Deleted from report review (bulk)')
+    else if (r.target_type === 'comment') result = await deleteComment(r.target_id, 'Deleted from report review (bulk)')
+    else { failed.push(r.id); return }
+
+    if (result.error) { failed.push(r.id); return }
+    const { error: reviewError } = await reviewReport(r.id, 'actioned')
+    if (reviewError) { failed.push(r.id); return }
+    succeeded.push(r.id)
+  }))
+  return { succeeded, failed }
+}
+
+/** Bans every user behind a set of user-type reports, then dismisses those reports. */
+export async function bulkBanReportedUsers(reports: ContentReport[], reason: string, durationHours: number | null): Promise<{ succeeded: string[]; failed: string[] }> {
+  const succeeded: string[] = []
+  const failed: string[] = []
+  await Promise.all(reports.map(async r => {
+    if (r.target_type !== 'user') { failed.push(r.id); return }
+    const { error: banError } = await banUser(r.target_id, reason, durationHours)
+    if (banError) { failed.push(r.id); return }
+    const { error: reviewError } = await reviewReport(r.id, 'actioned')
+    if (reviewError) { failed.push(r.id); return }
+    succeeded.push(r.id)
+  }))
+  return { succeeded, failed }
+}
+
+// ── Word filter (banned terms) ────────────────────────────────────────
+
+export type BannedTermCategory =
+  | 'hate_speech' | 'profanity' | 'threat_of_violence'
+  | 'self_harm_directed' | 'doxxing' | 'illegal_activity' | 'phishing_scam'
+
+export const BANNED_TERM_CATEGORY_LABELS: Record<BannedTermCategory, string> = {
+  hate_speech: 'Hate speech',
+  profanity: 'Profanity',
+  threat_of_violence: 'Threat of violence',
+  self_harm_directed: 'Self-harm (directed at someone)',
+  doxxing: 'Doxxing',
+  illegal_activity: 'Illegal activity solicitation',
+  phishing_scam: 'Phishing / scam',
+}
+
+export interface BannedTerm {
+  id: string
+  category: BannedTermCategory
+  pattern: string
+  active: boolean
+  created_by: string | null
+  created_at: string
+}
+
+export async function fetchBannedTerms(): Promise<{ data: BannedTerm[]; error: string | null }> {
+  const { data, error } = await supabase.rpc('mod_list_banned_terms')
+  return { data: (data as BannedTerm[] | null) ?? [], error: friendlyError(error) }
+}
+
+export async function addBannedTerm(category: BannedTermCategory, pattern: string): Promise<{ data: BannedTerm | null; error: string | null }> {
+  const { data, error } = await supabase.rpc('mod_add_banned_term', { p_category: category, p_pattern: pattern })
+  return { data: data as BannedTerm | null, error: friendlyError(error) }
+}
+
+export async function updateBannedTerm(id: string, updates: { pattern?: string; active?: boolean }): Promise<{ data: BannedTerm | null; error: string | null }> {
+  const { data, error } = await supabase.rpc('mod_update_banned_term', {
+    p_id: id, p_pattern: updates.pattern ?? null, p_active: updates.active ?? null,
+  })
+  return { data: data as BannedTerm | null, error: friendlyError(error) }
+}
+
+export async function deleteBannedTerm(id: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('mod_delete_banned_term', { p_id: id })
+  return { error: friendlyError(error) }
+}
+
+// ── Strike threshold / moderation settings ──────────────────────────────
+
+export interface ModerationSettings {
+  id: number
+  strike_alert_threshold: number
+  updated_at: string
+  updated_by: string | null
+}
+
+export async function fetchModerationSettings(): Promise<{ data: ModerationSettings | null; error: string | null }> {
+  const { data, error } = await supabase.rpc('mod_get_settings')
+  return { data: data as ModerationSettings | null, error: friendlyError(error) }
+}
+
+export async function updateStrikeThreshold(threshold: number): Promise<{ data: ModerationSettings | null; error: string | null }> {
+  const { data, error } = await supabase.rpc('mod_update_strike_threshold', { p_threshold: threshold })
+  return { data: data as ModerationSettings | null, error: friendlyError(error) }
+}
+
+// ── User notes / history timeline ───────────────────────────────────────
+
+export type UserHistoryEntry =
+  | { type: 'strike'; id: string; created_at: string; category: string; target_type: string }
+  | { type: 'log'; id: string; created_at: string; action: string; reason: string | null; metadata: Record<string, unknown>; moderator: string | null }
+  | { type: 'note'; id: string; created_at: string; note: string; author: string | null }
+
+export async function fetchUserHistory(userId: string): Promise<{ data: UserHistoryEntry[]; error: string | null }> {
+  const { data, error } = await supabase.rpc('mod_get_user_history', { p_user_id: userId })
+  return { data: (data as UserHistoryEntry[] | null) ?? [], error: friendlyError(error) }
+}
+
+export async function addUserNote(userId: string, note: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('mod_add_user_note', { p_user_id: userId, p_note: note })
+  return { error: friendlyError(error) }
+}
