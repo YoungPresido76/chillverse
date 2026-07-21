@@ -23,6 +23,7 @@ import type { GameEndPayload } from './play/types'
 import PageOnboarding from '../onboarding/PageOnboarding'
 import GameDetailModal from './GameDetailModal'
 import { savePinnedGames, withFavoritesFirst } from './favorites'
+import { useFeatureFlags } from '../../shared/lib/featureFlags'
 
 // ── Game imports ─────────────────────────────────────────────
 import ArrowDash from './play/ArrowDash'
@@ -51,7 +52,7 @@ const PRO_GAMES       = GAMES.filter(g => !!g.requiresPro)
 
 // ─── Lobby Card ───────────────────────────────────────────────
 function LobbyCard({
-  game, rank, streak, playsToday, globalCount, globalLimit, dataLoaded, isFavorite, onOpen,
+  game, rank, streak, playsToday, globalCount, globalLimit, dataLoaded, isFavorite, onOpen, disabledByFlag,
 }: {
   game: GameMeta
   rank: GameRank
@@ -62,6 +63,10 @@ function LobbyCard({
   dataLoaded: boolean
   isFavorite: boolean
   onOpen: () => void
+  /** True when an admin has flipped this game's kill-switch off (Admin
+   *  Dashboard → Feature flags). Card still opens the detail sheet so the
+   *  player sees why, same as the existing maxed/notEnoughSessions cases. */
+  disabledByFlag?: boolean
 }) {
   const Icon = game.icon
   const rankCfg = getRankConfig(rank)
@@ -69,7 +74,7 @@ function LobbyCard({
   const maxed = dataLoaded && !game.unlimitedPlays && playsToday >= MAX_PLAYS
   const notEnoughSessions = dataLoaded && (globalCount + cost > globalLimit)
   const globalLimitReached = dataLoaded && (globalCount >= globalLimit)
-  const locked = maxed || notEnoughSessions
+  const locked = maxed || notEnoughSessions || !!disabledByFlag
 
   // Card always opens the detail sheet now — even when locked, so players
   // can see WHY it's locked instead of the card just doing nothing.
@@ -108,8 +113,9 @@ function LobbyCard({
 
       <RankProgressBar rank={rank} streak={streak} streakRequired={rankCfg.streakRequired} />
 
-      {maxed && <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6 }}>Daily limit reached</p>}
-      {!maxed && globalLimitReached && <p style={{ fontSize: 10, color: '#9b6dff', marginTop: 6 }}>Not enough sessions left</p>}
+      {disabledByFlag && <p style={{ fontSize: 10, color: 'var(--red)', marginTop: 6 }}>Temporarily unavailable</p>}
+      {!disabledByFlag && maxed && <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6 }}>Daily limit reached</p>}
+      {!disabledByFlag && !maxed && globalLimitReached && <p style={{ fontSize: 10, color: '#9b6dff', marginTop: 6 }}>Not enough sessions left</p>}
     </div>
   )
 }
@@ -122,6 +128,7 @@ export default function Games() {
   const userId = session?.user?.id ?? null
   const { profile } = useProfile()
   const isPro = isProActive(profile)
+  const { isEnabled: isFlagEnabled } = useFeatureFlags()
   const { limit: GLOBAL_LIMIT, cooldownHours: SESSION_COOLDOWN_HRS } = getSessionLimits(profile)
 
   const [activeGame, setActiveGame]   = useState<GameId | null>(null)
@@ -172,7 +179,8 @@ export default function Games() {
       const cost = meta.sessionCost ?? 1
       const maxed = !meta.unlimitedPlays && (playsToday[meta.id] ?? 0) >= MAX_PLAYS
       const notEnoughSessions = globalCount + cost > GLOBAL_LIMIT
-      if (!maxed && !notEnoughSessions) setActiveGame(openGame)
+      const disabledByFlag = !isFlagEnabled(`game:${meta.dbKey}`)
+      if (!maxed && !notEnoughSessions && !disabledByFlag) setActiveGame(openGame)
     }
 
     // Clear the pending nav state either way, so this can't re-fire or be raced.
@@ -455,6 +463,7 @@ export default function Games() {
                 globalLimit={GLOBAL_LIMIT}
                 dataLoaded={dataLoaded}
                 isFavorite={favorites.has(game.id)}
+                disabledByFlag={!isFlagEnabled(`game:${game.dbKey}`)}
                 onOpen={() => setSelectedGame(game.id)}
               />
             ))}
@@ -479,6 +488,7 @@ export default function Games() {
                 globalLimit={GLOBAL_LIMIT}
                 dataLoaded={dataLoaded}
                 isFavorite={favorites.has(game.id)}
+                disabledByFlag={!isFlagEnabled(`game:${game.dbKey}`)}
                 onOpen={() => setSelectedGame(game.id)}
               />
             ))}
@@ -507,6 +517,7 @@ export default function Games() {
                     globalLimit={GLOBAL_LIMIT}
                     dataLoaded={dataLoaded}
                     isFavorite={favorites.has(game.id)}
+                    disabledByFlag={!isFlagEnabled(`game:${game.dbKey}`)}
                     onOpen={() => setSelectedGame(game.id)}
                   />
                 </div>
@@ -559,8 +570,11 @@ export default function Games() {
         const cost = meta.sessionCost ?? 1
         const maxed = dataLoaded && !meta.unlimitedPlays && (playsToday[selectedGame] ?? 0) >= MAX_PLAYS
         const notEnoughSessions = dataLoaded && (globalCount + cost > GLOBAL_LIMIT)
-        const locked = maxed || notEnoughSessions
-        const lockedReason = maxed
+        const disabledByFlag = !isFlagEnabled(`game:${meta.dbKey}`)
+        const locked = maxed || notEnoughSessions || disabledByFlag
+        const lockedReason = disabledByFlag
+          ? 'Temporarily unavailable'
+          : maxed
           ? 'Daily limit reached'
           : notEnoughSessions
             ? 'Not enough sessions left'
