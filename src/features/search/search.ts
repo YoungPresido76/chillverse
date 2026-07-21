@@ -18,10 +18,7 @@ export interface FollowSuggestion extends PlayerResult {
 export async function searchPlayers(query: string): Promise<PlayerResult[]> {
   if (query.trim().length < 2) return []
   const { data, error } = await supabase
-    .from('profiles')
-    .select('id, username, display_name, avatar')
-    .ilike('username', `%${query.trim()}%`)
-    .limit(20)
+    .rpc('search_players', { p_query: query.trim(), p_limit: 20 })
 
   if (error) {
     console.error('searchPlayers error:', error)
