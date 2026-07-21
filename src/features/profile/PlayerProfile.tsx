@@ -14,6 +14,7 @@ import { ripple } from '../../shared/lib/ripple'
 import { notifyFollow, notifyProfileView, notifyProfileLike } from '../achievements/achievements'
 import { AchIcon, RARITY_COLOR } from '../achievements/Achievements'
 import { getUserRankTier, type RankTier } from './ranks'
+import { canSeeLiveActivity } from './liveActivityAccess'
 import { getGameMeta, getGameById } from '../games/games'
 import { getAllPlayerRanks } from '../games/gameSession'
 import ReportModal from '../safety/ReportModal'
@@ -327,33 +328,44 @@ function PlayerProfileInner() {
   // Watch.tsx broadcasts { activity: 'watching_movie' } when they're
   // in the movie area. Games broadcast { activity: 'playing', game: '...' }.
   // This gives us instant, accurate status — no polling delay.
+  // Gated by live_activity_visibility: we don't even subscribe if the
+  // viewer isn't allowed to see it (see liveActivityAccess.ts).
   useEffect(() => {
     if (!userId) return
+    let cancelled = false
+    let channel: ReturnType<typeof supabase.channel> | null = null
 
-    const channel = supabase.channel(`user-activity:${userId}`, {
-      config: { presence: { key: userId } },
+    canSeeLiveActivity(myId, userId).then(allowed => {
+      if (cancelled || !allowed) return
+
+      channel = supabase.channel(`user-activity:${userId}`, {
+        config: { presence: { key: userId } },
+      })
+
+      function syncActivity() {
+        const state = channel!.presenceState<{ activity: string; game?: string }>()
+        const entries = Object.values(state).flat()
+        const movieEntry = entries.find(e => e.activity === 'watching_movie')
+        const gameEntry  = entries.find(e => e.activity === 'playing' && e.game)
+        const exploreEntry = entries.find(e => e.activity === 'exploring')
+
+        setWatchingMovie(!!movieEntry)
+        setCurrentlyPlaying(gameEntry?.game ?? null)
+        setExploring(!!exploreEntry)
+      }
+
+      channel
+        .on('presence', { event: 'sync' },  syncActivity)
+        .on('presence', { event: 'join' },  syncActivity)
+        .on('presence', { event: 'leave' }, syncActivity)
+        .subscribe()
     })
 
-    function syncActivity() {
-      const state = channel.presenceState<{ activity: string; game?: string }>()
-      const entries = Object.values(state).flat()
-      const movieEntry = entries.find(e => e.activity === 'watching_movie')
-      const gameEntry  = entries.find(e => e.activity === 'playing' && e.game)
-      const exploreEntry = entries.find(e => e.activity === 'exploring')
-
-      setWatchingMovie(!!movieEntry)
-      setCurrentlyPlaying(gameEntry?.game ?? null)
-      setExploring(!!exploreEntry)
+    return () => {
+      cancelled = true
+      if (channel) supabase.removeChannel(channel)
     }
-
-    channel
-      .on('presence', { event: 'sync' },  syncActivity)
-      .on('presence', { event: 'join' },  syncActivity)
-      .on('presence', { event: 'leave' }, syncActivity)
-      .subscribe()
-
-    return () => { supabase.removeChannel(channel) }
-  }, [userId])
+  }, [userId, myId])
 
   // Load equipped avatar + banner + album pics + artifact
   useEffect(() => {

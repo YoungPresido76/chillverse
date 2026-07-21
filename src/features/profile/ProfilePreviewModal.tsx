@@ -28,6 +28,7 @@ import { useAuth } from '../auth/useAuth'
 import { ripple } from '../../shared/lib/ripple'
 import Avatar from '../../shared/components/Avatar'
 import { getUserRankTier } from './ranks'
+import { canSeeLiveActivity } from './liveActivityAccess'
 import { usePlayerBadges } from '../badges/usePlayerBadges'
 import { BadgeIcon } from '../badges/badgeIcons'
 import { BADGE_RARITY_COLOR, BADGE_RARITY_RANK, badgeDisplayTitle, type BadgeDef } from '../badges/badges'
@@ -291,27 +292,37 @@ export default function ProfilePreviewModal({ userId, onClose, isPreview = false
   // channel so "watching a movie" / "playing a game" / "exploring"
   // shows up (and disappears) instantly, same as PlayerProfile.tsx.
   useEffect(() => {
-    const channel = supabase.channel(`user-activity:${userId}`, {
-      config: { presence: { key: userId } },
+    let cancelled = false
+    let channel: ReturnType<typeof supabase.channel> | null = null
+
+    canSeeLiveActivity(user?.id ?? null, userId).then(allowed => {
+      if (cancelled || !allowed) return
+
+      channel = supabase.channel(`user-activity:${userId}`, {
+        config: { presence: { key: userId } },
+      })
+
+      function syncActivity() {
+        const state = channel!.presenceState<{ activity: string; game?: string; since?: number }>()
+        const entries = Object.values(state).flat()
+        const movieEntry = entries.find(e => e.activity === 'watching_movie')
+        const gameEntry = entries.find(e => e.activity === 'playing' && e.game)
+        const exploreEntry = entries.find(e => e.activity === 'exploring')
+        setActivity({ movie: !!movieEntry, game: gameEntry?.game ?? null, gameSince: gameEntry?.since ?? null, exploring: !!exploreEntry })
+      }
+
+      channel
+        .on('presence', { event: 'sync' }, syncActivity)
+        .on('presence', { event: 'join' }, syncActivity)
+        .on('presence', { event: 'leave' }, syncActivity)
+        .subscribe()
     })
 
-    function syncActivity() {
-      const state = channel.presenceState<{ activity: string; game?: string; since?: number }>()
-      const entries = Object.values(state).flat()
-      const movieEntry = entries.find(e => e.activity === 'watching_movie')
-      const gameEntry = entries.find(e => e.activity === 'playing' && e.game)
-      const exploreEntry = entries.find(e => e.activity === 'exploring')
-      setActivity({ movie: !!movieEntry, game: gameEntry?.game ?? null, gameSince: gameEntry?.since ?? null, exploring: !!exploreEntry })
+    return () => {
+      cancelled = true
+      if (channel) supabase.removeChannel(channel)
     }
-
-    channel
-      .on('presence', { event: 'sync' }, syncActivity)
-      .on('presence', { event: 'join' }, syncActivity)
-      .on('presence', { event: 'leave' }, syncActivity)
-      .subscribe()
-
-    return () => { supabase.removeChannel(channel) }
-  }, [userId])
+  }, [userId, user?.id])
 
   // Live ticker — re-renders once a second while a game session is active
   // so the elapsed-time readout (e.g. "5:51") counts up in real time,
