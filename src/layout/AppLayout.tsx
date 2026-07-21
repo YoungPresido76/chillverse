@@ -16,6 +16,8 @@ import { checkSessionResetNotification, checkMoviesOpenNotification } from '../f
 import { getSessionLimits } from '../shared/lib/proPlans'
 import CallProvider from '../features/chat/calling/CallContext'
 import { ProfilePreviewProvider } from '../context/ProfilePreview'
+import { useModRole } from '../features/moderation/useModRole'
+import { fetchAppConfig } from '../features/admin/adminOps'
 
 const ROUTE_TITLES: Record<string, string> = {
   '/dashboard':  'Dashboard',
@@ -35,6 +37,31 @@ const TOP_LEVEL_ROUTES = [
   '/ranks', '/mall', '/streak', '/settings', '/blog',
 ]
 
+// Full-screen block shown when an admin has maintenance mode on (Admin
+// Dashboard → Ops console). Staff bypass this entirely (see the gate in
+// AppLayout below) so they can keep working/testing during the window.
+function MaintenanceScreen({ message }: { message: string }) {
+  return (
+    <div style={{
+      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      flexDirection: 'column', gap: 16, background: 'var(--bg)', padding: 24, textAlign: 'center',
+    }}>
+      <div style={{ fontSize: 40 }}>🛠️</div>
+      <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>Chillverse is down for maintenance</p>
+      <p style={{ fontSize: 12.5, color: 'var(--text-muted)', maxWidth: 320, lineHeight: 1.6 }}>{message}</p>
+      <button
+        onClick={() => window.location.reload()}
+        style={{
+          marginTop: 8, padding: '10px 24px', borderRadius: 12, border: 'none',
+          background: 'var(--accent)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+        }}
+      >
+        Check again
+      </button>
+    </div>
+  )
+}
+
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen]           = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -45,6 +72,19 @@ export default function AppLayout() {
   const { user, session } = useAuth()
   const myId = session?.user?.id ?? null
   const { active: referralAd, dismiss: dismissReferralAd } = useReferralPromoAd(myId)
+  const { isStaff, loading: roleLoading } = useModRole()
+  const [maintenance, setMaintenance] = useState<{ enabled: boolean; message: string } | null>(null)
+
+  // Checked once per mount — good enough for "block the app during a
+  // maintenance window" without adding a realtime subscription just for
+  // this. An admin flipping it on won't retroactively kick someone
+  // already inside the app until their next navigation/reload, which is
+  // the same behavior most apps' maintenance gates have.
+  useEffect(() => {
+    fetchAppConfig().then(({ data }) => {
+      if (data) setMaintenance({ enabled: data.maintenance_enabled, message: data.maintenance_message })
+    })
+  }, [])
 
   // ── Sidebar responsiveness ──
   useEffect(() => {
@@ -88,6 +128,14 @@ export default function AppLayout() {
 
   const isTopLevel = TOP_LEVEL_ROUTES.includes(pathname)
   const sidebarWidth = sidebarCollapsed ? 72 : 280
+
+  if (maintenance?.enabled) {
+    // Ambiguous window: we know maintenance is on but don't yet know if
+    // this user is exempt (staff). Render nothing rather than flash the
+    // real app to a non-staff user or the maintenance screen to staff.
+    if (roleLoading) return <div style={{ minHeight: '100vh', background: 'var(--bg)' }} />
+    if (!isStaff) return <MaintenanceScreen message={maintenance.message} />
+  }
 
   return (
     <CallProvider myId={myId}>
