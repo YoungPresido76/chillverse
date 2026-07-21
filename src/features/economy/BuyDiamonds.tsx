@@ -124,6 +124,14 @@ const FLASH_PACKS: FlashPack[] = [
   { id: 'flash4', diamonds: 800,  priceCents: 300000, priceDisplay: '₦3,000', originalPriceCents: 420000, originalPriceDisplay: '₦4,200' },
 ]
 
+// openPaystack/PurchaseModal only ever touch id/priceCents/diamonds (never
+// image/emoji/etc — those are PackCard-only display fields), and
+// PurchaseModal's `pack` prop is used purely as a truthy/null check. So a
+// regular Pack and a FlashPack are interchangeable everywhere activePack
+// actually gets read — this alias makes that explicit instead of forcing
+// FlashPack to fake full Pack-shaped fields it doesn't have.
+type PurchasablePack = Pack | FlashPack
+
 // ─── Pack Card ────────────────────────────────────────────────
 function PackCard({
   pack,
@@ -291,7 +299,7 @@ function PurchaseModal({
   onRetry,
 }: {
   kind: ModalKind
-  pack: (Pack & { image: string }) | null
+  pack: PurchasablePack | null
   onClose: () => void
   onRetry?: () => void
 }) {
@@ -529,7 +537,7 @@ export default function BuyDiamonds() {
   const [isFirstPurchase, setIsFirstPurchase] = useState(false)
   const [loading, setLoading] = useState(false)
   const [modal, setModal] = useState<ModalKind | null>(null)
-  const [activePack, setActivePack] = useState<(Pack & { image: string }) | null>(null)
+  const [activePack, setActivePack] = useState<PurchasablePack | null>(null)
   const paystackScriptLoaded = useRef(false)
 
   // Load Paystack inline script once
@@ -558,7 +566,7 @@ export default function BuyDiamonds() {
       })
   }, [user])
 
-  function openPaystack(pack: Pack & { image: string }) {
+  function openPaystack(pack: PurchasablePack) {
     if (!session?.user?.email || !user) return
     if (!window.PaystackPop) {
       alert('Payment system loading, please try again in a second.')
@@ -856,10 +864,12 @@ export default function BuyDiamonds() {
                               body: { reference: response.reference, user_id: user.id },
                             })
                             if (error) throw error
+                            setActivePack(fp)
                             checkAndAwardAutoBadges(user.id)
                             setModal('success')
                           } catch (err) {
                             console.error('flash credit error:', err)
+                            setActivePack(fp)
                             setModal('error')
                           } finally {
                             setLoading(false)
