@@ -33,6 +33,9 @@ export interface Profile {
   pro_billing_interval: 'monthly' | 'yearly' | null
   pro_expires_at: string | null          // ISO timestamp; renewed by webhook on each successful charge
   pro_cancel_at_period_end: boolean      // true once the player has cancelled — keeps access until pro_expires_at, just won't renew
+  pro_first_subscribed_at: string | null // set once, first-ever Pro purchase — powers "member since" on the evolving badge
+  pro_cumulative_days: number            // lifetime cumulative Pro days across both tiers, never resets — drives pro_badge_color
+  pro_badge_color: 'blue' | 'indigo' | 'holo' | 'green' | 'gold' | 'red'
   // ── Presence / account housekeeping ──
   presence: string | null                // 'online' | 'away' | 'invisible' etc.; nullable, defaults to 'online'
   username_changed_at: string | null     // ISO timestamp of last username change, null if never changed
