@@ -5,6 +5,7 @@ import { ChevronLeft, ImageOff, Languages, BadgeCheck } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { fetchAuthorById, fetchBlogPostBySlug, fetchRelatedPosts, fetchTranslationCounterpart } from './api'
 import { getBlogCategoryMeta, getSeriesLabel, BLOG_LOCALES, BLOG_LOCALE_STORAGE_KEY } from './constants'
+import { renderLiteMarkdown } from '../../shared/lib/markdownLite'
 import BlogPostCard from './BlogPostCard'
 import Avatar from '../../shared/components/Avatar'
 import type { BlogAuthor, BlogPost } from '../../shared/types'
@@ -81,7 +82,6 @@ export default function BlogPostPage() {
 
   const meta = getBlogCategoryMeta(post.category)
   const Icon = meta.icon
-  const paragraphs = post.content.split(/\n\s*\n/).filter(Boolean)
   const publishedLabel = post.published_at
     ? new Date(post.published_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     : null
@@ -180,13 +180,9 @@ export default function BlogPostPage() {
 
       <div style={{
         background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18,
-        padding: '22px 24px', marginBottom: 24, boxShadow: 'var(--elev-raise-sm)',
+        padding: '28px 30px', marginBottom: 24, boxShadow: 'var(--elev-raise-sm)',
       }}>
-        {paragraphs.map((para, i) => (
-          <p key={i} style={{ fontSize: 14, lineHeight: 1.7, color: 'var(--text)', marginBottom: i === paragraphs.length - 1 ? 0 : 16 }}>
-            {para}
-          </p>
-        ))}
+        {renderLiteMarkdown(post.content)}
       </div>
 
       {post.tags.length > 0 && (
@@ -207,7 +203,7 @@ export default function BlogPostPage() {
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '1.2px', textTransform: 'uppercase', marginBottom: 14 }}>
             Explore Further
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '32px 24px' }}>
             {related.map(r => <BlogPostCard key={r.id} post={r} />)}
           </div>
         </div>

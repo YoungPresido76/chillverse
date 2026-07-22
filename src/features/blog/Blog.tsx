@@ -92,14 +92,14 @@ export default function Blog() {
     [activeCategory]
   )
 
-  // First post becomes the big featured card, Discord-blog style — but only
-  // on the unfiltered "All" view; category tabs and search show a plain grid.
+  // The most recent post becomes a big stacked hero — but only on the
+  // unfiltered "All" view; category tabs and search show a plain grid.
   const showFeatured = !isSearching && !activeCategory && posts.length > 0
   const featured = showFeatured ? posts[0] : null
   const rest = showFeatured ? posts.slice(1) : posts
 
   return (
-    <div style={{ maxWidth: 1180, margin: '0 auto' }}>
+    <div style={{ maxWidth: 1240, margin: '0 auto' }}>
       <Seo
         title="Blog"
         description="Updates, community spotlights, and everything happening on Chillverse."
@@ -107,41 +107,41 @@ export default function Blog() {
       />
 
       {/* ── Hero ── */}
-      <div style={{ textAlign: 'center', maxWidth: 720, margin: '0 auto 36px' }}>
-        <h1 style={{ fontSize: 'clamp(28px, 4vw, 42px)', fontWeight: 800, color: 'var(--text)', margin: '0 0 12px', letterSpacing: '-0.02em' }}>
-          The Chillverse Blog
+      <div style={{ textAlign: 'center', maxWidth: 760, margin: '16px auto 56px' }}>
+        <h1 style={{ fontSize: 'clamp(36px, 6vw, 58px)', fontWeight: 900, color: 'var(--text)', margin: '0 0 18px', letterSpacing: '-0.03em', lineHeight: 1.05 }}>
+          Chillverse Blog
         </h1>
-        <p style={{ fontSize: 15, color: 'var(--text-dim)', lineHeight: 1.6, margin: 0 }}>
+        <p style={{ fontSize: 16.5, color: 'var(--text-dim)', lineHeight: 1.6, margin: 0 }}>
           Patch notes, community spotlights, and dev diaries — straight from the team building Chillverse.
         </p>
       </div>
 
       {/* ── Controls row ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', flex: '1 1 260px', maxWidth: 360 }}>
-          <Search size={15} color="var(--text-muted)" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 28, flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative', flex: '1 1 260px', maxWidth: 380 }}>
+          <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)' }} />
           <input
             value={query}
             onChange={(e) => runSearch(e.target.value)}
             placeholder="Search posts…"
             style={{
-              width: '100%', padding: '11px 14px 11px 38px', borderRadius: 12,
-              background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)',
-              fontSize: 13.5, outline: 'none',
+              width: '100%', padding: '13px 16px 13px 42px', borderRadius: 14,
+              background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text)',
+              fontSize: 14, outline: 'none',
             }}
           />
           {query && (
             <button
               type="button"
               onClick={() => runSearch('')}
-              style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', cursor: 'pointer' }}
+              style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', cursor: 'pointer' }}
             >
               <X size={15} />
             </button>
           )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {isStaff && (
             <button
               type="button"
@@ -150,15 +150,15 @@ export default function Blog() {
               title="Manage posts"
               style={{
                 display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
-                fontSize: 12.5, fontWeight: 700, color: 'var(--text-dim)',
-                background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '9px 14px',
+                fontSize: 13, fontWeight: 700, color: 'var(--text-dim)',
+                background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 16px',
               }}
             >
-              <Settings2 size={13} /> Manage
+              <Settings2 size={14} /> Manage
             </button>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 999, padding: 3 }}>
-            <Languages size={13} color="var(--text-muted)" style={{ marginLeft: 6 }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 999, padding: 4 }}>
+            <Languages size={14} color="var(--text-muted)" style={{ marginLeft: 8 }} />
             {BLOG_LOCALES.map(l => (
               <button
                 key={l.code}
@@ -166,7 +166,7 @@ export default function Blog() {
                 onClick={(e) => { ripple(e); switchLocale(l.code) }}
                 className="ripple-wrap"
                 style={{
-                  fontSize: 11.5, fontWeight: 700, padding: '5px 10px', borderRadius: 999, cursor: 'pointer',
+                  fontSize: 12.5, fontWeight: 700, padding: '7px 12px', borderRadius: 999, cursor: 'pointer',
                   color: locale === l.code ? '#fff' : 'var(--text-dim)',
                   background: locale === l.code ? 'var(--accent)' : 'transparent',
                 }}
@@ -181,7 +181,7 @@ export default function Blog() {
 
       {/* Category tabs — hidden while searching */}
       {!isSearching && (
-        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 28, paddingBottom: 2 }}>
+        <div style={{ display: 'flex', gap: 10, overflowX: 'auto', marginBottom: 44, paddingBottom: 4 }}>
           <button type="button" onClick={(e) => { ripple(e); selectCategory(null) }} className="ripple-wrap" style={tabStyle(activeCategory === null)}>
             All
           </button>
@@ -214,11 +214,12 @@ export default function Blog() {
           ) : (
             <>
               {featured && <FeaturedPost post={featured} />}
+              {rest.length > 0 && <SectionLabel>{showFeatured ? 'More from Chillverse' : 'Latest'}</SectionLabel>}
               <div style={gridStyle}>
                 {rest.map(post => <BlogPostCard key={post.id} post={post} />)}
               </div>
               {hasMore && (
-                <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
+                <div style={{ display: 'flex', justifyContent: 'center', marginTop: 36 }}>
                   <button
                     type="button"
                     onClick={(e) => { ripple(e); loadMore() }}
@@ -226,9 +227,9 @@ export default function Blog() {
                     className="ripple-wrap"
                     style={{
                       display: 'flex', alignItems: 'center', gap: 8, cursor: loadingMore ? 'default' : 'pointer',
-                      fontSize: 13, fontWeight: 700, color: 'var(--text)',
-                      background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 999,
-                      padding: '10px 22px', opacity: loadingMore ? 0.7 : 1,
+                      fontSize: 13.5, fontWeight: 700, color: 'var(--text)',
+                      background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 999,
+                      padding: '12px 26px', opacity: loadingMore ? 0.7 : 1,
                     }}
                   >
                     {loadingMore && <Loader2 size={14} className="animate-spin" />}
@@ -244,12 +245,14 @@ export default function Blog() {
   )
 }
 
+// Stacked hero article — full-width image on top, then category/title/excerpt
+// below it, left-aligned. Deliberately no card box/border around it: it's
+// meant to read as the page's lead story, not one tile among many.
 function FeaturedPost({ post }: { post: BlogPost }) {
   const navigate = useNavigate()
   const meta = getBlogCategoryMeta(post.category)
-  const Icon = meta.icon
   const publishedLabel = post.published_at
-    ? new Date(post.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    ? new Date(post.published_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
     : null
 
   return (
@@ -258,32 +261,30 @@ function FeaturedPost({ post }: { post: BlogPost }) {
       onClick={(e) => { ripple(e); navigate(`/blog/${post.slug}`) }}
       className="ripple-wrap"
       style={{
-        display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 1fr)', gap: 0,
-        width: '100%', textAlign: 'left', cursor: 'pointer', marginBottom: 28,
-        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20,
-        overflow: 'hidden', boxShadow: 'var(--elev-raise)',
+        display: 'flex', flexDirection: 'column', width: '100%', textAlign: 'left', cursor: 'pointer',
+        background: 'transparent', border: 'none', padding: 0, marginBottom: 64,
       }}
     >
-      <div style={{ padding: '28px 30px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 12 }}>
-        <span style={{
-          display: 'inline-flex', alignItems: 'center', gap: 4, width: 'fit-content',
-          fontSize: 11, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase',
-          color: meta.color, background: `color-mix(in srgb, ${meta.color} 14%, transparent)`,
-          borderRadius: 999, padding: '4px 10px',
-        }}>
-          <Icon size={12} /> {meta.label}
-        </span>
-        <h2 style={{ fontSize: 'clamp(19px, 2.4vw, 26px)', fontWeight: 800, color: 'var(--text)', lineHeight: 1.25, margin: 0 }}>
+      <div style={{ width: '100%', aspectRatio: '21 / 9', borderRadius: 24, overflow: 'hidden', background: 'var(--surface2)', marginBottom: 28 }}>
+        {post.hero_image_url && (
+          <img src={post.hero_image_url} alt={post.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        )}
+      </div>
+      <div style={{ maxWidth: 720 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)' }}>{meta.label}</span>
+          {publishedLabel && (
+            <>
+              <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>·</span>
+              <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{publishedLabel}</span>
+            </>
+          )}
+        </div>
+        <h2 style={{ fontSize: 'clamp(24px, 3.4vw, 36px)', fontWeight: 900, color: 'var(--text)', lineHeight: 1.15, margin: '0 0 14px', letterSpacing: '-0.02em' }}>
           {post.title}
         </h2>
         {post.excerpt && (
-          <p style={{ fontSize: 13.5, color: 'var(--text-dim)', lineHeight: 1.6, margin: 0 }}>{post.excerpt}</p>
-        )}
-        {publishedLabel && <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{publishedLabel}</span>}
-      </div>
-      <div style={{ minHeight: 220, background: 'var(--surface2)' }}>
-        {post.hero_image_url && (
-          <img src={post.hero_image_url} alt={post.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <p style={{ fontSize: 15.5, color: 'var(--text-dim)', lineHeight: 1.65, margin: 0 }}>{post.excerpt}</p>
         )}
       </div>
     </button>
@@ -292,31 +293,31 @@ function FeaturedPost({ post }: { post: BlogPost }) {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '1.2px', textTransform: 'uppercase', marginBottom: 14 }}>
+    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '1.2px', textTransform: 'uppercase', marginBottom: 22 }}>
       {children}
     </div>
   )
 }
 
 function EmptyState({ text }: { text: string }) {
-  return <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-dim)', fontSize: 13.5 }}>{text}</div>
+  return <div style={{ textAlign: 'center', padding: 64, color: 'var(--text-dim)', fontSize: 14 }}>{text}</div>
 }
 
 function tabStyle(active: boolean): React.CSSProperties {
   return {
-    flexShrink: 0, fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap', cursor: 'pointer',
-    padding: '9px 16px', borderRadius: 999,
+    flexShrink: 0, fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', cursor: 'pointer',
+    padding: '10px 18px', borderRadius: 999,
     color: active ? '#fff' : 'var(--text-dim)',
-    background: active ? 'var(--accent)' : 'var(--surface)',
+    background: active ? 'var(--accent)' : 'var(--surface2)',
     border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
   }
 }
 
 const gridStyle: React.CSSProperties = {
-  display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16,
+  display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '40px 32px', marginBottom: 24,
 }
 
 const errorBoxStyle: React.CSSProperties = {
   background: 'rgba(255,79,79,0.08)', border: '1px solid rgba(255,79,79,0.25)', borderRadius: 12,
-  padding: '12px 16px', color: '#ff8080', fontSize: 13, marginBottom: 20,
+  padding: '12px 16px', color: '#ff8080', fontSize: 13, marginBottom: 24,
 }

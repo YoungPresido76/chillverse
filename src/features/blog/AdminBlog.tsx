@@ -1,11 +1,12 @@
 // src/features/blog/AdminBlog.tsx
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, Plus, Pencil, Trash2, ShieldAlert, Link2, RefreshCw, X, BadgeCheck, ImagePlus, Loader2 } from 'lucide-react'
+import { ChevronLeft, Plus, Pencil, Trash2, ShieldAlert, Link2, RefreshCw, X, BadgeCheck, ImagePlus, Loader2, Bold, Italic, Heading2, Heading3, List, ListOrdered, Quote, Link as LinkIcon } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { useAuth } from '../auth/useAuth'
 import { useModRole } from '../moderation/useModRole'
 import { fetchAllBlogPostsForAdmin, fetchAuthorCandidates, createBlogPost, updateBlogPost, deleteBlogPost, uploadBlogImage } from './api'
+import { applyMarkdownAction, type MarkdownAction } from '../../shared/lib/markdownLite'
 import { BLOG_CATEGORIES, BLOG_LOCALES } from './constants'
 import type { BlogAuthor, BlogCategory, BlogLocale, BlogPost, BlogPostInput } from '../../shared/types'
 
@@ -44,6 +45,7 @@ export default function AdminBlog() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const contentRef = useRef<HTMLTextAreaElement>(null)
 
   const editingPost = useMemo(() => posts.find(p => p.id === editingId) ?? null, [posts, editingId])
 
@@ -73,6 +75,18 @@ export default function AdminBlog() {
     } finally {
       setUploadingImage(false)
     }
+  }
+
+  function handleMarkdownAction(action: MarkdownAction) {
+    const el = contentRef.current
+    if (!el) return
+    const result = applyMarkdownAction(form.content, el.selectionStart, el.selectionEnd, action)
+    setForm(f => ({ ...f, content: result.value }))
+    // Restore focus + selection after React re-renders the textarea with the new value.
+    requestAnimationFrame(() => {
+      el.focus()
+      el.setSelectionRange(result.selectionStart, result.selectionEnd)
+    })
   }
 
   function openCreate() {
@@ -398,13 +412,33 @@ export default function AdminBlog() {
                 />
               </Field>
 
-              <Field label="Content (paragraphs separated by a blank line)">
-                <textarea
-                  value={form.content}
-                  onChange={(e) => setForm(f => ({ ...f, content: e.target.value }))}
-                  style={{ ...inputStyle, minHeight: 180, resize: 'vertical' as const }}
-                  required
-                />
+              <Field label="Content">
+                <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '6px 8px', background: 'var(--surface2)', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                    <ToolbarButton icon={Bold} label="Bold" onClick={() => handleMarkdownAction('bold')} />
+                    <ToolbarButton icon={Italic} label="Italic" onClick={() => handleMarkdownAction('italic')} />
+                    <ToolbarDivider />
+                    <ToolbarButton icon={Heading2} label="Heading" onClick={() => handleMarkdownAction('h2')} />
+                    <ToolbarButton icon={Heading3} label="Subheading" onClick={() => handleMarkdownAction('h3')} />
+                    <ToolbarDivider />
+                    <ToolbarButton icon={List} label="Bullet list" onClick={() => handleMarkdownAction('bullet')} />
+                    <ToolbarButton icon={ListOrdered} label="Numbered list" onClick={() => handleMarkdownAction('numbered')} />
+                    <ToolbarButton icon={Quote} label="Quote" onClick={() => handleMarkdownAction('quote')} />
+                    <ToolbarButton icon={LinkIcon} label="Link" onClick={() => handleMarkdownAction('link')} />
+                  </div>
+                  <textarea
+                    ref={contentRef}
+                    value={form.content}
+                    onChange={(e) => setForm(f => ({ ...f, content: e.target.value }))}
+                    placeholder="Write your post here. Leave a blank line between paragraphs — select text and use the toolbar above for bold, headings, and lists."
+                    style={{
+                      width: '100%', padding: '18px 20px', minHeight: '55vh', resize: 'vertical' as const,
+                      background: 'var(--surface2)', border: 'none', color: 'var(--text)',
+                      fontSize: 14.5, lineHeight: 1.7, outline: 'none', fontFamily: 'inherit',
+                    }}
+                    required
+                  />
+                </div>
               </Field>
 
               <Field label="Translation group ID (optional — link two locale variants of the same post)">
@@ -479,6 +513,28 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
+function ToolbarButton({ icon: Icon, label, onClick }: { icon: typeof Bold; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      title={label}
+      onMouseDown={(e) => e.preventDefault()} // keep textarea selection intact when clicking
+      onClick={onClick}
+      className="ripple-wrap"
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+        width: 30, height: 30, borderRadius: 7, background: 'transparent', border: 'none', color: 'var(--text-dim)',
+      }}
+    >
+      <Icon size={14} />
+    </button>
+  )
+}
+
+function ToolbarDivider() {
+  return <span style={{ width: 1, height: 18, background: 'var(--border)', margin: '0 4px' }} />
+}
+
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '10px 12px', borderRadius: 10,
   background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text)',
@@ -511,7 +567,7 @@ const overlayStyle: React.CSSProperties = {
 }
 
 const modalStyle: React.CSSProperties = {
-  width: '100%', maxWidth: 620, background: 'var(--surface)', border: '1px solid var(--border)',
+  width: '100%', maxWidth: 820, background: 'var(--surface)', border: '1px solid var(--border)',
   borderRadius: 18, padding: 22, boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
 }
 
