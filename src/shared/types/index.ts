@@ -41,6 +41,10 @@ export interface Profile {
   username_changed_at: string | null     // ISO timestamp of last username change, null if never changed
   original_username: string              // set once at signup, never changed again — powers the "Legacy Username" badge
   banner_url: string | null              // equipped profile banner image, null if none equipped
+  // ── Void-exclusive profile customization ──
+  display_name_font: string | null       // id from FONT_OPTIONS in shared/lib/displayNameStyle.ts, null = default
+  display_name_color: string | null      // hex colour for the display name text, null = default
+  profile_theme_color: string | null     // hex colour used as this profile's page background, null = default
   // ── Blog authorship ──
   can_author: boolean                    // eligible to appear in the blog admin's author picker
   is_founder: boolean                    // renders a "Founder" badge on the blog byline
@@ -228,14 +232,6 @@ export interface SupportTicket {
   contact_email: string | null
   status: SupportTicketStatus
   priority: SupportTicketPriority
-  assigned_to: string | null
-  claimed_at: string | null
-  escalated_to_mod: boolean
-  escalation_note: string | null
-  escalated_by: string | null
-  escalated_at: string | null
-  resolved_by: string | null
-  closed_at: string | null
   created_at: string
   updated_at: string
 }
@@ -245,31 +241,6 @@ export interface NewSupportTicketInput {
   subject: string
   message: string
   contactEmail: string | null
-}
-
-/** A staff-queue ticket row, joined with the reporting user's basic profile info. */
-export interface StaffSupportTicket extends SupportTicket {
-  user?: { username: string; display_name: string | null } | null
-  assignee?: { username: string } | null
-}
-
-export interface SupportTicketReply {
-  id: string
-  ticket_id: string
-  author_id: string
-  is_staff: boolean
-  body: string
-  created_at: string
-  author?: { username: string } | null
-}
-
-export interface SupportTicketNote {
-  id: string
-  ticket_id: string
-  author_id: string
-  body: string
-  created_at: string
-  author?: { username: string } | null
 }
 
 // ── Blog ───────────────────────────────────────────────────────────────────
