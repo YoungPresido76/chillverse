@@ -46,9 +46,13 @@ const MAX_PLAYS    = 7
 // Game catalog (id, dbKey, name, tagline, accent, icon, etc.) now lives in
 // ../lib/games.ts so other pages can reference it without pulling in every
 // game component below. Premium games carry an explicit sessionCost.
-const STANDARD_GAMES = GAMES.filter(g => !g.sessionCost && !g.requiresPro)
-const PREMIUM_GAMES  = GAMES.filter(g => !!g.sessionCost && !g.requiresPro)
-const PRO_GAMES       = GAMES.filter(g => !!g.requiresPro)
+// 'uno' now lives in Multiplayer's "Vs AI" section instead of the solo
+// Game Zone grid — it stays in the shared GAMES catalog (games.ts) so the
+// deep-link (location.state.openGame) and session/rank machinery below
+// still work unchanged when it's launched from there.
+const STANDARD_GAMES = GAMES.filter(g => !g.sessionCost && !g.requiresPro && g.id !== 'uno')
+const PREMIUM_GAMES  = GAMES.filter(g => !!g.sessionCost && !g.requiresPro && g.id !== 'uno')
+const PRO_GAMES       = GAMES.filter(g => !!g.requiresPro && g.id !== 'uno')
 
 // ─── Lobby Card ───────────────────────────────────────────────
 function LobbyCard({
