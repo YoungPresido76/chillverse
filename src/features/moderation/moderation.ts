@@ -277,7 +277,7 @@ export async function bulkDismissReports(reportIds: string[]): Promise<{ count: 
 
 /**
  * Bulk delete-and-action and bulk ban loop over the existing single-item
- * RPCs (mod_delete_*/mod_ban_user already carry the right permission
+ * RPCs (mod_delete_* / mod_ban_user already carry the right permission
  * checks and audit logging per item; report targets are heterogeneous by
  * type, so there's no single atomic RPC that would meaningfully simplify
  * this). Best-effort: one failure doesn't block the rest of the batch.
