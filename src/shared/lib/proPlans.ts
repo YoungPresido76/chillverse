@@ -54,6 +54,9 @@ export interface ProTierInfo {
   badge?: string
   /** Card-header illustration (Discord-Nitro-card style), shown above the plan name/price. */
   image: string
+  /** Short list shown on the pricing card itself — keep this to 4 items max. */
+  cardFeatures: string[]
+  /** Full feature list, shown only in the "Compare plans" table below the cards. */
   features: string[]
 }
 
@@ -70,6 +73,12 @@ export const TIERS: ProTierInfo[] = [
     monthlyDisplay: '₦1,400',
     badge: 'POPULAR',
     image: 'https://gnobzfxtxrtcxfhhfjni.supabase.co/storage/v1/object/public/Adverts/Landing/Willam.png',
+    cardFeatures: [
+      'Everything in Free',
+      '19 sessions a day (up from 15 on Free)',
+      'Version 2.0 – 4.0 unlocked',
+      'More games',
+    ],
     features: [
       'Everything in Free',
       '19 sessions a day (up from 15 on Free)',
@@ -88,6 +97,12 @@ export const TIERS: ProTierInfo[] = [
     monthlyDisplay: '₦3,500',
     badge: 'BEST VALUE',
     image: 'https://gnobzfxtxrtcxfhhfjni.supabase.co/storage/v1/object/public/Adverts/Landing/Willam2.png',
+    cardFeatures: [
+      'Everything in Free + Orbit',
+      '25 sessions a day (up from 19 on Orbit)',
+      'Exclusive Void tag + profile pic added to your inventory',
+      'Theme picker',
+    ],
     features: [
       'Everything in Free + Orbit',
       '25 sessions a day (up from 19 on Orbit)',
@@ -95,8 +110,8 @@ export const TIERS: ProTierInfo[] = [
       'Theme picker',
       'Full profile customisation',
       'Movie page never closes',
-      'Multiplayer (opens the multiplayer ad sheet)',
-      'Feed posting — no longer tied to Gold rank + 150 games, now unlocked by plan',
+      'Multiplayer access',
+      'Feed posting',
       'VN sending',
     ],
   },
