@@ -394,7 +394,9 @@ export default function EditProfileModal({
   // ── Editable state, seeded from current profile ──
   const [displayName, setDisplayName] = useState(profile.display_name || profile.username)
   const [bio, setBio] = useState(profile.bio || '')
-  const [banner, setBanner] = useState<string | null>(bannerUrl)
+  // Banner is no longer editable here (equipped via Inventory instead), so this
+  // is just a pass-through constant, not state — avoids an unused setter.
+  const banner = bannerUrl
   const [infoTags, setInfoTags] = useState<InfoTagKey[]>((profile.info_tags ?? []) as InfoTagKey[])
   const [gender, setGender] = useState(profile.gender || '')
   const [playTime, setPlayTime] = useState<string | null>(profile.play_time || null)

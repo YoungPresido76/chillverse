@@ -181,7 +181,7 @@ export default function ProfilePreviewModal({ userId, onClose, isPreview = false
   const [equippedArtifactImage, setEquippedArtifactImage] = useState<string | null>(null)
   const [favoriteGameRank, setFavoriteGameRank] = useState<string | null>(null)
   const [showEdit, setShowEdit] = useState(false)
-  const [editAlbumPics, setEditAlbumPics] = useState<{ id: string; label: string; imageUrl: string }[]>([])
+  // (editAlbumPics state removed along with the banner-picker fetch above)
   const menuRef = useRef<HTMLDivElement>(null)
   const justSavedRef = useRef(false)
 
@@ -405,21 +405,8 @@ export default function ProfilePreviewModal({ userId, onClose, isPreview = false
     return () => { active = false }
   }, [userId, profile?.favorite_game])
 
-  // Album pics — no longer shown in the popup itself, but Edit Profile's
-  // banner picker still needs the list of pics owned.
-  useEffect(() => {
-    if (!isMe) return
-    let active = true
-    supabase.from('user_items').select('item_id, item_name, item_image')
-      .eq('user_id', userId).eq('item_type', 'album_pic')
-      .then(({ data }) => {
-        if (!active) return
-        setEditAlbumPics((data ?? []).map((d: Record<string, unknown>) => ({
-          id: d.item_id as string, label: d.item_name as string, imageUrl: d.item_image as string,
-        })))
-      })
-    return () => { active = false }
-  }, [userId, isMe])
+  // Album pics fetch removed — it only existed to feed Edit Profile's banner
+  // picker, which was removed (banners are equipped via Inventory instead).
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
@@ -1048,7 +1035,6 @@ export default function ProfilePreviewModal({ userId, onClose, isPreview = false
       {showEdit && profile && isMe && (
         <EditProfileModal
           profile={profile as unknown as Profile}
-          albumPics={editAlbumPics}
           bannerUrl={profile.banner_url}
           presence={presence}
           onClose={() => {
