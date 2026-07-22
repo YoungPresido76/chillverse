@@ -120,18 +120,30 @@ export default function BadgeQuickSheet({
 
   return createPortal(
     <>
-      <div className="overlay-backdrop" onClick={close} style={{ zIndex: 20100 }} />
-      <div className="sheet-or-modal" style={{ zIndex: 20105 }}>
+      <div
+        onClick={close}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 20100,
+          background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+          opacity: visible ? 1 : 0, transition: 'opacity 0.2s ease-out',
+        }}
+      >
         <div
-          className="sheet-or-modal-inner"
           onClick={e => e.stopPropagation()}
           style={{
             width: isWide ? 'min(92vw, 460px)' : '100%',
             height: `${SHEET_HEIGHT_VH}vh`,
+            borderRadius: '20px 20px 0 0',
+            marginTop: 'auto',
             overflowY: 'auto',
             background: 'var(--surface2)',
             padding: '20px 20px 30px',
+            boxShadow: '0 -12px 40px -12px var(--sh)',
             transform: visible ? 'translateY(0)' : 'translateY(100%)',
+            transition: 'transform 0.32s cubic-bezier(0.32,0.72,0,1)',
+            zIndex: 20105,
+            position: 'relative',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
