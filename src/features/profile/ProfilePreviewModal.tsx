@@ -35,11 +35,7 @@ import { BadgeIcon } from '../badges/badgeIcons'
 import { BADGE_RARITY_COLOR, BADGE_RARITY_RANK, badgeDisplayTitle, type BadgeDef } from '../badges/badges'
 import BadgeToast from '../badges/BadgeToast'
 import ProBadge from '../badges/ProBadge'
-import BadgeContextMenu from '../badges/BadgeContextMenu'
-import BadgeQuickSheet from '../badges/BadgeQuickSheet'
-import BadgeNudge, { hasSeenBadgeNudge, markBadgeNudgeSeen } from '../badges/BadgeNudge'
 import BadgesModal from '../badges/BadgesModal'
-import { useLongPress } from '../../shared/lib/useLongPress'
 import { AchIcon, RARITY_COLOR as ACH_RARITY_COLOR } from '../achievements/Achievements'
 import AchievementMiniToast from '../achievements/AchievementMiniToast'
 import { getGameById, getGameMeta } from '../games/games'
@@ -168,10 +164,7 @@ export default function ProfilePreviewModal({ userId, onClose, isPreview = false
   const [entered, setEntered] = useState(false)
   const [isModerator, setIsModerator] = useState(false)
   const [badgeToast, setBadgeToast] = useState<BadgeDef | null>(null)
-  const [badgeMenuPos, setBadgeMenuPos] = useState<{ x: number; y: number } | null>(null)
-  const [showBadgeSheet, setShowBadgeSheet] = useState(false)
   const [showBadgesModal, setShowBadgesModal] = useState(false)
-  const [showBadgeNudge, setShowBadgeNudge] = useState(!hasSeenBadgeNudge())
   const [bestAchievements, setBestAchievements] = useState<PreviewAchievement[]>([])
   const [achToast, setAchToast] = useState<PreviewAchievement | null>(null)
   const [activity, setActivity] = useState<LiveActivity>({ movie: false, game: null, gameSince: null, exploring: false })
@@ -552,12 +545,6 @@ export default function ProfilePreviewModal({ userId, onClose, isPreview = false
     ? { isPro: !!profile.is_pro, tier: profile.pro_tier ?? null, color: profile.pro_badge_color ?? null, memberSince: profile.pro_first_subscribed_at ?? null }
     : null
 
-  const badgeLongPress = useLongPress((x, y) => {
-    markBadgeNudgeSeen()
-    setShowBadgeNudge(false)
-    setBadgeMenuPos({ x, y })
-  })
-
   // ALWAYS a bottom sheet — phone and tablet alike, no separate centered
   // "desktop popover" mode. It slides up from the bottom and stays pinned
   // there until dismissed.
@@ -580,7 +567,7 @@ export default function ProfilePreviewModal({ userId, onClose, isPreview = false
     height: sheetHeight,
     borderRadius: '20px 20px 0 0',
     marginTop: 'auto',
-    transform: entered && !closing ? 'translateY(0)' : 'translateY(100%)',
+    transform: entered && !closing && !showBadgesModal ? 'translateY(0)' : 'translateY(100%)',
     transition: 'transform 0.32s cubic-bezier(0.32,0.72,0,1)',
   }
 
@@ -727,10 +714,7 @@ export default function ProfilePreviewModal({ userId, onClose, isPreview = false
                       badges by rarity, one straight horizontal line inside
                       a single bordered box (never a wrapping grid). */}
                   {!isModerator && (profile.is_pro || rank || ownedBadges.length > 0) && (
-                    <div
-                      style={{ position: 'relative', display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: 4, padding: 4, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border-strong)', flexShrink: 0 }}
-                      {...badgeLongPress.handlers}
-                    >
+                    <div style={{ display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: 4, padding: 4, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border-strong)', flexShrink: 0 }}>
                       {profile.is_pro && profile.pro_tier && (
                         <ProBadge
                           tier={profile.pro_tier}
@@ -743,7 +727,7 @@ export default function ProfilePreviewModal({ userId, onClose, isPreview = false
                         <button
                           type="button"
                           className="pv-btn"
-                          onClick={() => { if (!badgeLongPress.wasLongPress()) setShowRankToast(true) }}
+                          onClick={() => setShowRankToast(true)}
                           title={rank.name}
                           style={{ width: 20, height: 20, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: rank.color + '1c', border: `1px solid ${rank.color}44`, cursor: 'pointer', padding: 0, fontSize: 10, flexShrink: 0 }}
                         >
@@ -757,7 +741,7 @@ export default function ProfilePreviewModal({ userId, onClose, isPreview = false
                             key={def.id}
                             type="button"
                             className="pv-btn"
-                            onClick={() => { if (!badgeLongPress.wasLongPress()) setBadgeToast(def) }}
+                            onClick={() => setBadgeToast(def)}
                             title={badgeDisplayTitle(def, profile.original_username)}
                             style={{ width: 20, height: 20, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: color + '1c', border: `1px solid ${color}33`, cursor: 'pointer', padding: 0, flexShrink: 0 }}
                           >
@@ -765,7 +749,6 @@ export default function ProfilePreviewModal({ userId, onClose, isPreview = false
                           </button>
                         )
                       })}
-                      {!isMe && showBadgeNudge && <BadgeNudge onDismiss={() => setShowBadgeNudge(false)} />}
                     </div>
                   )}
                 </div>
@@ -1028,6 +1011,22 @@ export default function ProfilePreviewModal({ userId, onClose, isPreview = false
                     <span style={{ fontSize: 12.5, fontWeight: 800, color: rank?.color ?? 'var(--text)' }}>{profile.xp.toLocaleString()}</span>
                   </div>
 
+                  {/* View badges — opens the full badges modal; the preview
+                      sheet falls away while it's open. */}
+                  {!isModerator && defs.length > 0 && (
+                    <button
+                      type="button" className="pv-btn"
+                      onClick={() => setShowBadgesModal(true)}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderRadius: 13, background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer' }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                        <Sparkles size={14} style={{ color: '#c9a7ff' }} />
+                        <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)' }}>Badges</span>
+                      </div>
+                      <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--text-dim)' }}>{badges.length}/{defs.length}</span>
+                    </button>
+                  )}
+
                   {/* Leaderboard — only if the player opted in via grid cards */}
                   {profile.grid_cards?.includes('leaderboard') && (
                     <button
@@ -1170,38 +1169,16 @@ export default function ProfilePreviewModal({ userId, onClose, isPreview = false
         />
       )}
 
-      {badgeMenuPos && (
-        <BadgeContextMenu
-          x={badgeMenuPos.x}
-          y={badgeMenuPos.y}
-          onClose={() => setBadgeMenuPos(null)}
-          onViewBadges={() => setShowBadgeSheet(true)}
-        />
-      )}
-
-      {showBadgeSheet && profile && (
-        <BadgeQuickSheet
-          badges={badges}
-          allDefs={defs}
-          originalUsername={profile.original_username ?? profile.username}
-          avatarUrl={profile.avatar}
-          displayName={displayName}
-          isOwnProfile={isMe}
-          pro={proInfo}
-          onOpenAll={() => { setShowBadgeSheet(false); setShowBadgesModal(true) }}
-          onViewYourBadges={() => { setShowBadgeSheet(false); close(); navigate('/profile') }}
-          onClose={() => setShowBadgeSheet(false)}
-        />
-      )}
-
       {showBadgesModal && profile && (
-        <BadgesModal
-          badges={badges}
-          allDefs={defs}
-          originalUsername={profile.original_username ?? profile.username}
-          pro={proInfo}
-          onClose={() => setShowBadgesModal(false)}
-        />
+        <div onClick={e => e.stopPropagation()}>
+          <BadgesModal
+            badges={badges}
+            allDefs={defs}
+            originalUsername={profile.original_username ?? profile.username}
+            pro={proInfo}
+            onClose={() => setShowBadgesModal(false)}
+          />
+        </div>
       )}
 
       {achToast && (
