@@ -48,6 +48,10 @@ const COMPARISON_ROWS: { label: string; orbit: boolean | string; void: boolean |
   { label: 'Fully customizable profile', orbit: false, void: true },
   { label: 'Pick any movie', orbit: false, void: true },
   { label: 'Pick any theme', orbit: false, void: true },
+  { label: 'Feed posting', orbit: false, void: true },
+  { label: 'No movie lockdown', orbit: false, void: true },
+  { label: 'Multiplayer access', orbit: false, void: true },
+  { label: 'Early updates', orbit: false, void: true },
 ]
 
 export default function Pro() {
