@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { supabase } from '../../shared/lib/supabase'
+import { nameStyleFor } from '../../shared/lib/displayNameStyle'
 import { updateMissionProgress } from '../missions/weeklyMissions'
 import { notifyMessage, notifyRankTag } from '../achievements/achievements'
 import { useAuth } from '../auth/useAuth'
@@ -33,7 +34,7 @@ import { starMessage, unstarMessage, fetchMyStarredMessageIds } from './starredM
 // ─── Types ──────────────────────────────────────────────────
 interface RoomMember {
   user_id: string
-  profile: { username: string; display_name: string | null; avatar: string }
+  profile: { username: string; display_name: string | null; avatar: string; display_name_font?: string | null; display_name_color?: string | null }
 }
 interface ChatRoom {
   id: string
@@ -64,6 +65,8 @@ interface Message {
    *  above the reply, since names are otherwise hidden outside of reply context. */
   replyPreviewName?: string
   senderName?: string
+  senderNameFont?: string | null
+  senderNameColor?: string | null
   senderUsername?: string
   /** 'text' (default) | 'voice_note' | 'call_log' | 'rank_tag' | 'poll' — see migrations 0009, 0038, 0039. */
   type: MessageType
@@ -360,6 +363,8 @@ interface MessageBurstProps {
   burst: GroupedMessage[]
   isMine: boolean
   senderLabel: string
+  senderNameFont?: string | null
+  senderNameColor?: string | null
   avatarUrl: string | null
   onOpenProfile: (msg: Message) => void
   onContextMenu: (msg: Message, x: number, y: number) => void
@@ -383,7 +388,7 @@ interface MessageBurstProps {
  *  starts a new line of its own width, simply pushed further down the stack
  *  rather than widening anything above it. */
 const MessageBurst = memo(function MessageBurst({
-  burst, isMine, senderLabel, avatarUrl,
+  burst, isMine, senderLabel, senderNameFont, senderNameColor, avatarUrl,
   onOpenProfile, onContextMenu, onDoubleClick, formatTime, readReceiptFor, starredIds, isGroupChat,
 }: MessageBurstProps) {
   const first = burst[0]
@@ -404,7 +409,7 @@ const MessageBurst = memo(function MessageBurst({
         {/* Sender name — Global Chat only, and only for other players' messages;
             your own messages never get one, since you already know who sent them. */}
         {isGroupChat && !isMine && (
-          <span style={{ fontSize:11.5, fontWeight:700, color:'#4f8ef7', marginBottom:3, marginLeft:2 }}>
+          <span style={{ fontSize:11.5, fontWeight:700, color:'#4f8ef7', marginBottom:3, marginLeft:2, ...nameStyleFor({ display_name_font: senderNameFont, display_name_color: senderNameColor }) }}>
             {senderLabel}
           </span>
         )}
@@ -921,7 +926,7 @@ export default function Chat() {
       const [{ data: memberData }, { data: lastMsgData }] = await Promise.all([
         supabase
           .from('room_members')
-          .select('user_id, profiles(username, display_name, avatar)')
+          .select('user_id, profiles(username, display_name, avatar, display_name_font, display_name_color)')
           .eq('room_id', room.id),
         // Respect the soft-clear cutoff: a cleared chat's "last message" preview
         // should reflect only what's still visible to me, not what I cleared.
@@ -937,7 +942,7 @@ export default function Chat() {
 
       const members: RoomMember[] = (memberData ?? []).map((m: Record<string, unknown>) => ({
         user_id: m.user_id as string,
-        profile: (m.profiles as { username: string; display_name: string | null; avatar: string }) ?? { username: '?', display_name: null, avatar: '?' },
+        profile: (m.profiles as { username: string; display_name: string | null; avatar: string; display_name_font?: string | null; display_name_color?: string | null }) ?? { username: '?', display_name: null, avatar: '?' },
       }))
 
       const lastMsg = lastMsgData?.[0]
@@ -1034,10 +1039,10 @@ export default function Chat() {
     let extraProfiles: RoomMember[] = []
     if (unknownIds.length > 0) {
       const { data: pData } = await supabase
-        .from('profiles').select('id, username, display_name, avatar').in('id', unknownIds)
+        .from('profiles').select('id, username, display_name, avatar, display_name_font, display_name_color').in('id', unknownIds)
       extraProfiles = (pData ?? []).map(p => ({
         user_id: p.id,
-        profile: { username: p.username, display_name: p.display_name, avatar: p.avatar },
+        profile: { username: p.username, display_name: p.display_name, avatar: p.avatar, display_name_font: p.display_name_font, display_name_color: p.display_name_color },
       }))
     }
     const allMembers = [...room.members, ...extraProfiles]
@@ -1085,6 +1090,8 @@ export default function Chat() {
         deleted: m.deleted ?? false,
         hidden: m.hidden ?? false,
         senderName,
+        senderNameFont: senderMember?.profile.display_name_font ?? null,
+        senderNameColor: senderMember?.profile.display_name_color ?? null,
         senderUsername,
         replyPreview: m.reply_to_id ? replyContentById.get(m.reply_to_id) : undefined,
         replyPreviewName: m.reply_to_id ? nameForSender(replySenderById.get(m.reply_to_id)) : undefined,
@@ -1144,15 +1151,21 @@ export default function Chat() {
         // Resolve sender name (may be a new global chat participant not in original members)
         let senderName = 'Unknown'
         let senderUsername: string | undefined
+        let senderNameFont: string | null = null
+        let senderNameColor: string | null = null
         const memberMatch = roomMembersRef.current.find(mb => mb.user_id === raw.sender_id)
         if (memberMatch) {
           senderName = memberMatch.profile.display_name || memberMatch.profile.username
           senderUsername = memberMatch.profile.username
+          senderNameFont = memberMatch.profile.display_name_font ?? null
+          senderNameColor = memberMatch.profile.display_name_color ?? null
         } else {
-          const { data: pData } = await supabase.from('profiles').select('username, display_name').eq('id', raw.sender_id).single()
+          const { data: pData } = await supabase.from('profiles').select('username, display_name, display_name_font, display_name_color').eq('id', raw.sender_id).single()
           if (pData) {
             senderName = pData.display_name || pData.username
             senderUsername = pData.username
+            senderNameFont = pData.display_name_font ?? null
+            senderNameColor = pData.display_name_color ?? null
           }
         }
 
@@ -1164,7 +1177,7 @@ export default function Chat() {
         setMessages(ms => {
           // Deduplicate — if msg already added (optimistic send), skip
           if (ms.find(m => m.id === raw.id)) return ms
-          return [...ms, { ...raw, senderName, senderUsername }]
+          return [...ms, { ...raw, senderName, senderNameFont, senderNameColor, senderUsername }]
         })
       })
       .on('postgres_changes', {
@@ -1343,6 +1356,8 @@ export default function Chat() {
         deleted: m.deleted ?? false,
         hidden: m.hidden ?? false,
         senderName,
+        senderNameFont: senderMember?.profile.display_name_font ?? null,
+        senderNameColor: senderMember?.profile.display_name_color ?? null,
         senderUsername,
         replyPreview: m.reply_to_id ? replyContentById.get(m.reply_to_id) : undefined,
         replyPreviewName: m.reply_to_id ? nameForSender(replySenderById.get(m.reply_to_id)) : undefined,
@@ -2218,6 +2233,8 @@ export default function Chat() {
                             burst={burst}
                             isMine={isMine}
                             senderLabel={senderLabel}
+                            senderNameFont={first.senderNameFont}
+                            senderNameColor={first.senderNameColor}
                             avatarUrl={avatarFor(first, isMine)}
                             onOpenProfile={openSenderProfile}
                             onContextMenu={(m, x, y) => { setCtxMsg(m); setCtxPos({ x, y }) }}
