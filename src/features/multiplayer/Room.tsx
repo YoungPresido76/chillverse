@@ -11,12 +11,17 @@ import { tacStart, pkStart } from './multiplayerGames'
 import TacZoneMultiplayer from './play/TacZoneMultiplayer'
 import PatternKingRelay from './play/PatternKingRelay'
 import Avatar from '../../shared/components/Avatar'
+import { useFeatureFlags } from '../../shared/lib/featureFlags'
+import { useModRole } from '../moderation/useModRole'
+import FeatureGateScreen from '../../shared/components/FeatureGateScreen'
 
 export default function Room() {
   const { roomId } = useParams<{ roomId: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
   const { room, players, loading, error: liveError } = useRoom(roomId ?? null)
+  const { isEnabled: isRoomFlagEnabled, loading: roomFlagLoading } = useFeatureFlags()
+  const { isStaff: roomIsStaff } = useModRole()
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState('')
   const [copied, setCopied] = useState(false)
@@ -87,6 +92,14 @@ export default function Room() {
 
   if (loading) {
     return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-dim)' }}>Loading room…</div>
+  }
+  if (!roomFlagLoading && !isRoomFlagEnabled('system:multiplayer') && !roomIsStaff) {
+    return (
+      <FeatureGateScreen
+        title="Multiplayer rooms are temporarily unavailable"
+        message="An admin has paused multiplayer rooms for maintenance. The rest of Chillverse is still open — check back soon."
+      />
+    )
   }
   if (!room) return null
 

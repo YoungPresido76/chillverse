@@ -5,9 +5,14 @@ import { ArrowLeft, Plus, Users, Lock, RefreshCw } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { supabase } from '../../shared/lib/supabase'
 import { createRoom, joinRoomByCode, fetchPublicRooms, type RoomRow } from './rooms'
+import { useFeatureFlags } from '../../shared/lib/featureFlags'
+import { useModRole } from '../moderation/useModRole'
+import FeatureGateScreen from '../../shared/components/FeatureGateScreen'
 
 export default function Rooms() {
   const navigate = useNavigate()
+  const { isEnabled: isRoomsFlagEnabled, loading: roomsFlagLoading } = useFeatureFlags()
+  const { isStaff: roomsIsStaff } = useModRole()
   const [rooms, setRooms] = useState<RoomRow[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -72,6 +77,15 @@ export default function Rooms() {
     } catch (e: any) {
       setError(e.message)
     }
+  }
+
+  if (!roomsFlagLoading && !isRoomsFlagEnabled('system:multiplayer') && !roomsIsStaff) {
+    return (
+      <FeatureGateScreen
+        title="Multiplayer rooms are temporarily unavailable"
+        message="An admin has paused multiplayer rooms for maintenance. The rest of Chillverse is still open — check back soon."
+      />
+    )
   }
 
   return (
