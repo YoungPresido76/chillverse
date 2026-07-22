@@ -305,10 +305,210 @@ function escapeHtml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
+// ── Blog prerendering ────────────────────────────────────────────────────
+// The blog lives in Supabase, not in the static route list above, so it
+// needs its own step: fetch every published post at build time (via a
+// plain REST call — no need for @supabase/supabase-js here) and turn each
+// one into a real crawlable page, the same way legal pages are handled
+// above. This is what actually lets AI crawlers (GPTBot, ClaudeBot,
+// PerplexityBot, etc.) — which don't run JS — "pick up" the blog at all.
+//
+// Reuses VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY, which Vercel already
+// injects into the build environment for the Vite bundle, so no extra
+// config is needed beyond what's already set for the app to work.
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY
+
+// Keep in sync with src/features/blog/constants.ts if categories/series change.
+const CATEGORY_LABELS = {
+  'game-updates': 'Game Updates',
+  'community-spotlight': 'Community Spotlight',
+  'chillverse-hq': 'Chillverse HQ',
+  'how-to': 'How-To',
+  safety: 'Safety',
+}
+const SERIES_LABELS = {
+  'update-log': 'Update Log',
+  'top-of-the-ladder': 'Top of the Ladder',
+  'streak-spotlight': 'Streak Spotlight',
+}
+function seriesLabel(series) {
+  return SERIES_LABELS[series] ?? series.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+}
+
+async function fetchSupabase(path) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+  })
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText} — ${path}`)
+  return res.json()
+}
+
+// A minimal HTML version of src/shared/lib/markdownLite.ts's subset
+// (## / ### headings, - / * / 1. lists, > quotes, **bold**, *italic*,
+// [text](url) links). Keep this in sync if that parser's syntax changes.
+function mdInline(text) {
+  return escapeHtml(text)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+}
+function liteMarkdownToHtml(content) {
+  return content
+    .split(/\n\s*\n/)
+    .filter(Boolean)
+    .map((block) => {
+      const lines = block.split('\n').map((l) => l.trim()).filter(Boolean)
+      if (block.startsWith('### ')) return `<h3>${mdInline(block.replace(/^### /, ''))}</h3>`
+      if (block.startsWith('## ')) return `<h2>${mdInline(block.replace(/^## /, ''))}</h2>`
+      if (block.startsWith('> ')) return `<blockquote>${mdInline(block.replace(/^>\s?/, ''))}</blockquote>`
+      if (lines.length && lines.every((l) => /^[-*]\s/.test(l))) {
+        return `<ul>${lines.map((l) => `<li>${mdInline(l.replace(/^[-*]\s/, ''))}</li>`).join('')}</ul>`
+      }
+      if (lines.length && lines.every((l) => /^\d+\.\s/.test(l))) {
+        return `<ol>${lines.map((l) => `<li>${mdInline(l.replace(/^\d+\.\s/, ''))}</li>`).join('')}</ol>`
+      }
+      return `<p>${mdInline(block)}</p>`
+    })
+    .join('\n')
+}
+function stripMd(text) {
+  return text.replace(/[#>*_[\]()`]/g, '').replace(/\s+/g, ' ').trim()
+}
+function dateLabel(iso) {
+  return iso ? new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : ''
+}
+
+function blogPostContent(post, authorName) {
+  const meta = [CATEGORY_LABELS[post.category] || post.category, dateLabel(post.published_at), authorName].filter(Boolean).join(' · ')
+  return `
+    <main style="max-width:720px;margin:0 auto;padding:96px 24px 64px;font-family:Inter,sans-serif;color:#e8e8f0">
+      ${post.hero_image_url ? `<img src="${post.hero_image_url}" alt="${escapeHtml(post.title)}" style="width:100%;border-radius:16px;margin-bottom:24px" />` : ''}
+      <div style="font-size:13px;color:#888;margin-bottom:8px">${escapeHtml(meta)}</div>
+      <h1 style="font-size:34px;font-weight:800;margin:0 0 20px;line-height:1.15">${escapeHtml(post.title)}</h1>
+      ${post.excerpt ? `<p style="color:#a8a8b8;font-size:16px;line-height:1.6;margin-bottom:28px">${escapeHtml(post.excerpt)}</p>` : ''}
+      <article>${liteMarkdownToHtml(post.content)}</article>
+      ${post.tags?.length ? `<div style="margin-top:32px;font-size:13px;color:#888">${post.tags.map((t) => `#${escapeHtml(t)}`).join(' ')}</div>` : ''}
+      <p style="margin-top:40px"><a href="/blog" style="color:#ff6b00;font-weight:700">← Back to Blog</a></p>
+    </main>
+  `
+}
+
+function blogListContent(heading, subtitle, posts) {
+  return `
+    <main style="max-width:860px;margin:0 auto;padding:96px 24px 64px;font-family:Inter,sans-serif;color:#e8e8f0">
+      <h1 style="font-size:36px;font-weight:800;margin-bottom:8px">${escapeHtml(heading)}</h1>
+      ${subtitle ? `<p style="color:#a8a8b8;margin-bottom:32px">${escapeHtml(subtitle)}</p>` : ''}
+      ${posts
+        .map(
+          (p) => `
+        <article style="margin-bottom:28px;padding-bottom:28px;border-bottom:1px solid rgba(255,255,255,0.08)">
+          <div style="font-size:12px;color:#888;margin-bottom:6px">${escapeHtml([CATEGORY_LABELS[p.category] || p.category, dateLabel(p.published_at)].filter(Boolean).join(' · '))}</div>
+          <h2 style="font-size:20px;font-weight:700;margin:0 0 8px"><a href="/blog/${p.slug}" style="color:#e8e8f0;text-decoration:none">${escapeHtml(p.title)}</a></h2>
+          ${p.excerpt ? `<p style="color:#a8a8b8;font-size:14px;line-height:1.6;margin:0">${escapeHtml(p.excerpt)}</p>` : ''}
+        </article>`
+        )
+        .join('')}
+      ${posts.length === 0 ? `<p style="color:#a8a8b8">No posts here yet — check back soon.</p>` : ''}
+    </main>
+  `
+}
+
+let blogPosts = []
+if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+  try {
+    blogPosts = await fetchSupabase(
+      'blog_posts?select=slug,title,excerpt,content,hero_image_url,category,series,tags,locale,author_id,published_at,updated_at' +
+        '&is_published=eq.true&order=published_at.desc&limit=500'
+    )
+    console.log(`✓ fetched ${blogPosts.length} published blog post(s) for prerendering`)
+  } catch (err) {
+    console.warn(`⚠ could not fetch blog posts — skipping blog prerendering: ${err.message}`)
+  }
+} else {
+  console.warn('⚠ VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY not set — skipping blog prerendering')
+}
+
+let authorsById = {}
+const authorIds = [...new Set(blogPosts.map((p) => p.author_id).filter(Boolean))]
+if (authorIds.length) {
+  try {
+    const authors = await fetchSupabase(`profiles?select=id,username,display_name&id=in.(${authorIds.join(',')})`)
+    authorsById = Object.fromEntries(authors.map((a) => [a.id, a.display_name || a.username]))
+  } catch (err) {
+    console.warn(`⚠ could not fetch author names for blog prerendering: ${err.message}`)
+  }
+}
+
+const enPosts = blogPosts.filter((p) => p.locale === 'en')
+const updateLogPosts = enPosts.filter((p) => p.series === 'update-log')
+const seriesSlugs = [...new Set(enPosts.map((p) => p.series).filter(Boolean))]
+
+const BLOG_ROUTES = [
+  {
+    path: '/blog',
+    title: 'Blog — Chillverse',
+    description: 'Patch notes, community spotlights, and dev diaries — straight from the team building Chillverse.',
+    jsonLd: [breadcrumb('Blog', '/blog')],
+    content: blogListContent('Chillverse Blog', 'Patch notes, community spotlights, and dev diaries.', enPosts.slice(0, 30)),
+  },
+  ...(updateLogPosts.length
+    ? [
+        {
+          path: '/blog/updates',
+          title: 'Update Log — Chillverse',
+          description: 'Every Chillverse patch and update, in order.',
+          jsonLd: [breadcrumb('Update Log', '/blog/updates')],
+          content: blogListContent('Update Log', `${updateLogPosts.length} update${updateLogPosts.length === 1 ? '' : 's'}`, updateLogPosts),
+        },
+      ]
+    : []),
+  ...seriesSlugs.map((series) => {
+    const posts = enPosts.filter((p) => p.series === series)
+    const label = seriesLabel(series)
+    return {
+      path: `/blog/series/${series}`,
+      title: `${label} — Chillverse`,
+      description: `${posts.length} post${posts.length === 1 ? '' : 's'} in this series on Chillverse.`,
+      jsonLd: [breadcrumb(label, `/blog/series/${series}`)],
+      content: blogListContent(label, `${posts.length} post${posts.length === 1 ? '' : 's'} in this series`, posts),
+    }
+  }),
+  ...blogPosts.map((post) => {
+    const authorName = post.author_id ? authorsById[post.author_id] : null
+    const description = (post.excerpt || stripMd(post.content)).slice(0, 160)
+    return {
+      path: `/blog/${post.slug}`,
+      title: `${post.title} — Chillverse`,
+      description,
+      ogType: 'article',
+      ogImage: post.hero_image_url || undefined,
+      jsonLd: [
+        {
+          '@context': 'https://schema.org',
+          '@type': 'BlogPosting',
+          headline: post.title,
+          description,
+          ...(post.hero_image_url ? { image: [post.hero_image_url] } : {}),
+          datePublished: post.published_at || post.updated_at,
+          dateModified: post.updated_at || post.published_at,
+          author: authorName ? { '@type': 'Person', name: authorName } : { '@type': 'Organization', name: 'Chillverse' },
+          publisher: { '@type': 'Organization', name: 'Chillverse', logo: { '@type': 'ImageObject', url: `${SITE_URL}/web-app-manifest-512x512.png` } },
+          mainEntityOfPage: { '@type': 'WebPage', '@id': `${SITE_URL}/blog/${post.slug}` },
+          articleSection: CATEGORY_LABELS[post.category] || post.category,
+          ...(post.tags?.length ? { keywords: post.tags.join(', ') } : {}),
+        },
+        breadcrumb(post.title, `/blog/${post.slug}`),
+      ],
+      content: blogPostContent(post, authorName),
+    }
+  }),
+]
+
 // ── Build ─────────────────────────────────────────────────────────────────
 const template = readFileSync(join(DIST, 'index.html'), 'utf-8')
 
-for (const route of ROUTES) {
+function renderAndWrite(route) {
   let html = template
 
   html = html.replace(/<title>[^<]*<\/title>/, `<title>${escapeHtml(route.title)}</title>`)
@@ -326,15 +526,27 @@ for (const route of ROUTES) {
   html = html.replace(/<meta name="twitter:url" content="[^"]*"\s*\/?>/, `<meta name="twitter:url" content="${SITE_URL}${route.path}" />`)
   html = html.replace(/<meta name="twitter:title" content="[^"]*"\s*\/?>/, `<meta name="twitter:title" content="${escapeHtml(route.title)}" />`)
   html = html.replace(/<meta name="twitter:description" content="[^"]*"\s*\/?>/, `<meta name="twitter:description" content="${escapeHtml(route.description)}" />`)
+  if (route.ogType) {
+    html = html.replace(/<meta property="og:type" content="[^"]*"\s*\/?>/, `<meta property="og:type" content="${route.ogType}" />`)
+  }
 
   // Strip the homepage's JSON-LD blocks (Organization + FAQPage) and
   // replace with this route's own Organization + BreadcrumbList so every
   // page still carries site identity plus its own position in the site.
   html = html.replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>\s*/g, '')
-  const jsonLdBlocks = [ORG_JSON_LD, ...route.jsonLd]
+  let extraHead = [ORG_JSON_LD, ...route.jsonLd]
     .map((obj) => `<script type="application/ld+json">${JSON.stringify(obj)}</script>`)
     .join('\n    ')
-  html = html.replace('</head>', `${jsonLdBlocks}\n  </head>`)
+
+  // Blog posts get their own hero image as the share image, replacing the
+  // default homepage OG images (collapses both og:image variants to one).
+  if (route.ogImage) {
+    html = html.replace(/<meta property="og:image[^"]*" content="[^"]*"\s*\/?>\s*/g, '')
+    html = html.replace(/<meta name="twitter:image" content="[^"]*"\s*\/?>\s*/g, '')
+    extraHead = `<meta property="og:image" content="${route.ogImage}" />\n    <meta name="twitter:image" content="${route.ogImage}" />\n    ${extraHead}`
+  }
+
+  html = html.replace('</head>', `${extraHead}\n  </head>`)
 
   // Give non-JS crawlers real visible content instead of an empty shell.
   html = html.replace('<div id="root"></div>', `<div id="root">${route.content}</div>`)
@@ -343,4 +555,44 @@ for (const route of ROUTES) {
   mkdirSync(outDir, { recursive: true })
   writeFileSync(join(outDir, 'index.html'), html, 'utf-8')
   console.log(`✓ prerendered ${route.path}`)
+}
+
+for (const route of [...ROUTES, ...BLOG_ROUTES]) renderAndWrite(route)
+
+// ── sitemap.xml — add blog URLs so crawlers can discover posts without search ──
+function sitemapEntry(loc, { lastmod, changefreq = 'weekly', priority = '0.6' } = {}) {
+  return `  <url>\n    <loc>${SITE_URL}${loc}</loc>\n${lastmod ? `    <lastmod>${lastmod}</lastmod>\n` : ''}    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n  </url>\n`
+}
+try {
+  let additions = sitemapEntry('/blog', { changefreq: 'daily', priority: '0.9' })
+  if (updateLogPosts.length) additions += sitemapEntry('/blog/updates', { changefreq: 'daily', priority: '0.7' })
+  for (const series of seriesSlugs) additions += sitemapEntry(`/blog/series/${series}`, { priority: '0.5' })
+  for (const post of blogPosts) {
+    additions += sitemapEntry(`/blog/${post.slug}`, {
+      lastmod: (post.updated_at || post.published_at || '').slice(0, 10) || undefined,
+      changefreq: 'monthly',
+      priority: '0.7',
+    })
+  }
+  const sitemapPath = join(DIST, 'sitemap.xml')
+  const sitemapXml = readFileSync(sitemapPath, 'utf-8').replace('</urlset>', `${additions}</urlset>`)
+  writeFileSync(sitemapPath, sitemapXml, 'utf-8')
+  console.log(`✓ sitemap.xml updated with ${blogPosts.length} blog URL(s)`)
+} catch (err) {
+  console.warn(`⚠ could not update sitemap.xml: ${err.message}`)
+}
+
+// ── llms.txt — point AI assistants/crawlers straight at the blog ──────────
+try {
+  if (enPosts.length) {
+    const section = `\n## Blog\n- [Chillverse Blog](${SITE_URL}/blog): patch notes, community spotlights, and dev diaries from the team building Chillverse.\n${enPosts
+      .slice(0, 8)
+      .map((p) => `- [${p.title}](${SITE_URL}/blog/${p.slug})${p.excerpt ? `: ${p.excerpt}` : ''}`)
+      .join('\n')}\n`
+    const llmsPath = join(DIST, 'llms.txt')
+    writeFileSync(llmsPath, readFileSync(llmsPath, 'utf-8') + section, 'utf-8')
+    console.log('✓ llms.txt updated with latest blog posts')
+  }
+} catch (err) {
+  console.warn(`⚠ could not update llms.txt: ${err.message}`)
 }
