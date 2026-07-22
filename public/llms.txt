@@ -16,6 +16,7 @@ Chillverse (chillverse.com.ng) combines casual multiplayer gaming with social fe
 - [Home / Landing](https://chillverse.com.ng/): overview, features, FAQ.
 - [About](https://chillverse.com.ng/about): mission, features, rank ladder, streak system, history, and community links.
 - [FAQ](https://chillverse.com.ng/faq): full question set covering games, XP/streaks, Diamonds, Chillverse Pro, referrals, account deletion, and Halo AI.
+- [Blog](https://chillverse.com.ng/blog): patch notes, community spotlights, and dev diaries from the team. Updated regularly — see the Blog section below for the latest posts.
 - [Sign up](https://chillverse.com.ng/signup): free account creation.
 - [Privacy Policy](https://chillverse.com.ng/privacy)
 - [Terms of Service](https://chillverse.com.ng/terms)

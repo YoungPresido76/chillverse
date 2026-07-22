@@ -4,6 +4,7 @@ Allow: /login
 Allow: /signup
 Allow: /privacy
 Allow: /terms
+Allow: /blog
 
 Disallow: /dashboard
 Disallow: /games
@@ -32,5 +33,55 @@ Disallow: /referral
 Disallow: /search
 Disallow: /watch
 Disallow: /coming-soon
+Disallow: /blog/admin
+
+# AI assistant / LLM crawlers — explicitly welcomed. These fetch pages
+# without running JS, which is exactly what scripts/prerender.mjs (and its
+# blog extension) exists to serve them: real static HTML per route,
+# including every blog post, instead of an empty SPA shell.
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
+User-agent: meta-externalagent
+Allow: /
 
 Sitemap: https://chillverse.com.ng/sitemap.xml
