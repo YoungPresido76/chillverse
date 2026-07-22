@@ -5,6 +5,51 @@ import type { StaffSupportTicket, SupportTicketReply, SupportTicketNote, Support
 
 export type TicketQueueFilter = 'unclaimed' | 'mine' | 'escalated' | 'all'
 
+/** SLA tier for how long a ticket has been open, used to color-flag the queue. */
+export type TicketSlaTier = 'ok' | 'warning' | 'breached'
+
+/** Read-only context card for the user behind a ticket — join date, verified status, ban status, strike count. */
+export interface TicketUserCard {
+  join_date: string
+  is_verified: boolean
+  is_banned: boolean
+  strike_count: number
+}
+
+/** Reusable reply templates for the most common ticket categories. Inserted into the reply draft, then editable before sending. */
+export interface CannedResponse {
+  id: string
+  label: string
+  body: string
+}
+
+export const CANNED_RESPONSES: CannedResponse[] = [
+  {
+    id: 'password_reset',
+    label: 'Password reset',
+    body: "Hi! You can reset your password from the login screen — tap \"Forgot password\", enter the email on your account, and a reset link will arrive within a few minutes. Let us know if it doesn't show up and we'll take a closer look.",
+  },
+  {
+    id: 'billing',
+    label: 'Billing question',
+    body: "Thanks for reaching out about billing. Could you confirm the email address on your account and the approximate date of the charge in question? Once we have that we can look into it and get back to you shortly.",
+  },
+  {
+    id: 'ban_appeal_status',
+    label: 'Ban appeal status',
+    body: "Thanks for your patience — your appeal has been received and is currently being reviewed by our moderation team. We'll follow up on this ticket as soon as a decision has been made.",
+  },
+]
+
+/** Returns how overdue an open ticket is, for the SLA pill in the queue. Resolved/closed tickets are never flagged. */
+export function getTicketSlaTier(ticket: Pick<StaffSupportTicket, 'created_at' | 'status'>): TicketSlaTier {
+  if (ticket.status === 'resolved' || ticket.status === 'closed') return 'ok'
+  const ageHours = (Date.now() - new Date(ticket.created_at).getTime()) / (1000 * 60 * 60)
+  if (ageHours >= 48) return 'breached'
+  if (ageHours >= 24) return 'warning'
+  return 'ok'
+}
+
 /**
  * Fetches tickets for the staff queue. 'escalated' shows every escalated
  * ticket regardless of assignee (that's the moderator hand-off view);
@@ -48,6 +93,12 @@ export async function fetchTicketNotes(ticketId: string): Promise<{ data: Suppor
     .order('created_at', { ascending: true })
 
   return { data: (data as SupportTicketNote[] | null) ?? [], error: friendlyError(error) }
+}
+
+/** Read-only lookup used next to a ticket — join date, verified status, ban status, strike count. Fetched lazily on expand, same pattern as replies/notes. */
+export async function fetchTicketUserCard(userId: string): Promise<{ data: TicketUserCard | null; error: string | null }> {
+  const { data, error } = await supabase.rpc('staff_get_ticket_user_card', { p_target_id: userId })
+  return { data: (data as TicketUserCard | null) ?? null, error: friendlyError(error) }
 }
 
 export async function claimTicket(ticketId: string): Promise<{ error: string | null }> {

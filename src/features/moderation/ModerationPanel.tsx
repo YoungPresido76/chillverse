@@ -374,6 +374,11 @@ function ReportsTab({ isModOrAdmin }: { isModOrAdmin: boolean }) {
   const selectedReports = openReports.filter(r => selected.has(r.id))
   const selectedUserReports = selectedReports.filter(r => r.target_type === 'user')
   const selectedContentReports = selectedReports.filter(r => r.target_type !== 'user')
+  // Staff can only delete-and-action post/comment reports directly (matches the
+  // mod_delete_post/mod_delete_comment scope) — mod/admin keep the full content set.
+  const selectedActionableReports = isModOrAdmin
+    ? selectedContentReports
+    : selectedReports.filter(r => r.target_type === 'post' || r.target_type === 'comment')
 
   async function handleBulkDismiss() {
     if (selected.size === 0) return
@@ -386,9 +391,9 @@ function ReportsTab({ isModOrAdmin }: { isModOrAdmin: boolean }) {
   }
 
   async function handleBulkDeleteAndAction() {
-    if (selectedContentReports.length === 0) return
+    if (selectedActionableReports.length === 0) return
     setBusy(true)
-    const { succeeded, failed } = await bulkDeleteAndActionReports(selectedContentReports)
+    const { succeeded, failed } = await bulkDeleteAndActionReports(selectedActionableReports)
     setBusy(false)
     setActionMsg(failed.length > 0
       ? `Actioned ${succeeded.length}, failed on ${failed.length}.`
@@ -479,9 +484,9 @@ function ReportsTab({ isModOrAdmin }: { isModOrAdmin: boolean }) {
             <div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <SmallButton onClick={handleBulkDismiss} disabled={busy}>Dismiss selected</SmallButton>
-                {isModOrAdmin && selectedContentReports.length > 0 && (
+                {selectedActionableReports.length > 0 && (
                   <SmallButton danger onClick={handleBulkDeleteAndAction} disabled={busy}>
-                    <Trash2 size={12} /> Delete & action {selectedContentReports.length} content
+                    <Trash2 size={12} /> Delete & action {selectedActionableReports.length} content
                   </SmallButton>
                 )}
               </div>
@@ -545,7 +550,7 @@ function ReportsTab({ isModOrAdmin }: { isModOrAdmin: boolean }) {
             {r.status === 'open' && (
               <>
                 <SmallButton onClick={() => handleReview(r.id, 'dismissed')}>Dismiss</SmallButton>
-                {isModOrAdmin ? (
+                {isModOrAdmin || r.target_type === 'post' || r.target_type === 'comment' ? (
                   <SmallButton danger onClick={() => handleDeleteTarget(r)}>
                     <Trash2 size={12} /> Delete & action
                   </SmallButton>
@@ -857,12 +862,12 @@ function UsersTab({ isAdmin, isModOrAdmin }: { isAdmin: boolean; isModOrAdmin: b
           )}
 
           <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-            {result.is_banned ? (
+            {isModOrAdmin && result.is_banned ? (
               <SmallButton onClick={handleUnban} disabled={busy}>Unban</SmallButton>
             ) : null}
           </div>
 
-          {!result.is_banned && (
+          {isModOrAdmin && !result.is_banned && (
             <div style={{ marginTop: 14, padding: 12, borderRadius: 10, background: 'var(--surface2)' }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', marginBottom: 8 }}>Suspend / ban this user</div>
               <input

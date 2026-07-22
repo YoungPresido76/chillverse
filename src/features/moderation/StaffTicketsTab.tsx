@@ -2,15 +2,16 @@
 import { useEffect, useState } from 'react'
 import {
   Inbox, ChevronDown, ChevronUp, Send, StickyNote, ArrowUpCircle, ArrowDownCircle,
-  UserCheck, UserX, CheckCircle2, XCircle, RotateCcw,
+  UserCheck, UserX, CheckCircle2, XCircle, RotateCcw, Clock, BadgeCheck, ShieldAlert, UserRound,
 } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { useAuth } from '../auth/useAuth'
 import {
-  fetchStaffTickets, fetchTicketReplies, fetchTicketNotes,
+  fetchStaffTickets, fetchTicketReplies, fetchTicketNotes, fetchTicketUserCard,
   claimTicket, unclaimTicket, replyToTicket, addTicketNote,
   setTicketStatus, escalateTicket, deescalateTicket,
-  type TicketQueueFilter,
+  getTicketSlaTier, CANNED_RESPONSES,
+  type TicketQueueFilter, type TicketUserCard, type TicketSlaTier,
 } from './staffTickets'
 import {
   SUPPORT_TICKET_STATUS_LABELS, SUPPORT_TICKET_STATUS_COLORS,
@@ -108,11 +109,13 @@ function TicketCard({
   const [actionError, setActionError] = useState<string | null>(null)
   const [replies, setReplies] = useState<SupportTicketReply[]>([])
   const [notes, setNotes] = useState<SupportTicketNote[]>([])
+  const [userCard, setUserCard] = useState<TicketUserCard | null>(null)
   const [threadLoading, setThreadLoading] = useState(false)
   const [replyDraft, setReplyDraft] = useState('')
   const [noteDraft, setNoteDraft] = useState('')
   const [escalating, setEscalating] = useState(false)
   const [escalationNote, setEscalationNote] = useState('')
+  const [cannedOpen, setCannedOpen] = useState(false)
 
   const isMine = ticket.assigned_to === myUserId
   const canChangeStatus = !ticket.escalated_to_mod || isModOrAdmin
@@ -121,14 +124,19 @@ function TicketCard({
     if (!expanded) return
     let active = true
     setThreadLoading(true)
-    Promise.all([fetchTicketReplies(ticket.id), fetchTicketNotes(ticket.id)]).then(([r, n]) => {
+    Promise.all([
+      fetchTicketReplies(ticket.id),
+      fetchTicketNotes(ticket.id),
+      fetchTicketUserCard(ticket.user_id),
+    ]).then(([r, n, c]) => {
       if (!active) return
       setReplies(r.data)
       setNotes(n.data)
+      setUserCard(c.data)
       setThreadLoading(false)
     })
     return () => { active = false }
-  }, [expanded, ticket.id])
+  }, [expanded, ticket.id, ticket.user_id])
 
   async function refreshThread() {
     const [r, n] = await Promise.all([fetchTicketReplies(ticket.id), fetchTicketNotes(ticket.id)])
@@ -220,6 +228,7 @@ function TicketCard({
             <StatusPill label={SUPPORT_TICKET_STATUS_LABELS[ticket.status]} color={SUPPORT_TICKET_STATUS_COLORS[ticket.status]} />
             <StatusPill label={SUPPORT_TICKET_PRIORITY_LABELS[ticket.priority]} color={SUPPORT_TICKET_PRIORITY_COLORS[ticket.priority]} />
             {ticket.escalated_to_mod && <StatusPill label="Escalated" color="var(--red)" />}
+            <SlaPill ticket={ticket} />
           </div>
         </div>
         {expanded ? <ChevronUp size={18} color="var(--text-muted)" /> : <ChevronDown size={18} color="var(--text-muted)" />}
@@ -283,6 +292,8 @@ function TicketCard({
             <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Loading conversation…</div>
           ) : (
             <>
+              <UserLookupCard card={userCard} />
+
               <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-dim)', marginBottom: 8 }}>Conversation</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
                 {replies.length === 0 && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>No replies yet.</div>}
@@ -298,6 +309,39 @@ function TicketCard({
                   </div>
                 ))}
               </div>
+
+              <div style={{ position: 'relative', marginBottom: 8 }}>
+                <SmallButton onClick={() => setCannedOpen(v => !v)}>
+                  <StickyNote size={12} /> Canned response
+                </SmallButton>
+                {cannedOpen && (
+                  <div
+                    className="neu-card"
+                    style={{
+                      position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 20, minWidth: 220,
+                      borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)',
+                      boxShadow: '0 12px 28px rgba(0,0,0,0.35), 4px 4px 12px var(--neu-dark)', padding: 6,
+                    }}
+                  >
+                    {CANNED_RESPONSES.map(c => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => { setReplyDraft(c.body); setCannedOpen(false) }}
+                        style={{
+                          display: 'block', width: '100%', textAlign: 'left', borderRadius: 9, padding: '7px 9px',
+                          cursor: 'pointer', background: 'transparent', border: 'none', fontSize: 12.5, fontWeight: 600, color: 'var(--text)',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                      >
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                 <textarea
                   value={replyDraft}
@@ -345,6 +389,59 @@ function StatusPill({ label, color }: { label: string; color: string }) {
     }}>
       {label}
     </span>
+  )
+}
+
+const SLA_COLORS: Record<Exclude<TicketSlaTier, 'ok'>, string> = {
+  warning: '#e2a13a',
+  breached: 'var(--red)',
+}
+const SLA_LABELS: Record<Exclude<TicketSlaTier, 'ok'>, string> = {
+  warning: 'Open >24h',
+  breached: 'Open >48h',
+}
+
+/** Color-flags a ticket once it's been open past 24h/48h. Silent (renders nothing) while within SLA. */
+function SlaPill({ ticket }: { ticket: Pick<StaffSupportTicket, 'created_at' | 'status'> }) {
+  const tier = getTicketSlaTier(ticket)
+  if (tier === 'ok') return null
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      fontSize: 11, fontWeight: 700, color: SLA_COLORS[tier], background: `${SLA_COLORS[tier]}1a`,
+      border: `1px solid ${SLA_COLORS[tier]}40`, borderRadius: 999, padding: '3px 9px', whiteSpace: 'nowrap',
+    }}>
+      <Clock size={10} /> {SLA_LABELS[tier]}
+    </span>
+  )
+}
+
+/** Read-only lookup next to a ticket — join date, verified status, ban status, strike count — for context before replying. */
+function UserLookupCard({ card }: { card: TicketUserCard | null }) {
+  if (!card) return null
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+      padding: '10px 12px', borderRadius: 10, background: 'var(--surface2)', marginBottom: 14,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-dim)' }}>
+        <UserRound size={12} color="var(--text-muted)" />
+        Joined {new Date(card.join_date).toLocaleDateString()}
+      </div>
+      {card.is_verified && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#5b9cff' }}>
+          <BadgeCheck size={12} /> Verified
+        </div>
+      )}
+      {card.is_banned && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--red)' }}>
+          <ShieldAlert size={12} /> Currently banned
+        </div>
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: card.strike_count > 0 ? 'var(--red)' : 'var(--text-dim)' }}>
+        <ShieldAlert size={12} /> {card.strike_count} strike{card.strike_count === 1 ? '' : 's'}
+      </div>
+    </div>
   )
 }
 
