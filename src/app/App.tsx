@@ -62,6 +62,9 @@ const ModerationPanel     = lazy(() => import('../features/moderation/Moderation
 const AdminDashboard      = lazy(() => import('../features/admin/AdminDashboard'))
 const AdminUserDetail     = lazy(() => import('../features/admin/AdminUserDetail'))
 const Leaderboards        = lazy(() => import('../features/leaderboards/Leaderboards'))
+const ChessPage            = lazy(() => import('../features/games/play/ChessPage'))
+const Ludo                 = lazy(() => import('../features/games/play/Ludo'))
+const WaterTheTree          = lazy(() => import('../features/games/play/WaterTheTree'))
 const Blog                = lazy(() => import('../features/blog/Blog'))
 const BlogPostPage        = lazy(() => import('../features/blog/BlogPostPage'))
 const BlogSeriesPage      = lazy(() => import('../features/blog/BlogSeriesPage'))
@@ -195,6 +198,9 @@ export default function App() {
           <Route path="/halo"             element={<Suspense fallback={<Fallback />}><HaloAI /></Suspense>} />
           <Route path="/pro"              element={<Suspense fallback={<Fallback />}><Pro /></Suspense>} />
           <Route path="/multiplayer"      element={<Suspense fallback={<Fallback />}><Multiplayer /></Suspense>} />
+          <Route path="/play/chess"       element={<Suspense fallback={<Fallback />}><ChessPage /></Suspense>} />
+          <Route path="/play/ludo"        element={<Suspense fallback={<Fallback />}><Ludo /></Suspense>} />
+          <Route path="/play/water-the-tree" element={<Suspense fallback={<Fallback />}><WaterTheTree /></Suspense>} />
           <Route path="/rooms"            element={<Suspense fallback={<Fallback />}><Rooms /></Suspense>} />
           <Route path="/rooms/:roomId"    element={<Suspense fallback={<Fallback />}><Room /></Suspense>} />
           <Route path="/feed"             element={<Suspense fallback={<Fallback />}><FeedPage /></Suspense>} />
