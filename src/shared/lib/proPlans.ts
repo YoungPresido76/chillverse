@@ -76,6 +76,7 @@ export const TIERS: ProTierInfo[] = [
       'Version 2.0 – 4.0 unlocked',
       'More games',
       'Exclusive Orbit tag on your profile',
+      'Ability to set polls',
     ],
   },
   {
@@ -91,6 +92,12 @@ export const TIERS: ProTierInfo[] = [
       'Everything in Free + Orbit',
       '25 sessions a day (up from 19 on Orbit)',
       'Exclusive Void tag + profile pic added to your inventory',
+      'Theme picker',
+      'Full profile customisation',
+      'Movie page never closes',
+      'Multiplayer (opens the multiplayer ad sheet)',
+      'Feed posting — no longer tied to Gold rank + 150 games, now unlocked by plan',
+      'VN sending',
     ],
   },
 ]
