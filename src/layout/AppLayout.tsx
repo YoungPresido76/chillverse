@@ -8,6 +8,8 @@ import BadgeEarnedModal from '../features/badges/BadgeEarnedModal'
 import NotificationToastRenderer from '../features/notifications/NotificationToastRenderer'
 import PromoOverlay from '../features/notifications/PromoOverlay'
 import { useReferralPromoAd } from '../features/referral/useReferralPromoAd'
+import { useDailyFortune } from '../features/halo-moments/useDailyFortune'
+import DailyFortuneSheet from '../features/halo-moments/DailyFortuneSheet'
 import { useProfile } from '../features/profile/useProfile'
 import { useAuth } from '../features/auth/useAuth'
 import { getUserRankTier } from '../features/profile/ranks'
@@ -72,6 +74,7 @@ export default function AppLayout() {
   const { user, session } = useAuth()
   const myId = session?.user?.id ?? null
   const { active: referralAd, dismiss: dismissReferralAd } = useReferralPromoAd(myId)
+  const { fortune: dailyFortune, dismiss: dismissDailyFortune } = useDailyFortune(myId)
   const { isStaff, loading: roleLoading } = useModRole()
   const [maintenance, setMaintenance] = useState<{ enabled: boolean; message: string } | null>(null)
 
@@ -168,6 +171,7 @@ export default function AppLayout() {
         <BadgeEarnedModal />
         <NotificationToastRenderer />
         {referralAd && <PromoOverlay notification={referralAd} onDismiss={dismissReferralAd} />}
+        <DailyFortuneSheet fortune={dailyFortune} onDismiss={dismissDailyFortune} />
 
         <main
           className={`relative z-10 transition-all duration-300 ${pathname === '/chat' ? 'pt-[60px] pb-0' : 'pt-[68px] pb-12'}`}
