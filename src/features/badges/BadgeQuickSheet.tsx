@@ -1,6 +1,7 @@
 // src/features/badges/BadgeQuickSheet.tsx
 //
-// Opened via tap-hold → "View badges" (see BadgeContextMenu). A compact
+// Opened via tap-hold → "View badges" on BadgeRow (see BadgeContextMenu),
+// or directly from the profile preview's Stats "Badges" row. A compact
 // sheet — deliberately smaller than the full BadgesDex/BadgesModal grid —
 // built to mirror the "Your badges" popover pattern (avatar + name header,
 // top few badges, tap one for details, a way to browse the rest).
