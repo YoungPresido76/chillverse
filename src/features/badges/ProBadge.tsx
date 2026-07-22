@@ -29,6 +29,18 @@ export function proBadgeSrc(color: ProBadgeColor | string | null | undefined): s
   return `/pro-badges/orbit-badge-${c}.png`
 }
 
+// The `badges` table carries two auto-awarded rows for the Orbit/Void
+// loyalty badge ('orbit_subscriber' / 'void_subscriber') so it can show
+// up alongside regular badges in lists (BadgeRow, BadgesDex, etc). But
+// visually it should always use the real evolving-color artwork via
+// proBadgeSrc(), never the generic per-badge icon glyph. Any place that
+// renders a BadgeDef by id should check this first.
+export function subscriberBadgeTier(badgeId: string): 'orbit' | 'void' | null {
+  if (badgeId === 'orbit_subscriber') return 'orbit'
+  if (badgeId === 'void_subscriber') return 'void'
+  return null
+}
+
 function formatMemberSince(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
 }

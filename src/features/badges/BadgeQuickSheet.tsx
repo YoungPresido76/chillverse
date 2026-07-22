@@ -24,7 +24,7 @@ import {
   BADGE_RARITY_COLOR, BADGE_RARITY_RANK, badgeDisplayTitle,
   type BadgeDef, type PlayerBadge,
 } from './badges'
-import { proBadgeSrc, type ProBadgeColor } from './ProBadge'
+import { proBadgeSrc, subscriberBadgeTier, type ProBadgeColor } from './ProBadge'
 
 const PRO_TIERS: Array<{ key: ProBadgeColor; label: string; months: number; color: string }> = [
   { key: 'blue', label: 'Blue', months: 0, color: '#4f8ef7' },
@@ -83,7 +83,7 @@ export default function BadgeQuickSheet({
   // reshuffled on every re-render.
   const [unlockPool] = useState(() => {
     const ownedIds = new Set(badges.map(b => b.badge_id))
-    const candidates = allDefs.filter(d => !ownedIds.has(d.id) && d.is_available !== false && d.id !== 'orbit_subscriber')
+    const candidates = allDefs.filter(d => !ownedIds.has(d.id) && d.is_available !== false && !subscriberBadgeTier(d.id))
     const shuffled = [...candidates].sort(() => Math.random() - 0.5)
     return shuffled.slice(0, 4)
   })
@@ -128,7 +128,7 @@ export default function BadgeQuickSheet({
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: showUnlockSection ? 22 : 4 }}>
               {top3.map(def => (
-                <BadgeTile key={def.id} def={def} owned onClick={() => setSelected(def)} />
+                <BadgeTile key={def.id} def={def} owned pro={pro} onClick={() => setSelected(def)} />
               ))}
               {overflow > 0 && (
                 <button
@@ -184,6 +184,7 @@ export default function BadgeQuickSheet({
           def={selected}
           owned={badges.some(b => b.badge_id === selected.id)}
           originalUsername={originalUsername}
+          pro={pro}
           onClose={() => setSelected(null)}
         />
       )}
@@ -191,8 +192,9 @@ export default function BadgeQuickSheet({
   )
 }
 
-function BadgeTile({ def, owned, onClick }: { def: BadgeDef; owned: boolean; onClick: () => void }) {
+function BadgeTile({ def, owned, onClick, pro }: { def: BadgeDef; owned: boolean; onClick: () => void; pro?: ProInfo | null }) {
   const color = BADGE_RARITY_COLOR[def.rarity] ?? '#888899'
+  const isSubscriberBadge = !!subscriberBadgeTier(def.id)
   return (
     <button
       type="button"
@@ -201,7 +203,9 @@ function BadgeTile({ def, owned, onClick }: { def: BadgeDef; owned: boolean; onC
       style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, padding: '14px 6px', borderRadius: 16, background: 'var(--surface)', border: `1px solid ${owned ? color + '33' : 'rgba(255,255,255,0.05)'}`, cursor: 'pointer', opacity: owned ? 1 : 0.55 }}
     >
       <div style={{ width: 38, height: 38, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', background: owned ? color + '1c' : 'var(--surface2)' }}>
-        {owned ? <BadgeIcon iconKey={def.icon} size={19} color={color} /> : <Lock size={15} color="var(--text-muted)" />}
+        {isSubscriberBadge
+          ? <img src={proBadgeSrc(owned ? pro?.color : 'blue')} alt={def.title} width={19} height={19} style={{ display: 'block', filter: owned ? 'none' : 'grayscale(1)', opacity: owned ? 1 : 0.6 }} />
+          : owned ? <BadgeIcon iconKey={def.icon} size={19} color={color} /> : <Lock size={15} color="var(--text-muted)" />}
       </div>
       <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textAlign: 'center', lineHeight: 1.2 }}>
         {def.title}
@@ -239,8 +243,9 @@ function AvailabilityCard({ available }: { available: boolean }) {
   )
 }
 
-function BadgeDetail({ def, owned, originalUsername, onClose }: { def: BadgeDef; owned: boolean; originalUsername: string; onClose: () => void }) {
+function BadgeDetail({ def, owned, originalUsername, pro, onClose }: { def: BadgeDef; owned: boolean; originalUsername: string; pro?: ProInfo | null; onClose: () => void }) {
   const color = BADGE_RARITY_COLOR[def.rarity] ?? '#888899'
+  const isSubscriberBadge = !!subscriberBadgeTier(def.id)
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 20200, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 340, background: 'var(--bg)', borderRadius: 22, padding: '22px 20px', boxShadow: 'var(--elev-popover)' }}>
@@ -251,7 +256,9 @@ function BadgeDetail({ def, owned, originalUsername, onClose }: { def: BadgeDef;
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginTop: -6 }}>
           <div style={{ width: 56, height: 56, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', background: owned ? color + '1c' : 'var(--surface2)' }}>
-            {owned ? <BadgeIcon iconKey={def.icon} size={26} color={color} /> : <Lock size={20} color="var(--text-muted)" />}
+            {isSubscriberBadge
+              ? <img src={proBadgeSrc(owned ? pro?.color : 'blue')} alt={def.title} width={26} height={26} style={{ display: 'block', filter: owned ? 'none' : 'grayscale(1)', opacity: owned ? 1 : 0.6 }} />
+              : owned ? <BadgeIcon iconKey={def.icon} size={26} color={color} /> : <Lock size={20} color="var(--text-muted)" />}
           </div>
           <p style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)', textAlign: 'center' }}>
             {owned ? badgeDisplayTitle(def, originalUsername) : def.title}

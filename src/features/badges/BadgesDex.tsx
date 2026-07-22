@@ -7,6 +7,8 @@ import { supabase } from '../../shared/lib/supabase'
 import { ripple } from '../../shared/lib/ripple'
 import { getAllBadges, getPlayerBadges, badgeDisplayTitle, BADGE_RARITY_COLOR, BADGE_RARITY_RANK, type BadgeDef, type PlayerBadge } from './badges'
 import { BadgeIcon } from './badgeIcons'
+import { proBadgeSrc, subscriberBadgeTier } from './ProBadge'
+import type { ProInfo } from './BadgeQuickSheet'
 
 // Settings > Badges — the full catalog ("badge dex"): every badge that
 // exists, locked ones greyed out, with the requirement shown under each.
@@ -23,6 +25,7 @@ export default function BadgesDex() {
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<BadgeDef | null>(null)
   const [originalUsername, setOriginalUsername] = useState('')
+  const [pro, setPro] = useState<ProInfo | null>(null)
 
   useEffect(() => {
     getAllBadges().then(setDefs)
@@ -38,8 +41,13 @@ export default function BadgesDex() {
     // tile correctly — this must stay original_username, never username,
     // or the badge text will drift every time the player renames themselves.
     if (!userId) return
-    supabase.from('profiles').select('original_username').eq('id', userId).single()
-      .then(({ data }) => { if (data?.original_username) setOriginalUsername(data.original_username) })
+    supabase.from('profiles')
+      .select('original_username, is_pro, pro_tier, pro_badge_color, pro_first_subscribed_at')
+      .eq('id', userId).single()
+      .then(({ data }) => {
+        if (data?.original_username) setOriginalUsername(data.original_username)
+        if (data) setPro({ isPro: data.is_pro, tier: data.pro_tier, color: data.pro_badge_color, memberSince: data.pro_first_subscribed_at })
+      })
   }, [userId])
 
   const ownedIds = new Set(mine.map(b => b.badge_id))
@@ -65,6 +73,7 @@ export default function BadgesDex() {
         {sorted.map(def => {
           const owned = ownedIds.has(def.id)
           const color = BADGE_RARITY_COLOR[def.rarity] ?? '#888899'
+          const isSubscriberBadge = !!subscriberBadgeTier(def.id)
           return (
             <button
               key={def.id}
@@ -74,7 +83,9 @@ export default function BadgesDex() {
               style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px', borderRadius: 16, background: 'var(--surface)', border: `1px solid ${owned ? color + '33' : 'rgba(255,255,255,0.05)'}`, cursor: 'pointer', textAlign: 'left', boxShadow: 'var(--elev-raise-sm)', opacity: owned ? 1 : 0.55 }}
             >
               <div style={{ width: 38, height: 38, borderRadius: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: owned ? color + '1c' : 'var(--surface2)' }}>
-                {owned ? <BadgeIcon iconKey={def.icon} size={19} color={color} /> : <Lock size={15} color="var(--text-muted)" />}
+                {isSubscriberBadge
+                  ? <img src={proBadgeSrc(owned ? pro?.color : 'blue')} alt={def.title} width={19} height={19} style={{ display: 'block', filter: owned ? 'none' : 'grayscale(1)', opacity: owned ? 1 : 0.6 }} />
+                  : owned ? <BadgeIcon iconKey={def.icon} size={19} color={color} /> : <Lock size={15} color="var(--text-muted)" />}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 700, color: owned ? 'var(--text)' : 'var(--text-dim)' }}>
@@ -92,6 +103,7 @@ export default function BadgesDex() {
           def={selected}
           owned={ownedIds.has(selected.id)}
           originalUsername={originalUsername}
+          pro={pro}
           onClose={() => setSelected(null)}
         />
       )}
@@ -99,8 +111,9 @@ export default function BadgesDex() {
   )
 }
 
-function BadgeDetailModal({ def, owned, originalUsername, onClose }: { def: BadgeDef; owned: boolean; originalUsername: string; onClose: () => void }) {
+function BadgeDetailModal({ def, owned, originalUsername, pro, onClose }: { def: BadgeDef; owned: boolean; originalUsername: string; pro?: ProInfo | null; onClose: () => void }) {
   const color = BADGE_RARITY_COLOR[def.rarity] ?? '#888899'
+  const isSubscriberBadge = !!subscriberBadgeTier(def.id)
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 500, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 340, background: 'var(--bg)', borderRadius: 22, padding: '22px 20px', boxShadow: 'var(--elev-popover)' }}>
@@ -111,7 +124,9 @@ function BadgeDetailModal({ def, owned, originalUsername, onClose }: { def: Badg
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: -6 }}>
           <div style={{ width: 56, height: 56, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', background: owned ? color + '1c' : 'var(--surface2)' }}>
-            {owned ? <BadgeIcon iconKey={def.icon} size={26} color={color} /> : <Lock size={20} color="var(--text-muted)" />}
+            {isSubscriberBadge
+              ? <img src={proBadgeSrc(owned ? pro?.color : 'blue')} alt={def.title} width={26} height={26} style={{ display: 'block', filter: owned ? 'none' : 'grayscale(1)', opacity: owned ? 1 : 0.6 }} />
+              : owned ? <BadgeIcon iconKey={def.icon} size={26} color={color} /> : <Lock size={20} color="var(--text-muted)" />}
           </div>
           <p style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)', textAlign: 'center' }}>
             {owned ? badgeDisplayTitle(def, originalUsername) : def.title}

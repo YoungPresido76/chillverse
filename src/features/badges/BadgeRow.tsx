@@ -7,6 +7,7 @@ import BadgeContextMenu from './BadgeContextMenu'
 import BadgeQuickSheet, { type ProInfo } from './BadgeQuickSheet'
 import BadgeNudge, { hasSeenBadgeNudge, markBadgeNudgeSeen } from './BadgeNudge'
 import { useLongPress } from '../../shared/lib/useLongPress'
+import { proBadgeSrc, subscriberBadgeTier } from './ProBadge'
 
 const MAX_VISIBLE = 5
 
@@ -69,6 +70,7 @@ export default function BadgeRow({
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 5 }} {...longPress.handlers}>
         {visible.map(def => {
           const color = BADGE_RARITY_COLOR[def.rarity] ?? '#888899'
+          const isSubscriberBadge = !!subscriberBadgeTier(def.id)
           return (
             <button
               key={def.id}
@@ -80,7 +82,9 @@ export default function BadgeRow({
               }}
               aria-label={def.title}
             >
-              <BadgeIcon iconKey={def.icon} size={12} color={color} />
+              {isSubscriberBadge
+                ? <img src={proBadgeSrc(pro?.color)} alt={def.title} width={14} height={14} style={{ display: 'block' }} />
+                : <BadgeIcon iconKey={def.icon} size={12} color={color} />}
             </button>
           )
         })}
@@ -116,6 +120,7 @@ export default function BadgeRow({
           icon={toast.icon}
           rarity={toast.rarity}
           onDone={() => setToast(null)}
+          customIcon={subscriberBadgeTier(toast.id) ? <img src={proBadgeSrc(pro?.color)} alt={toast.title} width={16} height={16} /> : undefined}
         />
       )}
 

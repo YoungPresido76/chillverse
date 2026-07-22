@@ -4,6 +4,8 @@ import { X } from 'lucide-react'
 import { BadgeIcon } from './badgeIcons'
 import { BADGE_RARITY_COLOR, BADGE_RARITY_RANK, badgeDisplayTitle, type BadgeDef, type PlayerBadge } from './badges'
 import BadgeToast from './BadgeToast'
+import { proBadgeSrc, subscriberBadgeTier } from './ProBadge'
+import type { ProInfo } from './BadgeQuickSheet'
 
 const PREVIEW_COUNT = 6
 
@@ -12,12 +14,14 @@ const PREVIEW_COUNT = 6
 // the player's top 6 (rarest first). Tapping one shows the slide-down
 // name toast, same as the inline row.
 export default function BadgesModal({
-  badges, allDefs, originalUsername, onClose,
+  badges, allDefs, originalUsername, pro, onClose,
 }: {
   badges: PlayerBadge[]
   allDefs: BadgeDef[]
   /** The player's frozen original_username — NOT their current username. */
   originalUsername: string
+  /** Needed to render the real evolving-color png for the owned Orbit/Void badge. */
+  pro?: ProInfo | null
   onClose: () => void
 }) {
   const [toast, setToast] = useState<BadgeDef | null>(null)
@@ -61,6 +65,7 @@ export default function BadgesModal({
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
               {preview.map(def => {
                 const color = BADGE_RARITY_COLOR[def.rarity] ?? '#888899'
+                const isSubscriberBadge = !!subscriberBadgeTier(def.id)
                 return (
                   <button
                     key={def.id}
@@ -70,7 +75,9 @@ export default function BadgesModal({
                     style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, padding: '14px 8px', borderRadius: 16, background: 'var(--surface)', border: `1px solid ${color}33`, cursor: 'pointer' }}
                   >
                     <div style={{ width: 38, height: 38, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', background: color + '1c' }}>
-                      <BadgeIcon iconKey={def.icon} size={19} color={color} />
+                      {isSubscriberBadge
+                        ? <img src={proBadgeSrc(pro?.color)} alt={def.title} width={19} height={19} style={{ display: 'block' }} />
+                        : <BadgeIcon iconKey={def.icon} size={19} color={color} />}
                     </div>
                     <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-dim)', textAlign: 'center', lineHeight: 1.25 }}>
                       {def.is_dynamic_username ? def.title : def.title}
@@ -89,6 +96,7 @@ export default function BadgesModal({
           icon={toast.icon}
           rarity={toast.rarity}
           onDone={() => setToast(null)}
+          customIcon={subscriberBadgeTier(toast.id) ? <img src={proBadgeSrc(pro?.color)} alt={toast.title} width={16} height={16} /> : undefined}
         />
       )}
     </>
