@@ -16,6 +16,8 @@ import { getUserRankTier, type RankTier } from './ranks'
 import { getGameMeta, getGameById } from '../games/games'
 import { getAllPlayerRanks } from '../games/gameSession'
 import EditProfileModal, { type EditProfileSavedFields } from './EditProfileModal'
+import VoidProfileEdit, { type VoidProfileSavedFields } from './VoidProfileEdit'
+import { nameStyleFor } from '../../shared/lib/displayNameStyle'
 import { AchIcon, RARITY_COLOR } from '../achievements/Achievements'
 import PageOnboarding from '../onboarding/PageOnboarding'
 import SharedAvatar from '../../shared/components/Avatar'
@@ -530,12 +532,14 @@ export default function Profile() {
   const navigate = useNavigate()
 
   const [showEdit, setShowEdit]                     = useState(false)
+  const [showVoidEdit, setShowVoidEdit]              = useState(false)
   const [showAddFriend, setShowAddFriend]           = useState(false)
   const [followListMode, setFollowListMode]         = useState<ListMode | null>(null)
   const [showWishlist, setShowWishlist]             = useState(false)
   const [showAchievements, setShowAchievements]     = useState(false)
   const [showRankInfo, setShowRankInfo]             = useState(false)
   const [profileOverride, setProfileOverride]       = useState<Partial<EditProfileSavedFields>>({})
+  const [voidOverride, setVoidOverride]             = useState<Partial<VoidProfileSavedFields>>({})
   const [followers, setFollowers]                   = useState<number | null>(null)
   const [following, setFollowing]                   = useState<number | null>(null)
   const [showFollowCounts, setShowFollowCounts]     = useState(true)
@@ -572,6 +576,9 @@ export default function Profile() {
   const playTimeVal  = profileOverride.play_time    ?? profile?.play_time    ?? null
   const favoriteGame = profileOverride.favorite_game ?? profile?.favorite_game ?? null
   const gridCards    = profileOverride.grid_cards   ?? profile?.grid_cards   ?? []
+  const displayNameFont  = voidOverride.display_name_font  ?? profile?.display_name_font  ?? null
+  const displayNameColor = voidOverride.display_name_color ?? profile?.display_name_color ?? null
+  const profileThemeColor = voidOverride.profile_theme_color ?? profile?.profile_theme_color ?? null
 
   // Load follow counts
   const loadCounts = () => {
@@ -774,7 +781,7 @@ export default function Profile() {
   const isPro = isProActive(profile)
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: 60 }}>
+    <div style={{ minHeight: '100vh', background: profileThemeColor ?? 'var(--bg)', paddingBottom: 60 }}>
       <PageOnboarding pageKey="profile" />
 
       {/* ── Banner ── */}
@@ -816,7 +823,7 @@ export default function Profile() {
           {/* Name + presence */}
           <div style={{ flex: 1, minWidth: 0, paddingBottom: 6 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-              <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.4px' }}>{displayName}</span>
+              <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.4px', ...nameStyleFor({ display_name_font: displayNameFont, display_name_color: displayNameColor }) }}>{displayName}</span>
               <PresenceDot status={presence} />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
@@ -985,6 +992,26 @@ export default function Profile() {
           style={{ flex: 1, padding: '10px 8px', borderRadius: 13, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
           <Edit3 size={13} /> Edit Profile
         </button>
+        {isPro && profile.pro_tier === 'void' && (
+          <>
+            <style>{`
+              @keyframes cvVoidButtonGlow {
+                0%, 100% { box-shadow: 0 0 8px rgba(155,109,255,0.5), 0 0 0 1px rgba(155,109,255,0.6); }
+                50%      { box-shadow: 0 0 16px rgba(155,109,255,0.85), 0 0 0 1px rgba(155,109,255,0.9); }
+              }
+            `}</style>
+            <button type="button"
+              onClick={(e) => { ripple(e); setShowVoidEdit(true) }}
+              style={{
+                flex: 1, padding: '10px 8px', borderRadius: 13, fontSize: 12, fontWeight: 800,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                background: 'rgba(155,109,255,0.14)', color: '#9b6dff', border: '1px solid rgba(155,109,255,0.5)',
+                cursor: 'pointer', animation: 'cvVoidButtonGlow 2.2s ease-in-out infinite',
+              }}>
+              <Sparkles size={13} /> Edit with Void
+            </button>
+          </>
+        )}
         <button type="button" className="btn-secondary"
           onClick={() => setShowAddFriend(true)}
           style={{ padding: '10px 14px', borderRadius: 13, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
@@ -1074,7 +1101,6 @@ export default function Profile() {
       {showEdit && (
         <EditProfileModal
           profile={profile}
-          albumPics={albumPics}
           bannerUrl={bannerUrl}
           presence={presence}
           onClose={() => setShowEdit(false)}
@@ -1082,6 +1108,14 @@ export default function Profile() {
             setProfileOverride(prev => ({ ...prev, ...updates }))
             setBannerUrl(updates.banner_url)
           }}
+          onToast={(msg) => setSaveToast(msg)}
+        />
+      )}
+      {showVoidEdit && (
+        <VoidProfileEdit
+          profile={profile}
+          onClose={() => setShowVoidEdit(false)}
+          onSaved={(updates) => setVoidOverride(prev => ({ ...prev, ...updates }))}
           onToast={(msg) => setSaveToast(msg)}
         />
       )}

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Trophy, Star, ChevronRight, Crown, Shield, Lock, Target } from 'lucide-react'
 import { useProfile } from './useProfile'
 import { supabase } from '../../shared/lib/supabase'
+import { nameStyleFor } from '../../shared/lib/displayNameStyle'
 import { ripple } from '../../shared/lib/ripple'
 import {
   RANK_TIERS, getUserRankTier, getNextRankTier,
@@ -157,6 +158,8 @@ interface LeaderboardEntry {
   level: number
   streak: number
   avatar: string | null
+  display_name_font?: string | null
+  display_name_color?: string | null
 }
 
 function LeaderboardRow({ entry, position, isMe, innerRef }: { entry: LeaderboardEntry; position: number; isMe: boolean; innerRef?: React.Ref<HTMLDivElement> }) {
@@ -196,7 +199,7 @@ function LeaderboardRow({ entry, position, isMe, innerRef }: { entry: Leaderboar
       {/* Name + rank */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...nameStyleFor(entry) }}>
             {name}
           </span>
           {isMe && <span style={{ fontSize: 9, fontWeight: 800, background: 'var(--accent)', color: '#fff', borderRadius: 5, padding: '1px 5px' }}>YOU</span>}
@@ -276,7 +279,7 @@ export default function Ranks() {
         excludeFilter(
           supabase
             .from('profiles')
-            .select('id, display_name, username, xp, level, streak, avatar')
+            .select('id, display_name, username, xp, level, streak, avatar, display_name_font, display_name_color')
         )
           .order('xp', { ascending: false })
           .limit(200)
@@ -292,7 +295,7 @@ export default function Ranks() {
       excludeFilter(
         supabase
           .from('profiles')
-          .select('id, display_name, username, xp, level, streak, avatar')
+          .select('id, display_name, username, xp, level, streak, avatar, display_name_font, display_name_color')
           .gte('xp', tier.xpRequired)
       )
         .order('xp', { ascending: false })
@@ -599,7 +602,7 @@ export default function Ranks() {
                             />
                           </div>
                           {/* Name */}
-                          <div style={{ fontSize: isFirst ? 12 : 10, fontWeight: 700, color: 'var(--text)', marginBottom: 4, maxWidth: 72, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                          <div style={{ fontSize: isFirst ? 12 : 10, fontWeight: 700, color: 'var(--text)', marginBottom: 4, maxWidth: 72, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...nameStyleFor(entry) }}>{name}</div>
                           {/* Podium block */}
                           <div style={{ width: '100%', height: podiumHeights[i], borderRadius: '10px 10px 0 0', background: `linear-gradient(180deg, ${entryTier.color}30, ${entryTier.color}10)`, border: `1px solid ${entryTier.color}40`, boxShadow: isFirst ? `0 -4px 18px ${entryTier.glowColor}` : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 2 }}>
                             <div style={{ fontSize: isFirst ? 14 : 12, fontWeight: 800, color: entryTier.color, fontFamily: 'monospace' }}>{fmtXP(entry.xp)}</div>

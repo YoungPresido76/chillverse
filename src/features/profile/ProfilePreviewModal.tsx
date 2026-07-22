@@ -24,6 +24,7 @@ import {
   Heart, UserRound, Sunrise, Moon as MoonIcon,
 } from 'lucide-react'
 import { supabase } from '../../shared/lib/supabase'
+import { nameStyleFor } from '../../shared/lib/displayNameStyle'
 import { useAuth } from '../auth/useAuth'
 import { ripple } from '../../shared/lib/ripple'
 import Avatar from '../../shared/components/Avatar'
@@ -86,6 +87,9 @@ interface PreviewProfile {
   play_time: 'morning' | 'night' | null
   info_tags: string[] | null
   show_follow_counts: boolean
+  display_name_font: string | null
+  display_name_color: string | null
+  profile_theme_color: string | null
 }
 
 const GENDER_LABELS: Record<string, string> = { male: 'MALE', female: 'FEMALE', other: 'OTHER' }
@@ -571,7 +575,7 @@ export default function ProfilePreviewModal({ userId, onClose, isPreview = false
         onClick={e => e.stopPropagation()}
         style={{
           ...sheetBase,
-          background: 'var(--bg)', overflowY: isPreview ? 'hidden' : 'auto', overscrollBehavior: 'contain', position: 'relative',
+          background: profile?.profile_theme_color ?? 'var(--bg)', overflowY: isPreview ? 'hidden' : 'auto', overscrollBehavior: 'contain', position: 'relative',
           boxShadow: '0 -12px 40px -12px var(--sh)',
         }}
       >
@@ -661,7 +665,7 @@ export default function ProfilePreviewModal({ userId, onClose, isPreview = false
                   the far right (this is the position marked on the
                   reference screenshot: level with the name, right edge). */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                <p style={{ fontSize: 17, fontWeight: 800, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                <p style={{ fontSize: 17, fontWeight: 800, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, ...nameStyleFor(profile) }}>
                   {displayName}
                 </p>
                 <button

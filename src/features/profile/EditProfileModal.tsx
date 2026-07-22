@@ -12,7 +12,8 @@ import { GAMES } from '../games/games'
 import type { Profile } from '../../shared/types'
 
 // ── Types ─────────────────────────────────────────────────────
-interface AlbumPic { id: string; label: string; imageUrl: string }
+// (AlbumPic type removed along with BannerPicker — banners are equipped
+// from Inventory now, not here.)
 
 export type InfoTagKey = 'gender' | 'play_time' | 'country' | 'presence'
 
@@ -65,6 +66,12 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 // ── Banner picker ─────────────────────────────────────────────
+// REMOVED: banners are equipped automatically from Inventory (equipping
+// an owned album pic sets profiles.banner_url directly — see
+// features/economy/Inventory.tsx). This picker was a redundant, dead-end
+// duplicate of that flow, so it no longer renders in Edit Profile. Kept
+// here commented out only as a historical reference, not exported/used.
+/*
 function BannerPicker({
   albumPics, selected, onSelect,
 }: {
@@ -111,6 +118,7 @@ function BannerPicker({
     </div>
   )
 }
+*/
 
 // ── Info tag picker (pick up to 2, Likes always shown separately) ──
 function InfoTagsPicker({
@@ -368,7 +376,6 @@ export interface EditProfileSavedFields {
 
 interface EditProfileModalProps {
   profile: Profile
-  albumPics: AlbumPic[]
   bannerUrl: string | null
   presence: string
   onClose: () => void
@@ -377,7 +384,7 @@ interface EditProfileModalProps {
 }
 
 export default function EditProfileModal({
-  profile, albumPics, bannerUrl, presence, onClose, onSaved, onToast,
+  profile, bannerUrl, presence, onClose, onSaved, onToast,
 }: EditProfileModalProps) {
   const [visible, setVisible] = useState(false)
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
@@ -517,9 +524,6 @@ export default function EditProfileModal({
           <p style={{ fontSize: 10.5, color: wordCount >= BIO_WORD_LIMIT ? 'var(--accent)' : 'var(--text-muted)', marginTop: 5, textAlign: 'right' }}>
             {wordCount}/{BIO_WORD_LIMIT} words
           </p>
-
-          {/* Banner */}
-          <BannerPicker albumPics={albumPics} selected={banner} onSelect={setBanner} />
 
           {/* Info tags */}
           <InfoTagsPicker

@@ -9,6 +9,7 @@ import {
   Sparkles, Sunrise, Moon as MoonIcon, Globe2, Ban, Gift,
 } from 'lucide-react'
 import { supabase } from '../../shared/lib/supabase'
+import { nameStyleFor } from '../../shared/lib/displayNameStyle'
 import { useAuth } from '../auth/useAuth'
 import { ripple } from '../../shared/lib/ripple'
 import { notifyFollow, notifyProfileView, notifyProfileLike } from '../achievements/achievements'
@@ -138,6 +139,9 @@ interface PlayerData {
   grid_cards: string[]
   show_follow_counts: boolean
   equipped_profile_effect_url: string | null
+  display_name_font: string | null
+  display_name_color: string | null
+  profile_theme_color: string | null
 }
 interface AlbumPic { id: string; label: string; imageUrl: string; equippedAsBanner?: boolean }
 
@@ -516,7 +520,7 @@ function PlayerProfileInner() {
   const displayName = player.display_name || player.username
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: 60 }}>
+    <div style={{ minHeight: '100vh', background: player.profile_theme_color ?? 'var(--bg)', paddingBottom: 60 }}>
 
       {/* ── Banner ── */}
       <div style={{ position: 'relative', zIndex: 1, width: '100%', height: 160, background: bannerUrl ? 'transparent' : `linear-gradient(135deg, ${rank.color}44, #4f8ef722)`, overflow: 'hidden' }}>
@@ -559,7 +563,7 @@ function PlayerProfileInner() {
 
           <div style={{ flex: 1, minWidth: 0, paddingBottom: 6 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-              <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.4px' }}>{displayName}</span>
+              <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.4px', ...nameStyleFor({ display_name_font: player.display_name_font, display_name_color: player.display_name_color }) }}>{displayName}</span>
               <PresenceDot status={presence} />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
