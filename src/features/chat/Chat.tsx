@@ -4,8 +4,8 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import {
   ArrowLeft, Search, MoreVertical,
   Smile, Send, X, Trash2, Reply, Flag, Lock,
-  MessageCircle, UserPlus, ShieldOff, UserCheck,
-  ExternalLink, Check, CheckCheck, Pin, PinOff, Phone,
+  MessageCircle, UserPlus, ShieldOff,
+  Check, CheckCheck, Pin, PinOff, Phone,
   Megaphone, BarChart3, Zap, Eye, EyeOff, Star, Paperclip, ChevronDown,
 } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
