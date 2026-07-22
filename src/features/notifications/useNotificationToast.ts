@@ -28,6 +28,7 @@ const TYPE_COLOR: Record<string, string> = {
   come_back:        '#9b6dff',
   streak_warning:   '#ff4d8b',
   exploration_complete: '#3ecf8e',
+  halo:             '#9b6dff',
 }
 
 export function useNotificationToast() {
