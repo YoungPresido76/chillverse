@@ -45,6 +45,7 @@ import SendGiftModal, { giftResultMessage, type GiftSendResult } from '../econom
 import { MOD_AVATAR_URL } from '../moderation/modShowcase'
 import EditProfileModal from './EditProfileModal'
 import type { Profile } from '../../shared/types'
+import { isProActive } from '../../shared/lib/proPlans'
 
 const GAME_RANK_STARS: Record<string, number> = {
   beginner: 1, intermediate: 3, advanced: 4, master: 5,
@@ -90,6 +91,7 @@ interface PreviewProfile {
   display_name_font: string | null
   display_name_color: string | null
   profile_theme_color: string | null
+  pro_expires_at: string | null
 }
 
 const GENDER_LABELS: Record<string, string> = { male: 'MALE', female: 'FEMALE', other: 'OTHER' }
@@ -165,6 +167,21 @@ export default function ProfilePreviewModal({ userId, onClose, isPreview = false
   const [achToast, setAchToast] = useState<PreviewAchievement | null>(null)
   const [activity, setActivity] = useState<LiveActivity>({ movie: false, game: null, gameSince: null, exploring: false })
   const [nowTick, setNowTick] = useState(() => Date.now())
+  // Void-exclusive-profile-customization + Mall upsell card shown to non-Pro
+  // users on their own profile popup. Dismissing it (X) hides it for 24h,
+  // per-user, via localStorage — not a server round trip, just a soft nag.
+  const UPGRADE_PROMO_COOLDOWN_MS = 24 * 60 * 60 * 1000
+  const [upgradePromoDismissed, setUpgradePromoDismissed] = useState(() => {
+    try {
+      const raw = localStorage.getItem(`cv_upgrade_promo_dismissed_${userId}`)
+      if (!raw) return false
+      return Date.now() - Number(raw) < UPGRADE_PROMO_COOLDOWN_MS
+    } catch { return false }
+  })
+  function dismissUpgradePromo() {
+    try { localStorage.setItem(`cv_upgrade_promo_dismissed_${userId}`, String(Date.now())) } catch { /* ignore */ }
+    setUpgradePromoDismissed(true)
+  }
   const [followers, setFollowers] = useState(0)
   const [following, setFollowing] = useState(0)
   const [liked, setLiked] = useState(false)
@@ -790,6 +807,51 @@ export default function ProfilePreviewModal({ userId, onClose, isPreview = false
                     <Gift size={14} /> Refer & Earn
                   </button>
                 </div>
+              )}
+
+              {!isModerator && isMe && !isPreview && profile && !isProActive(profile) && !upgradePromoDismissed && (
+                <>
+                  <style>{`
+                    @keyframes cvUpgradePromoGlow {
+                      0%, 100% { box-shadow: 0 0 10px rgba(155,109,255,0.18), inset 0 0 20px rgba(155,109,255,0.05); }
+                      50%      { box-shadow: 0 0 18px rgba(155,109,255,0.32), inset 0 0 20px rgba(155,109,255,0.08); }
+                    }
+                  `}</style>
+                  <div style={{
+                    position: 'relative', marginTop: 14, padding: '14px 16px', borderRadius: 16,
+                    background: 'linear-gradient(135deg, rgba(155,109,255,0.10), rgba(79,142,247,0.08))',
+                    border: '1px solid rgba(155,109,255,0.35)',
+                    animation: 'cvUpgradePromoGlow 2.8s ease-in-out infinite',
+                  }}>
+                  <button
+                    type="button" onClick={(e) => { ripple(e); dismissUpgradePromo() }}
+                    aria-label="Dismiss"
+                    style={{ position: 'absolute', top: 10, right: 10, width: 22, height: 22, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.08)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                  >
+                    <X size={12} />
+                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, paddingRight: 22 }}>
+                    <Sparkles size={15} style={{ color: '#9b6dff', flexShrink: 0 }} />
+                    <span style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--text)' }}>Unlock Profile Upgrades</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      type="button" onClick={(e) => { ripple(e); close(); navigate('/pro') }}
+                      className="ripple-wrap"
+                      style={{ flex: 1, padding: '9px 8px', borderRadius: 12, fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: '#9b6dff', color: '#fff' }}
+                    >
+                      <Sparkles size={13} /> Explore Pro
+                    </button>
+                    <button
+                      type="button" onClick={(e) => { ripple(e); close(); navigate('/mall') }}
+                      className="ripple-wrap"
+                      style={{ flex: 1, padding: '9px 8px', borderRadius: 12, fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'rgba(255,255,255,0.08)', color: 'var(--text)' }}
+                    >
+                      <Package size={13} /> Mall
+                    </button>
+                  </div>
+                </div>
+                </>
               )}
 
               {activity.movie && (
