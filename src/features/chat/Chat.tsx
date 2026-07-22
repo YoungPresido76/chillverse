@@ -1,12 +1,12 @@
 // src/pages/Chat.tsx
-import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, memo } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, memo, Fragment } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   ArrowLeft, Search, MoreVertical,
   Smile, Send, X, Trash2, Reply, Flag, Lock,
   MessageCircle, UserPlus, ShieldOff, UserCheck,
   ExternalLink, Check, CheckCheck, Pin, PinOff, Phone,
-  Megaphone, BarChart3, Zap, Eye, EyeOff, Star, Paperclip,
+  Megaphone, BarChart3, Zap, Eye, EyeOff, Star, Paperclip, ChevronDown,
 } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { supabase } from '../../shared/lib/supabase'
@@ -30,6 +30,7 @@ import PollMessage from './PollMessage'
 import PollComposerModal from './PollComposerModal'
 import StarredMessagesPanel from './StarredMessagesPanel'
 import { starMessage, unstarMessage, fetchMyStarredMessageIds } from './starredMessages'
+import { useProfilePreview } from '../../context/ProfilePreview'
 
 // ─── Types ──────────────────────────────────────────────────
 interface RoomMember {
@@ -432,131 +433,11 @@ const MessageBurst = memo(function MessageBurst({
 })
 
 
-interface PlayerProfileModalProps {
-  profile: SearchedProfile | { id: string; username: string; display_name: string | null; avatar: string }
-  myId: string | null
-  onClose: () => void
-  onStartChat?: (userId: string) => Promise<boolean>
-  onBlockChange?: (userId: string, blocked: boolean) => void
-}
 
-function PlayerProfileModal({ profile, myId, onClose, onStartChat, onBlockChange }: PlayerProfileModalProps) {
-  const navigate = useNavigate()
-  const [followStatus, setFollowStatus] = useState<'none' | 'following' | 'blocked'>('none')
-  const [actionLoading, setActionLoading] = useState(false)
-  const [messaging, setMessaging] = useState(false)
-  const [messageError, setMessageError] = useState('')
-
-  useEffect(() => {
-    if (!myId || profile.id === myId) return
-    const check = async () => {
-      const { data: follows } = await supabase.from('follows')
-        .select('id').eq('follower_id', myId).eq('following_id', profile.id).maybeSingle()
-      if (follows) { setFollowStatus('following'); return }
-      const { data: blocks } = await supabase.from('blocks')
-        .select('id').eq('blocker_id', myId).eq('blocked_id', profile.id).maybeSingle()
-      if (blocks) setFollowStatus('blocked')
-    }
-    check()
-  }, [myId, profile.id])
-
-  async function handleFollow() {
-    if (!myId || actionLoading) return
-    setActionLoading(true)
-    if (followStatus === 'following') {
-      await supabase.from('follows').delete().eq('follower_id', myId).eq('following_id', profile.id)
-      setFollowStatus('none')
-    } else {
-      await supabase.from('follows').insert({ follower_id: myId, following_id: profile.id })
-      setFollowStatus('following')
-    }
-    setActionLoading(false)
-  }
-
-  async function handleBlock() {
-    if (!myId || actionLoading) return
-    setActionLoading(true)
-    if (followStatus === 'blocked') {
-      await supabase.from('blocks').delete().eq('blocker_id', myId).eq('blocked_id', profile.id)
-      setFollowStatus('none')
-      onBlockChange?.(profile.id, false)
-    } else {
-      // also unfollow if was following
-      await supabase.from('follows').delete().eq('follower_id', myId).eq('following_id', profile.id)
-      await supabase.from('blocks').insert({ blocker_id: myId, blocked_id: profile.id })
-      setFollowStatus('blocked')
-      onBlockChange?.(profile.id, true)
-    }
-    setActionLoading(false)
-  }
-
-  async function handleMessage() {
-    if (!onStartChat || messaging) return
-    setMessaging(true)
-    setMessageError('')
-    const ok = await onStartChat(profile.id)
-    setMessaging(false)
-    if (ok) onClose()
-    else setMessageError("Couldn't open this conversation. Please try again.")
-  }
-
-  const isOwnProfile = profile.id === myId
-  const displayLabel = profile.display_name || profile.username
-
-  return (
-    <>
-      <div style={{ position:'fixed', inset:0, zIndex:200, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(4px)' }} onClick={onClose} />
-      <div style={{ position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)', zIndex:201, background:'var(--surface2)', border:'1px solid var(--border-strong)', borderRadius:22, padding:24, width: Math.min(300, window.innerWidth - 32), boxShadow:'var(--elev-popover)' }}>
-        <button type="button" onClick={onClose} style={{ position:'absolute', top:14, right:14, background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)' }}>
-          <X size={16} />
-        </button>
-        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:12, marginBottom:20 }}>
-          <Avatar name={displayLabel} avatarUrl={profile.avatar || null} size={64} radius={18} />
-          <div style={{ textAlign:'center' }}>
-            <div style={{ fontSize:16, fontWeight:700, color:'var(--text)' }}>{displayLabel}</div>
-            <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:3 }}>@{profile.username}</div>
-          </div>
-        </div>
-        {!isOwnProfile && (
-          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            <button type="button" onClick={handleFollow} disabled={actionLoading || followStatus === 'blocked'}
-              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 16px', borderRadius:12, border:'none', cursor: actionLoading || followStatus === 'blocked' ? 'not-allowed' : 'pointer', background: followStatus === 'following' ? 'rgba(62,207,142,0.15)' : 'linear-gradient(135deg,var(--accent),var(--accent2))', color: followStatus === 'following' ? '#3ecf8e' : '#fff', fontSize:13, fontWeight:600, opacity: followStatus === 'blocked' ? 0.4 : 1, transition:'background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out)' }}>
-              {followStatus === 'following' ? <><UserCheck size={14} /> Following</> : <><UserPlus size={14} /> Follow</>}
-            </button>
-            {onStartChat && (
-              <button type="button" onClick={handleMessage} disabled={messaging}
-                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 16px', borderRadius:12, border:'1px solid var(--border-strong)', background:'transparent', color:'var(--text-dim)', fontSize:13, fontWeight:600, cursor: messaging ? 'not-allowed' : 'pointer', opacity: messaging ? 0.6 : 1, transition:'background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out)' }}>
-                <MessageCircle size={14} /> {messaging ? 'Opening…' : 'Message'}
-              </button>
-            )}
-            {messageError && (
-              <p style={{ fontSize:11.5, color:'#ff6b6b', textAlign:'center', margin:0 }}>{messageError}</p>
-            )}
-            <button type="button" onClick={() => { onClose(); navigate(`/profile/${profile.id}`) }}
-              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 16px', borderRadius:12, border:'1px solid rgba(79,142,247,0.3)', background:'rgba(79,142,247,0.08)', color:'#4f8ef7', fontSize:13, fontWeight:600, cursor:'pointer', transition:'background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out)' }}>
-              <ExternalLink size={14} /> View Full Profile
-            </button>
-            <button type="button" onClick={handleBlock} disabled={actionLoading}
-              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 16px', borderRadius:12, border:'none', cursor: actionLoading ? 'not-allowed' : 'pointer', background: followStatus === 'blocked' ? 'rgba(255,107,107,0.15)' : 'rgba(255,107,107,0.08)', color: followStatus === 'blocked' ? '#ff6b6b' : 'var(--text-muted)', fontSize:13, fontWeight:600, transition:'background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out)' }}>
-              <ShieldOff size={14} /> {followStatus === 'blocked' ? 'Unblock' : 'Block'}
-            </button>
-          </div>
-        )}
-        {isOwnProfile && (
-          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            <button type="button" onClick={() => { onClose(); navigate('/profile') }}
-              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 16px', borderRadius:12, border:'1px solid rgba(79,142,247,0.3)', background:'rgba(79,142,247,0.08)', color:'#4f8ef7', fontSize:13, fontWeight:600, cursor:'pointer', transition:'background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out)' }}>
-              <ExternalLink size={14} /> View My Profile
-            </button>
-          </div>
-        )}
-      </div>
-    </>
-  )
-}
 
 export default function Chat() {
   const { session } = useAuth()
+  const { openProfilePreview } = useProfilePreview()
   const myId = session?.user?.id ?? null
   const { isStaff, canCreatePoll } = useModRole()
   const navigate = useNavigate()
@@ -656,8 +537,6 @@ export default function Chat() {
   const [starredPanelOpen, setStarredPanelOpen] = useState(false)
   const [myStarredIds, setMyStarredIds] = useState<Set<string>>(new Set())
 
-  // Player profile modal
-  const [viewProfile, setViewProfile] = useState<SearchedProfile | null>(null)
   // DM header options (tap avatar/name in DM to delete chat)
   const [dmOptionsOpen, setDmOptionsOpen] = useState(false)
   // Conversation-level 3-dot menu (top-right inside an open chat: clear chat, pin/unpin, block)
@@ -703,6 +582,14 @@ export default function Chat() {
   const scrollModeRef = useRef<'none' | 'bottom' | 'preserve'>('none')
   const preserveScrollInfoRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null)
   const isNearBottomRef = useRef(true)
+  // "New messages" divider — the id of the first unread message as of the
+  // moment the room was opened (Discord-style). Fixed for the duration of
+  // this viewing session; doesn't move as more messages arrive or get read.
+  const [newMessagesBeforeId, setNewMessagesBeforeId] = useState<string | null>(null)
+  // Jump-to-bottom pill — shown once the reader has scrolled away from the
+  // latest message; the count badges how many new messages arrived while away.
+  const [showJumpToBottom, setShowJumpToBottom] = useState(false)
+  const [jumpToBottomCount, setJumpToBottomCount] = useState(0)
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   useEffect(() => {
@@ -1010,6 +897,9 @@ export default function Chat() {
     setHasMoreOlder(false)
     setOtherLastReadAt(null)
     setDmBlockState('none')
+    setNewMessagesBeforeId(null)
+    setShowJumpToBottom(false)
+    setJumpToBottomCount(0)
     setHeaderDrawerOpen(false)
     setComposerDrawerOpen(false)
     setMsgSearchOpen(false)
@@ -1023,9 +913,15 @@ export default function Chat() {
       .select('id, sender_id, content, created_at, deleted, hidden, hidden_reason, reply_to_id, type, audio_path, audio_duration_seconds, call_id, rank_tag_group, poll_id')
       .eq('room_id', room.id)
     if (room.clearedAt) query = query.gt('created_at', room.clearedAt)
-    const { data, error } = await query
-      .order('created_at', { ascending: false })
-      .limit(MESSAGE_PAGE_SIZE)
+    const [{ data, error }, { data: myMembership }] = await Promise.all([
+      query.order('created_at', { ascending: false }).limit(MESSAGE_PAGE_SIZE),
+      // My own last-read position, captured BEFORE markRoomAsRead (below) bumps
+      // it to now — this is what draws the line between "read" and "new".
+      myId
+        ? supabase.from('room_members').select('last_read_at').eq('room_id', room.id).eq('user_id', myId).maybeSingle()
+        : Promise.resolve({ data: null as { last_read_at: string | null } | null }),
+    ])
+    const myPrevLastReadAt = myMembership?.last_read_at ?? null
 
     if (error || !data) { setMsgsLoading(false); return }
 
@@ -1097,6 +993,17 @@ export default function Chat() {
         replyPreviewName: m.reply_to_id ? nameForSender(replySenderById.get(m.reply_to_id)) : undefined,
       }
     })
+
+    // Divider sits above the first message from someone else that arrived
+    // after my last read position — and only if there's older, already-read
+    // history above it (otherwise everything here is "new" and a line at
+    // the very top wouldn't tell the reader anything).
+    if (myPrevLastReadAt) {
+      const firstUnreadIdx = enriched.findIndex(m => m.sender_id !== myId && m.created_at > myPrevLastReadAt)
+      setNewMessagesBeforeId(firstUnreadIdx > 0 ? enriched[firstUnreadIdx].id : null)
+    } else {
+      setNewMessagesBeforeId(null)
+    }
 
     scrollModeRef.current = 'bottom'
     setMessages(enriched)
@@ -1172,7 +1079,11 @@ export default function Chat() {
         // Only auto-scroll if the reader was already at the bottom — otherwise
         // they're reading history and shouldn't get yanked down mid-scroll.
         scrollModeRef.current = isNearBottomRef.current ? 'bottom' : 'none'
-        if (isNearBottomRef.current) markRoomAsRead(room.id)
+        if (isNearBottomRef.current) {
+          markRoomAsRead(room.id)
+        } else if (raw.sender_id !== myId) {
+          setJumpToBottomCount(c => c + 1)
+        }
 
         setMessages(ms => {
           // Deduplicate — if msg already added (optimistic send), skip
@@ -1822,12 +1733,7 @@ export default function Chat() {
   // Open sender profile from a message click
   function openSenderProfile(msg: Message) {
     if (!msg.sender_id) return
-    const member = activeRoom?.members.find(mb => mb.user_id === msg.sender_id)
-    if (member) {
-      setViewProfile({ id: msg.sender_id, username: member.profile.username, display_name: member.profile.display_name, avatar: member.profile.avatar })
-    } else if (msg.senderUsername) {
-      setViewProfile({ id: msg.sender_id, username: msg.senderUsername, display_name: msg.senderName ?? null, avatar: '' })
-    }
+    openProfilePreview(msg.sender_id)
   }
 
   const filteredRooms = rooms.filter(r => !roomSearch || roomLabel(r).toLowerCase().includes(roomSearch.toLowerCase()))
@@ -1896,7 +1802,7 @@ export default function Chat() {
                 <div style={{ padding:'8px 16px', fontSize:12, color:'var(--text-muted)' }}>No players found</div>
               ) : (
                 playerResults.map(p => (
-                  <button key={p.id} type="button" onClick={() => setViewProfile(p)}
+                  <button key={p.id} type="button" onClick={() => openProfilePreview(p.id)}
                     style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 16px', width:'100%', background:'transparent', border:'none', cursor:'pointer', textAlign:'left', transition:'background 0.12s' }}
                     onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
                     onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
@@ -2143,12 +2049,19 @@ export default function Chat() {
               )}
 
               {/* Messages */}
+              <div style={{ position:'relative', flex:1, minHeight:0, display:'flex', flexDirection:'column' }}>
               <div
                 ref={scrollContainerRef}
                 onScroll={e => {
                   const el = e.currentTarget
                   isNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_PX
-                  if (isNearBottomRef.current) markRoomAsRead(activeRoom.id)
+                  if (isNearBottomRef.current) {
+                    markRoomAsRead(activeRoom.id)
+                    setShowJumpToBottom(false)
+                    setJumpToBottomCount(0)
+                  } else {
+                    setShowJumpToBottom(true)
+                  }
                   if (el.scrollTop < 80) loadOlderMessages()
                 }}
                 style={{ flex:1, overflowY:'auto', padding:'12px 10px', display:'flex', flexDirection:'column' }}>
@@ -2215,41 +2128,103 @@ export default function Chat() {
                         const isMine = first.sender_id === myId
                         const senderLabel = isMine ? 'You' : (first.senderName || 'Unknown')
 
+                        // Discord-style "new messages" line — rendered once, right
+                        // above the burst that contains the first unread message.
+                        const divider = (!query && newMessagesBeforeId && burst.some(m => m.id === newMessagesBeforeId)) ? (
+                          <div key={`divider-${first.id}`} style={{ display:'flex', alignItems:'center', gap:10, margin:'6px 4px 12px' }}>
+                            <div style={{ flex:1, height:1, background:'#f23f42' }} />
+                            <span style={{ fontSize:10.5, fontWeight:800, letterSpacing:0.6, color:'#f23f42', textTransform:'uppercase', flexShrink:0 }}>New messages</span>
+                            <div style={{ flex:1, height:1, background:'#f23f42' }} />
+                          </div>
+                        ) : null
+
                         // Rank Tags and Polls are always a burst of one (see the grouping
                         // fix in groupMessages) and render full-width, outside the normal
                         // avatar+bubble column — deliberately not styled like a chat message.
                         if (burst.length === 1 && first.type === 'rank_tag') {
-                          return <RankTagAnnouncement key={first.id} msg={first} senderLabel={senderLabel} formatTime={formatTime} myId={myId} />
+                          return (
+                            <Fragment key={first.id}>
+                              {divider}
+                              <RankTagAnnouncement msg={first} senderLabel={senderLabel} formatTime={formatTime} myId={myId} />
+                            </Fragment>
+                          )
                         }
                         if (burst.length === 1 && first.type === 'poll' && first.poll_id) {
-                          return first.hidden
-                            ? <HiddenContentNotice key={first.id} reason={first.hidden_reason} isOwner={isMine} />
-                            : <PollMessage key={first.id} pollId={first.poll_id} myId={myId} isStaff={isStaff} refreshToken={pollRefreshToken} />
+                          return (
+                            <Fragment key={first.id}>
+                              {divider}
+                              {first.hidden
+                                ? <HiddenContentNotice reason={first.hidden_reason} isOwner={isMine} />
+                                : <PollMessage pollId={first.poll_id} myId={myId} isStaff={isStaff} refreshToken={pollRefreshToken} />}
+                            </Fragment>
+                          )
                         }
 
                         return (
-                          <MessageBurst
-                            key={first.id}
-                            burst={burst}
-                            isMine={isMine}
-                            senderLabel={senderLabel}
-                            senderNameFont={first.senderNameFont}
-                            senderNameColor={first.senderNameColor}
-                            avatarUrl={avatarFor(first, isMine)}
-                            onOpenProfile={openSenderProfile}
-                            onContextMenu={(m, x, y) => { setCtxMsg(m); setCtxPos({ x, y }) }}
-                            onDoubleClick={m => setReplyTo(m)}
-                            formatTime={formatTime}
-                            readReceiptFor={readReceiptFor}
-                            starredIds={myStarredIds}
-                            isGroupChat={activeRoom.type === 'global'}
-                          />
+                          <Fragment key={first.id}>
+                            {divider}
+                            <MessageBurst
+                              burst={burst}
+                              isMine={isMine}
+                              senderLabel={senderLabel}
+                              senderNameFont={first.senderNameFont}
+                              senderNameColor={first.senderNameColor}
+                              avatarUrl={avatarFor(first, isMine)}
+                              onOpenProfile={openSenderProfile}
+                              onContextMenu={(m, x, y) => { setCtxMsg(m); setCtxPos({ x, y }) }}
+                              onDoubleClick={m => setReplyTo(m)}
+                              formatTime={formatTime}
+                              readReceiptFor={readReceiptFor}
+                              starredIds={myStarredIds}
+                              isGroupChat={activeRoom.type === 'global'}
+                            />
+                          </Fragment>
                         )
                       })
                     })()}
                   </>
                 )}
                 <div ref={msgEnd} />
+              </div>
+
+              {/* Jump-to-bottom pill — shows once the reader scrolls away from the
+                  latest message; badges how many new messages arrived while away. */}
+              {showJumpToBottom && (
+                <button
+                  type="button"
+                  className="ripple-wrap"
+                  onClick={(e) => {
+                    ripple(e)
+                    const el = scrollContainerRef.current
+                    if (el) el.scrollTop = el.scrollHeight
+                    setShowJumpToBottom(false)
+                    setJumpToBottomCount(0)
+                    if (activeRoom) markRoomAsRead(activeRoom.id)
+                  }}
+                  style={{
+                    position:'absolute', bottom:14, right:16, zIndex:20,
+                    display:'flex', alignItems:'center', gap:6,
+                    padding: jumpToBottomCount > 0 ? '6px 8px 6px 12px' : '9px',
+                    borderRadius:20, border:'1px solid var(--border-strong)',
+                    background:'var(--surface2)', boxShadow:'var(--elev-popover)',
+                    cursor:'pointer', color:'var(--text)',
+                  }}
+                  title="Jump to latest messages"
+                >
+                  {jumpToBottomCount > 0 && (
+                    <span style={{ fontSize:11, fontWeight:700, color:'var(--text-dim)' }}>
+                      {jumpToBottomCount} new
+                    </span>
+                  )}
+                  <span style={{
+                    width:24, height:24, borderRadius:'50%', flexShrink:0,
+                    background: jumpToBottomCount > 0 ? 'var(--accent)' : 'transparent',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                  }}>
+                    <ChevronDown size={16} color={jumpToBottomCount > 0 ? '#fff' : 'var(--text)'} />
+                  </span>
+                </button>
+              )}
               </div>
 
               {/* Typing indicator — WhatsApp-style, shown just above the composer */}
@@ -2598,22 +2573,6 @@ export default function Chat() {
           </>
         )
       })()}
-
-      {/* Player profile modal */}
-      {viewProfile && (
-        <PlayerProfileModal
-          profile={viewProfile}
-          myId={myId}
-          onClose={() => setViewProfile(null)}
-          onStartChat={startDmWith}
-          onBlockChange={(userId, blocked) => {
-            handleBlockChange(userId, blocked)
-            if (activeRoom?.type === 'dm' && activeRoom.members.some(m => m.user_id === userId)) {
-              setDmBlockState(blocked ? 'blockedByMe' : 'none')
-            }
-          }}
-        />
-      )}
 
       {/* DM options modal — delete chat */}
       {dmOptionsOpen && activeRoom && activeRoom.type === 'dm' && (
