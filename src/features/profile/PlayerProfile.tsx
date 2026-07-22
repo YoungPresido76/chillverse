@@ -568,7 +568,12 @@ function PlayerProfileInner() {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
               <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>@{player.username}</div>
-              <BadgeRow badges={playerBadges} defs={badgeDefs} originalUsername={player.original_username ?? player.username} onOpenAll={() => setShowBadgesModal(true)} />
+              <BadgeRow
+                badges={playerBadges} defs={badgeDefs} originalUsername={player.original_username ?? player.username}
+                onOpenAll={() => setShowBadgesModal(true)}
+                avatarUrl={player?.avatar} displayName={displayName} isOwnProfile={false}
+                onViewYourBadges={() => navigate('/profile')}
+              />
             </div>
           </div>
         </div>

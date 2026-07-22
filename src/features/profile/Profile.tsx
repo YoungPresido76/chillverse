@@ -836,7 +836,12 @@ export default function Profile() {
                   size={32}
                 />
               )}
-              <BadgeRow badges={playerBadges} defs={badgeDefs} originalUsername={profile.original_username ?? profile.username} onOpenAll={() => setShowBadgesModal(true)} />
+              <BadgeRow
+                badges={playerBadges} defs={badgeDefs} originalUsername={profile.original_username ?? profile.username}
+                onOpenAll={() => setShowBadgesModal(true)}
+                avatarUrl={profile?.avatar} displayName={displayName} isOwnProfile
+                pro={{ isPro, tier: profile.pro_tier ?? null, color: profile.pro_badge_color, memberSince: profile.pro_first_subscribed_at }}
+              />
             </div>
           </div>
         </div>
