@@ -8,10 +8,12 @@
 // place. Mirrors the client-API-layer style of weeklyMissions.ts.
 //
 // Currently wired up: 'fortune' (Daily Fortune), 'streak_milestone'
-// (Streak tie-in), 'halo_saw_that' (achievement-unlock reaction toast).
-// The remaining moment types from the halo_lines check constraint
-// (mystery_box_win/empty, challenge_intro, random_surprise, lucky_user,
-// inactivity_nudge) are content-ready but not yet wired to a feature.
+// (Streak tie-in), 'halo_saw_that' (achievement-unlock reaction toast),
+// 'mystery_box_win'/'mystery_box_empty' (Daily Mystery Box),
+// 'challenge_intro' (Halo's Daily Challenge), 'random_surprise' (Random
+// Surprise Popup — claimed server-side, see claim_random_surprise() RPC).
+// Remaining: 'lucky_user', 'inactivity_nudge' — content-ready, not yet
+// wired to a feature.
 
 import { supabase } from '../../shared/lib/supabase'
 
@@ -126,4 +128,134 @@ export async function notifyHaloSawThat(userId: string, chance = 0.25): Promise<
   } catch (err) {
     console.error('[haloMoments] notifyHaloSawThat error:', err)
   }
+}
+
+// ── Daily Mystery Box (plan §4.1) ──────────────────────────────────────────
+
+export interface MysteryBoxState {
+  boxDate: string
+  opened: boolean
+  rewardType: 'diamonds' | 'xp' | 'avatar_item' | 'nothing' | null
+  rewardAmount: number | null
+  rewardRef: string | null
+}
+
+/** Idempotent per user/UTC-day. Safe to call on load — doesn't open the box. */
+export async function getOrCreateDailyMysteryBox(): Promise<MysteryBoxState | null> {
+  const { data, error } = await supabase.rpc('get_or_create_daily_mystery_box')
+  if (error) {
+    console.error('[haloMoments] getOrCreateDailyMysteryBox error:', error.message)
+    return null
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { box_date?: string; opened?: boolean; reward_type?: MysteryBoxState['rewardType']; reward_amount?: number; reward_ref?: string }
+    | null
+  if (!row?.box_date) return null
+  return {
+    boxDate: row.box_date,
+    opened: !!row.opened,
+    rewardType: row.reward_type ?? null,
+    rewardAmount: row.reward_amount ?? null,
+    rewardRef: row.reward_ref ?? null,
+  }
+}
+
+export interface MysteryBoxResult {
+  rewardType: 'diamonds' | 'xp' | 'avatar_item' | 'nothing'
+  rewardAmount: number
+  rewardRef: string | null
+  lineText: string | null
+}
+
+/** The actual "open" tap — rolls and grants the reward server-side. Throws
+ *  (via the returned error) if already opened today; callers should disable
+ *  the tap once `opened` is true rather than relying on this to reject. */
+export async function openMysteryBox(): Promise<{ result: MysteryBoxResult | null; error: string | null }> {
+  const { data, error } = await supabase.rpc('open_mystery_box')
+  if (error) {
+    console.error('[haloMoments] openMysteryBox error:', error.message)
+    return { result: null, error: error.message }
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { reward_type?: MysteryBoxResult['rewardType']; reward_amount?: number; reward_ref?: string; line_text?: string }
+    | null
+  if (!row?.reward_type) return { result: null, error: 'No reward returned' }
+  return {
+    result: {
+      rewardType: row.reward_type,
+      rewardAmount: row.reward_amount ?? 0,
+      rewardRef: row.reward_ref ?? null,
+      lineText: row.line_text ?? null,
+    },
+    error: null,
+  }
+}
+
+// ── Halo's Daily Challenge (plan §4.2) ─────────────────────────────────────
+
+export interface HaloChallengeState {
+  challengeKey: string
+  targetValue: number
+  progress: number
+  completed: boolean
+  claimed: boolean
+  xpReward: number
+  diamondReward: number
+  introText: string | null
+}
+
+/** Idempotent per user/UTC-day — the intro line is picked once and stored,
+ *  so re-fetching the same day's challenge always returns the same intro. */
+export async function getOrCreateHaloChallenge(): Promise<HaloChallengeState | null> {
+  const { data, error } = await supabase.rpc('get_or_create_halo_challenge')
+  if (error) {
+    console.error('[haloMoments] getOrCreateHaloChallenge error:', error.message)
+    return null
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | {
+        challenge_key?: string; target_value?: number; progress?: number; completed?: boolean
+        claimed?: boolean; xp_reward?: number; diamond_reward?: number; intro_text?: string
+      }
+    | null
+  if (!row?.challenge_key) return null
+  return {
+    challengeKey: row.challenge_key,
+    targetValue: row.target_value ?? 0,
+    progress: row.progress ?? 0,
+    completed: !!row.completed,
+    claimed: !!row.claimed,
+    xpReward: row.xp_reward ?? 0,
+    diamondReward: row.diamond_reward ?? 0,
+    introText: row.intro_text ?? null,
+  }
+}
+
+export async function claimHaloChallenge(): Promise<{ xpReward: number; diamondReward: number } | null> {
+  const { data, error } = await supabase.rpc('claim_halo_challenge')
+  if (error) {
+    console.error('[haloMoments] claimHaloChallenge error:', error.message)
+    return null
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as { xp_reward?: number; diamond_reward?: number } | null
+  if (!row) return null
+  return { xpReward: row.xp_reward ?? 0, diamondReward: row.diamond_reward ?? 0 }
+}
+
+// ── Random Surprise Popup (plan §4.6) ──────────────────────────────────────
+// No client-side line/toast handling needed — claim_random_surprise() grants
+// the reward AND inserts the notification itself; the existing toast
+// pipeline (Group 1) shows it automatically. This just reports whether
+// today's grant was already used up, so useRandomSurprise.ts knows whether
+// to keep the session-level timer running.
+
+export async function claimRandomSurprise(): Promise<{ alreadyClaimed: boolean; diamondAmount: number } | null> {
+  const { data, error } = await supabase.rpc('claim_random_surprise')
+  if (error) {
+    console.error('[haloMoments] claimRandomSurprise error:', error.message)
+    return null
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as { already_claimed?: boolean; diamond_amount?: number } | null
+  if (!row) return null
+  return { alreadyClaimed: !!row.already_claimed, diamondAmount: row.diamond_amount ?? 0 }
 }
