@@ -146,4 +146,19 @@ export async function updateMissionProgress(
     p_absolute: absolute,
   })
   if (error) console.error('[weeklyMissions] record_mission_progress failed:', error)
+
+  // Halo's Daily Challenge (migration 0068) tracks a subset of these same
+  // metric keys — fired in parallel from this single choke point rather
+  // than at every individual call site (Chat.tsx, Mall.tsx, Games.tsx,
+  // gameSession.ts, Streak.tsx). The RPC itself no-ops if today's challenge
+  // doesn't use this metric, so this is safe to call unconditionally.
+  supabase
+    .rpc('record_halo_challenge_progress', {
+      p_metric_key: metricKey,
+      p_increment: incrementBy,
+      p_absolute: absolute,
+    })
+    .then(({ error: haloErr }) => {
+      if (haloErr) console.error('[weeklyMissions] record_halo_challenge_progress failed:', haloErr)
+    })
 }
