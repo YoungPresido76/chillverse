@@ -39,6 +39,23 @@ const RARITY_RANK: Record<string, number> = { legendary: 0, epic: 1, rare: 2, co
 
 
 
+// ── Profile card effect cooldown ────────────────────────────────────────
+// Mirrors PlayerProfile.tsx's viewer-facing cooldown: plays once per
+// browser, then won't replay until the window passes — so re-opening your
+// own profile repeatedly doesn't loop the video every time.
+const PROFILE_EFFECT_COOLDOWN_MS = 30 * 60 * 1000 // 30 minutes
+function shouldPlayOwnProfileEffect(profileId: string): boolean {
+  try {
+    const key = `cv_profile_effect_cd_own_${profileId}`
+    const last = Number(localStorage.getItem(key) || 0)
+    if (Date.now() - last < PROFILE_EFFECT_COOLDOWN_MS) return false
+    localStorage.setItem(key, String(Date.now()))
+    return true
+  } catch {
+    return true // storage unavailable — fail open, just play it
+  }
+}
+
 // Real presence values, matching Settings.tsx / the profiles.presence column.
 type Presence = 'online' | 'idle' | 'offline' | 'invisible'
 
@@ -552,6 +569,8 @@ export default function Profile() {
   const [currentlyPlaying, setCurrentlyPlaying]     = useState<string | null>(null)
   const [albumPics, setAlbumPics]                   = useState<AlbumPic[]>([])
   const [bannerUrl, setBannerUrl]                   = useState<string | null>(null)
+  const [equippedProfileEffectUrl, setEquippedProfileEffectUrl] = useState<string | null>(null)
+  const [showLiveEffect, setShowLiveEffect]         = useState(false)
   const [favoriteGameRank, setFavoriteGameRank]     = useState<string | null>(null)
   const [recentAchievements, setRecentAchievements] = useState<{ id: string; title: string; icon: string; rarity: string }[]>([])
   const [achievementCount, setAchievementCount]     = useState(0)
@@ -633,11 +652,15 @@ export default function Profile() {
   // Load equipped avatar + album pics + banner
   useEffect(() => {
     if (!profile?.id) return
-    supabase.from('profiles').select('equipped_avatar, banner_url, show_follow_counts').eq('id', profile.id).single()
+    supabase.from('profiles').select('equipped_avatar, banner_url, show_follow_counts, equipped_profile_effect_url').eq('id', profile.id).single()
       .then(({ data }) => {
         if (data?.equipped_avatar) setEquippedAvatar(data.equipped_avatar)
         if (data?.banner_url) setBannerUrl(data.banner_url)
         if (typeof data?.show_follow_counts === 'boolean') setShowFollowCounts(data.show_follow_counts)
+        if (data?.equipped_profile_effect_url) {
+          setEquippedProfileEffectUrl(data.equipped_profile_effect_url)
+          if (shouldPlayOwnProfileEffect(profile.id)) setShowLiveEffect(true)
+        }
       })
     // Load album pics from user_items
     supabase.from('user_items').select('item_id, item_name, item_image, equipped_as_banner')
@@ -792,6 +815,16 @@ export default function Profile() {
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <ImageIcon size={26} style={{ color: 'rgba(255,255,255,0.18)' }} />
           </div>
+        )}
+        {showLiveEffect && equippedProfileEffectUrl && (
+          // Purely decorative — pointer-events: none means it never blocks
+          // taps on the back button, settings button, or anything underneath it.
+          <video
+            src={equippedProfileEffectUrl}
+            autoPlay muted playsInline
+            onEnded={() => setShowLiveEffect(false)}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', mixBlendMode: 'screen', pointerEvents: 'none', zIndex: 1 }}
+          />
         )}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.6) 100%)' }} />
 
