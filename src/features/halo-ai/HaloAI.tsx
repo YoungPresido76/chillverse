@@ -1,5 +1,6 @@
 // src/pages/HaloAI.tsx/moreUpcomingUpdates
 import { useState, useEffect, useRef } from 'react'
+import type { CSSProperties } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Send } from 'lucide-react'
 import { useHaloAI, type HaloMessage } from './useHaloAI'
@@ -25,6 +26,9 @@ const SUGGESTED_PROMPTS = [
   'What does version 3.0 unlock?',
 ]
 
+const MASCOT_URL =
+  'https://gnobzfxtxrtcxfhhfjni.supabase.co/storage/v1/object/public/feed-images/Halo/halo-mascot.png'
+
 function formatTime(d: Date): string {
   return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
 }
@@ -45,6 +49,86 @@ function MiniOrb({ size }: { size: number }) {
   )
 }
 
+// Tiny decorative flourish that sits at the bottom-left of a user bubble.
+// Each instance needs a unique gradient id since SVG ids are global to the DOM.
+function UserBubbleAccent({ gradientId }: { gradientId: string }) {
+  return (
+    <svg
+      width="30"
+      height="12"
+      viewBox="0 0 30 12"
+      style={{ position: 'absolute', bottom: -6, right: 16, pointerEvents: 'none' }}
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient id={gradientId} x1="100%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#ff8c00" stopOpacity="0.95" />
+          <stop offset="100%" stopColor="#ff8c00" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M28 2 C 22 2, 18 9, 8 9 C 5 9, 3 8, 1.5 6.5"
+        fill="none"
+        stroke={`url(#${gradientId})`}
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+// Background mascot: crisp near the top (face), softly blurred toward the
+// bottom. Sits behind everything at low opacity so it reads as a subtle
+// watermark once the conversation gets going, but shows clearly (top half)
+// on the empty/welcome state.
+function HaloMascotBackdrop({ active, visible }: { active: boolean; visible: boolean }) {
+  if (!visible) return null
+
+  const containerStyle: CSSProperties = {
+    position: 'absolute',
+    top: 64,
+    left: -40,
+    width: 'clamp(170px, 46vw, 260px)',
+    height: 'clamp(300px, 72vh, 520px)',
+    zIndex: 0,
+    pointerEvents: 'none',
+    opacity: active ? 1 : 0.3,
+    transform: active ? 'translateY(0) scale(1)' : 'translateY(-2%) scale(1.045)',
+    transition: 'opacity 1100ms cubic-bezier(0.22,1,0.36,1), transform 1100ms cubic-bezier(0.22,1,0.36,1)',
+  }
+
+  const sharedImgStyle: CSSProperties = {
+    position: 'absolute',
+    inset: 0,
+    width: '100%',
+    height: '100%',
+    objectFit: 'contain',
+    objectPosition: 'top left',
+  }
+
+  const sharpStyle: CSSProperties = {
+    ...sharedImgStyle,
+    WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 42%, transparent 78%)',
+    maskImage: 'linear-gradient(to bottom, black 0%, black 42%, transparent 78%)',
+  }
+
+  const blurStyle: CSSProperties = {
+    ...sharedImgStyle,
+    filter: 'blur(14px)',
+    WebkitMaskImage: 'linear-gradient(to bottom, transparent 30%, black 55%, black 100%)',
+    maskImage: 'linear-gradient(to bottom, transparent 30%, black 55%, black 100%)',
+  }
+
+  return (
+    <div style={containerStyle} aria-hidden="true">
+      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        <img src={MASCOT_URL} alt="" style={sharpStyle} />
+        <img src={MASCOT_URL} alt="" style={blurStyle} />
+      </div>
+    </div>
+  )
+}
+
 export default function HaloAI() {
   const navigate = useNavigate()
   const { profile } = useProfile()
@@ -54,6 +138,7 @@ export default function HaloAI() {
     useHaloAI()
   const [input, setInput] = useState('')
   const [loadingWord, setLoadingWord] = useState(LOADING_WORDS[0])
+  const [mascotFailed, setMascotFailed] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const welcomedRef = useRef(false)
 
@@ -88,6 +173,14 @@ export default function HaloAI() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, loading])
 
+  // Preload the mascot once; if the asset 404s or fails, we quietly drop the
+  // background layer instead of leaving a broken-image icon on screen.
+  useEffect(() => {
+    const img = new Image()
+    img.onerror = () => setMascotFailed(true)
+    img.src = MASCOT_URL
+  }, [])
+
   const handleSend = (textOverride?: string) => {
     const text = (textOverride ?? input).trim()
     if (!text || loading || messagesLeft === 0) return
@@ -121,15 +214,18 @@ export default function HaloAI() {
     <div
       style={{
         minHeight: '100vh',
-        background: 'var(--bg)',
         display: 'flex',
         flexDirection: 'column',
+        position: 'relative',
+        overflow: 'hidden',
       }}
     >
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes dotPulse { 0%,80%,100% { opacity:0.2 } 40% { opacity:1 } }
       `}</style>
+
+      <HaloMascotBackdrop active={isEmpty} visible={!mascotFailed} />
 
       {/* Header */}
       <div
@@ -181,7 +277,7 @@ export default function HaloAI() {
 
       {/* Hero (empty state) */}
       {isEmpty && (
-        <div style={{ padding: '24px 18px 8px', textAlign: 'center' }}>
+        <div style={{ position: 'relative', zIndex: 1, padding: '24px 18px 8px', textAlign: 'center' }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
             <div
               style={{
@@ -236,6 +332,8 @@ export default function HaloAI() {
       {!isEmpty && (
         <div
           style={{
+            position: 'relative',
+            zIndex: 1,
             padding: '8px 18px',
             fontSize: 11,
             color: messagesLeft <= 1 ? '#ff6b6b' : 'var(--text-muted)',
@@ -256,6 +354,8 @@ export default function HaloAI() {
       <div
         ref={scrollRef}
         style={{
+          position: 'relative',
+          zIndex: 1,
           flex: 1,
           overflowY: 'auto',
           display: 'flex',
@@ -299,22 +399,24 @@ export default function HaloAI() {
             )}
             <div
               style={{
+                position: 'relative',
                 maxWidth: msg.role === 'user' ? '75%' : '80%',
                 padding: '12px 16px',
                 fontSize: 13.5,
-                fontWeight: msg.role === 'user' ? 500 : 400,
-                color: msg.role === 'user' ? '#fff' : 'var(--text)',
-                background:
-                  msg.role === 'user'
-                    ? 'linear-gradient(135deg, var(--accent), #ff8c00)'
-                    : 'var(--surface2)',
-                border: msg.role === 'halo' ? '1px solid rgba(155,109,255,0.15)' : 'none',
+                fontWeight: 400,
+                color: 'var(--text)',
+                background: 'var(--surface2)',
+                border:
+                  msg.role === 'halo'
+                    ? '1px solid rgba(155,109,255,0.15)'
+                    : '1px solid rgba(255,140,0,0.16)',
                 borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
                 whiteSpace: 'pre-wrap',
                 lineHeight: 1.5,
               }}
             >
               {msg.text}
+              {msg.role === 'user' && <UserBubbleAccent gradientId={`halo-user-accent-${msg.id}`} />}
             </div>
             <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 4, padding: '0 2px' }}>
               {formatTime(msg.timestamp)}
@@ -374,6 +476,8 @@ export default function HaloAI() {
       {error && (
         <div
           style={{
+            position: 'relative',
+            zIndex: 1,
             margin: '0 18px 10px',
             background: 'rgba(255,107,107,0.1)',
             border: '1px solid rgba(255,107,107,0.3)',
@@ -415,6 +519,7 @@ export default function HaloAI() {
         style={{
           position: 'sticky',
           bottom: 0,
+          zIndex: 1,
           background: 'var(--bg)',
           padding: '10px 18px 18px',
           backdropFilter: 'blur(8px)',
@@ -495,4 +600,3 @@ export default function HaloAI() {
     </div>
   )
 }
-  
