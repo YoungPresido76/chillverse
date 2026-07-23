@@ -2,6 +2,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { supabase } from '../../shared/lib/supabase'
 import { useProfile } from '../profile/useProfile'
+import { updateMissionProgress, trackWeeklyActiveDay } from '../missions/weeklyMissions'
 
 export interface HaloMessage {
   id: string
@@ -125,6 +126,10 @@ export function useHaloAI(): UseHaloAIReturn {
         if (typeof data.remaining === 'number') {
           setRemaining(data.remaining)
         }
+
+        // Weekly missions
+        updateMissionProgress(profile.id, 'halo_messages_sent', 1).catch(console.error)
+        trackWeeklyActiveDay(profile.id, 'halo_days').catch(console.error)
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
         console.error('[HaloAI]', msg)
