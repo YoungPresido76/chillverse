@@ -9,6 +9,7 @@ import NotificationToastRenderer from '../features/notifications/NotificationToa
 import PromoOverlay from '../features/notifications/PromoOverlay'
 import { useReferralPromoAd } from '../features/referral/useReferralPromoAd'
 import { useDailyFortune } from '../features/halo-moments/useDailyFortune'
+import { useRandomSurprise } from '../features/halo-moments/useRandomSurprise'
 import DailyFortuneSheet from '../features/halo-moments/DailyFortuneSheet'
 import { useProfile } from '../features/profile/useProfile'
 import { useAuth } from '../features/auth/useAuth'
@@ -75,6 +76,7 @@ export default function AppLayout() {
   const myId = session?.user?.id ?? null
   const { active: referralAd, dismiss: dismissReferralAd } = useReferralPromoAd(myId)
   const { fortune: dailyFortune, dismiss: dismissDailyFortune } = useDailyFortune(myId)
+  useRandomSurprise(myId)
   const { isStaff, loading: roleLoading } = useModRole()
   const [maintenance, setMaintenance] = useState<{ enabled: boolean; message: string } | null>(null)
 
