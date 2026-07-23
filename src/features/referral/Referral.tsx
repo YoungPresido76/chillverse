@@ -5,6 +5,7 @@ import { ArrowLeft, Share2, Check, Users, Gem } from 'lucide-react'
 import { ripple } from '../../shared/lib/ripple'
 import { useAuth } from '../auth/useAuth'
 import { fetchReferralInfo, buildReferralLink, markReferralPageVisited } from './referral'
+import { updateMissionProgress, trackDeltaMetric } from '../missions/weeklyMissions'
 import { REFERRAL_MILESTONES, REFERRAL_MAX_TOTAL } from './types'
 import type { ReferralInfo } from './types'
 
@@ -20,14 +21,19 @@ export default function ReferralPage() {
     fetchReferralInfo(user.id).then(data => {
       setInfo(data)
       setLoading(false)
+      // Weekly mission: referrals_completed — only the *new* referrals since
+      // last seen count toward this week (referralCount is a lifetime total).
+      if (data) trackDeltaMetric(user.id, 'referrals_completed', data.referralCount).catch(console.error)
     })
     markReferralPageVisited(user.id).catch(e => console.error('markReferralPageVisited error:', e))
   }, [user])
 
   async function handleShare() {
-    if (!info) return
+    if (!info || !user) return
     const url = buildReferralLink(info.referralCode)
     const text = `Join me on Chillverse — we both get diamonds when you play your first game! ${url}`
+
+    updateMissionProgress(user.id, 'referral_link_shared', 1).catch(console.error)
 
     if (navigator.share) {
       try {
