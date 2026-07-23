@@ -25,12 +25,17 @@ export interface MissionDefinition {
   id: string
   title: string
   description: string
+  /** Lucide icon key (kebab-case, e.g. "flame", "message-circle") —
+   *  resolve via getMissionIcon() from ./missionIcons. Never an emoji. */
   icon: string
   icon_color: string
   category: string
   metric_key: string
   target_value: number
-  reward_type: 'xp' | 'xp_and_booster' | 'diamonds'
+  /** 'consumable' means the reward will eventually be a consumable item —
+   *  that granting logic isn't built yet, so it currently pays out xp_reward
+   *  as an interim reward, same as 'xp'. */
+  reward_type: 'xp' | 'xp_and_booster' | 'consumable'
   xp_reward: number
   diamond_reward: number
   reward_label: string
@@ -48,6 +53,10 @@ export interface UserWeeklyMission {
   total_xp_earned: number
   total_diamonds_earned: number
   boosters_earned: number
+  /** One-time bonus XP granted the moment every selected mission for the
+   *  week is completed — scaled to that week's total mission difficulty. */
+  bonus_xp_earned: number
+  bonus_claimed: boolean
 }
 
 export interface MissionWithProgress extends MissionDefinition {
@@ -161,4 +170,71 @@ export async function updateMissionProgress(
     .then(({ error: haloErr }) => {
       if (haloErr) console.error('[weeklyMissions] record_halo_challenge_progress failed:', haloErr)
     })
+}
+
+// ── Client-side tracking helpers ─────────────────────────────────────────────
+//
+// A handful of missions need "how many distinct X this week" (e.g. 3
+// different chat rooms, 3 different DM recipients) rather than a plain
+// counter. record_mission_progress only ever stores a single number per
+// metric, so uniqueness is tracked in localStorage (week-scoped) and the
+// resulting set size is sent up as an absolute value.
+
+function uniqueSetKey(userId: string, metricKey: string): string {
+  return `cv:mission-set:${userId}:${metricKey}:${getWeekStart(new Date())}`
+}
+
+/** Adds `value` to this week's unique set for `metricKey` and reports the
+ *  new set size to the server as an absolute progress value. Safe to call
+ *  on every occurrence — duplicates don't grow the set or re-trigger a
+ *  network call. */
+export async function trackWeeklyUniqueValue(
+  userId: string,
+  metricKey: string,
+  value: string
+): Promise<void> {
+  if (!userId || !value) return
+  try {
+    const key = uniqueSetKey(userId, metricKey)
+    const raw = localStorage.getItem(key)
+    const set = new Set<string>(raw ? (JSON.parse(raw) as string[]) : [])
+    if (set.has(value)) return
+    set.add(value)
+    localStorage.setItem(key, JSON.stringify([...set]))
+    await updateMissionProgress(userId, metricKey, set.size, true)
+  } catch (err) {
+    console.error('[weeklyMissions] trackWeeklyUniqueValue failed:', err)
+  }
+}
+
+/** For metrics driven by a lifetime running total the client already has
+ *  (e.g. referral count), reports only the *new* delta since last seen so
+ *  the weekly mission isn't instantly complete from old activity. Baseline
+ *  is stored per-user, not week-scoped, since it tracks "already counted". */
+export async function trackDeltaMetric(
+  userId: string,
+  metricKey: string,
+  currentTotal: number
+): Promise<void> {
+  if (!userId || !Number.isFinite(currentTotal)) return
+  try {
+    const key = `cv:mission-baseline:${userId}:${metricKey}`
+    const baseline = Number(localStorage.getItem(key) ?? '0')
+    if (currentTotal <= baseline) return
+    const delta = currentTotal - baseline
+    localStorage.setItem(key, String(currentTotal))
+    await updateMissionProgress(userId, metricKey, delta, false)
+  } catch (err) {
+    console.error('[weeklyMissions] trackDeltaMetric failed:', err)
+  }
+}
+
+/** Marks `dayKey` (e.g. an ISO date) as active for a "N different days"
+ *  style mission and reports the new distinct-day count. */
+export async function trackWeeklyActiveDay(
+  userId: string,
+  metricKey: string,
+  dayKey: string = new Date().toISOString().slice(0, 10)
+): Promise<void> {
+  return trackWeeklyUniqueValue(userId, metricKey, dayKey)
 }

@@ -8,9 +8,13 @@ interface WeeklyMissionsState {
   missions: MissionWithProgress[]
   loading: boolean
   weekProgress: number
+  totalMissionCount: number
   totalXpEarned: number
   totalDiamondsEarned: number
   boostersEarned: number
+  /** One-time bonus XP for clearing every selected mission this week. */
+  bonusXpEarned: number
+  bonusClaimed: boolean
   countdown: { days: number; hours: number; minutes: number }
   refresh: () => void
 }
@@ -24,6 +28,8 @@ export function useWeeklyMissions(): WeeklyMissionsState {
   const [totalXpEarned, setTotalXpEarned] = useState(0)
   const [totalDiamondsEarned, setTotalDiamondsEarned] = useState(0)
   const [boostersEarned, setBoostersEarned] = useState(0)
+  const [bonusXpEarned, setBonusXpEarned] = useState(0)
+  const [bonusClaimed, setBonusClaimed] = useState(false)
   const [countdown, setCountdown] = useState(getTimeUntilReset())
 
   const load = useCallback(async () => {
@@ -40,6 +46,8 @@ export function useWeeklyMissions(): WeeklyMissionsState {
       setTotalXpEarned(row?.total_xp_earned ?? 0)
       setTotalDiamondsEarned(row?.total_diamonds_earned ?? 0)
       setBoostersEarned(row?.boosters_earned ?? 0)
+      setBonusXpEarned(row?.bonus_xp_earned ?? 0)
+      setBonusClaimed(row?.bonus_claimed ?? false)
     } catch (err) {
       console.error('[useWeeklyMissions] load error:', err)
     } finally {
@@ -65,9 +73,12 @@ export function useWeeklyMissions(): WeeklyMissionsState {
     missions,
     loading,
     weekProgress,
+    totalMissionCount: missions.length,
     totalXpEarned,
     totalDiamondsEarned,
     boostersEarned,
+    bonusXpEarned,
+    bonusClaimed,
     countdown,
     refresh: load,
   }
