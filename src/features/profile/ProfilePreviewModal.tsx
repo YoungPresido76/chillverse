@@ -222,7 +222,6 @@ export default function ProfilePreviewModal({ userId, onClose, isPreview = false
   const [favoriteGameRank, setFavoriteGameRank] = useState<string | null>(null)
   const [showEdit, setShowEdit] = useState(false)
   const [showLiveEffect, setShowLiveEffect] = useState(false)
-  const [effectDebug, setEffectDebug] = useState<string | null>(null)
   // (editAlbumPics state removed along with the banner-picker fetch above)
   const menuRef = useRef<HTMLDivElement>(null)
   const justSavedRef = useRef(false)
@@ -268,19 +267,13 @@ export default function ProfilePreviewModal({ userId, onClose, isPreview = false
   useEffect(() => {
     let active = true
     setLoading(true)
-    supabase.rpc('get_public_profile', { p_user_id: userId }).single().then(({ data, error }) => {
+    supabase.rpc('get_public_profile', { p_user_id: userId }).single().then(({ data }) => {
       if (!active) return
       const p = (data as PreviewProfile | null) ?? null
       setProfile(p)
       setLoading(false)
-      if (error) {
-        setEffectDebug(`RPC error: ${error.message}`)
-      } else if (p?.equipped_profile_effect_url) {
-        const allowed = shouldPlayCardEffect(userId, isMe)
-        setEffectDebug(`URL found: ...${p.equipped_profile_effect_url.slice(-40)} | isMe: ${isMe} | cooldown allowed: ${allowed}`)
-        if (allowed) setShowLiveEffect(true)
-      } else {
-        setEffectDebug('No equipped_profile_effect_url on this profile row.')
+      if (p?.equipped_profile_effect_url && shouldPlayCardEffect(userId, isMe)) {
+        setShowLiveEffect(true)
       }
     })
     supabase.from('user_moderation').select('role').eq('user_id', userId).maybeSingle().then(({ data }) => {
@@ -630,30 +623,7 @@ export default function ProfilePreviewModal({ userId, onClose, isPreview = false
           {profile?.banner_url && (
             <img src={profile.banner_url} alt="banner" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} />
           )}
-          {showLiveEffect && profile?.equipped_profile_effect_url && (
-            // Purely decorative — pointer-events: none means it never blocks
-            // taps on the close/menu buttons or anything else in the card.
-            <video
-              src={profile.equipped_profile_effect_url}
-              autoPlay muted playsInline
-              onEnded={() => setShowLiveEffect(false)}
-              onError={(e) => {
-                const err = e.currentTarget.error
-                setEffectDebug(`Video failed to load/play — code ${err?.code ?? '?'}: ${err?.message || 'unknown media error'}`)
-              }}
-              onPlaying={() => setEffectDebug((d) => d ? `${d} | ▶ playing` : '▶ playing')}
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', mixBlendMode: 'screen', pointerEvents: 'none', zIndex: 1 }}
-            />
-          )}
         </div>
-        {effectDebug && (
-          <div
-            onClick={() => setEffectDebug(null)}
-            style={{ position: 'fixed', bottom: 90, left: 12, right: 12, zIndex: 99999, background: 'rgba(20,20,24,0.97)', border: '1px solid rgba(255,196,66,0.5)', borderRadius: 12, padding: '10px 14px', fontSize: 11.5, fontFamily: 'monospace', color: '#ffd88a', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', wordBreak: 'break-word' }}
-          >
-            🐛 effect debug (tap to dismiss): {effectDebug}
-          </div>
-        )}
 
         {/* Close + menu buttons live outside the banner's overflow:hidden
             box now, so the dropdown floats over the card instead of being
@@ -1171,6 +1141,31 @@ export default function ProfilePreviewModal({ userId, onClose, isPreview = false
           )}
         </div>
       </div>
+
+      {/* Profile card effect — sits as a sibling over the WHOLE card (not
+          nested inside the scrollable card, which clipped it to the 130px
+          banner strip and made it scroll out of view). Matches the sheet's
+          own width/height/position exactly so it lines up perfectly, same
+          approach as the Mall's "how others see it" preview. pointerEvents:
+          none the whole way down means every button, tab, and link on the
+          real card underneath stays fully tappable while this plays —
+          unlike the Mall preview, this is the REAL profile, so nothing
+          about it should ever become dead or untappable. */}
+      {showLiveEffect && profile?.equipped_profile_effect_url && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 20001, pointerEvents: 'none',
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+          opacity: entered && !closing ? 1 : 0, transition: 'opacity 0.2s ease-out',
+        }}>
+          <div style={{ ...sheetBase, position: 'relative', overflow: 'hidden' }}>
+            <video
+              src={profile.equipped_profile_effect_url}
+              autoPlay loop muted playsInline
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', mixBlendMode: 'screen' }}
+            />
+          </div>
+        </div>
+      )}
 
       {showEdit && profile && isMe && (
         <EditProfileModal
