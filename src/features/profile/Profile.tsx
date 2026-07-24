@@ -43,7 +43,7 @@ const RARITY_RANK: Record<string, number> = { legendary: 0, epic: 1, rare: 2, co
 // Mirrors PlayerProfile.tsx's viewer-facing cooldown: plays once per
 // browser, then won't replay until the window passes — so re-opening your
 // own profile repeatedly doesn't loop the video every time.
-const PROFILE_EFFECT_COOLDOWN_MS = 30 * 60 * 1000 // 30 minutes
+const PROFILE_EFFECT_COOLDOWN_MS = 3 * 60 * 1000 // 3 minutes
 function shouldPlayOwnProfileEffect(profileId: string): boolean {
   try {
     const key = `cv_profile_effect_cd_own_${profileId}`
