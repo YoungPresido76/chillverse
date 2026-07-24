@@ -1161,7 +1161,20 @@ export default function ProfilePreviewModal({ userId, onClose, isPreview = false
             <video
               src={profile.equipped_profile_effect_url}
               autoPlay loop muted playsInline
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', mixBlendMode: 'screen' }}
+              style={{
+                position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
+                // Opacity (not blend mode) is what actually lets the card
+                // show through — mirrors ProfileEffectPreview.tsx exactly.
+                // The source clip's "black" isn't pure enough for
+                // mix-blend-mode: screen to zero it out cleanly, and blend
+                // modes need an unbroken stacking context to blend against
+                // in the first place — this sits in its own position:fixed
+                // layer, so there's nothing behind it to blend with and it
+                // just painted solid black. Plain opacity has no such
+                // requirement: whatever's behind always shows through.
+                filter: 'blur(1.4px) brightness(1.3) saturate(1.35) drop-shadow(0 0 26px rgba(255,150,60,0.6)) drop-shadow(0 0 46px rgba(255,90,30,0.35))',
+                opacity: 0.55,
+              }}
             />
           </div>
         </div>
