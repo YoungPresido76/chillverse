@@ -147,7 +147,7 @@ export default function DailyCheckInSheet({
           ))}
         </div>
 
-        {step === 0 && (
+        {step === 0 && data.fortune && (
           <>
             <div style={{ width: 72, height: 72, margin: '0 auto 12px', filter: 'drop-shadow(0 0 20px rgba(155,109,255,0.4))' }}>
               <img src={haloMascot} alt="Halo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
