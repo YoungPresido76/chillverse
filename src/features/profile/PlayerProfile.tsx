@@ -236,6 +236,7 @@ function PlayerProfileInner() {
   const [player, setPlayer] = useState<PlayerData | null>(null)
   const [loading, setLoading] = useState(true)
   const [showLiveEffect, setShowLiveEffect] = useState(false)
+  const [effectDebug, setEffectDebug] = useState<string | null>(null)
   const [followers, setFollowers] = useState<number>(0)
   const [following, setFollowing] = useState<number>(0)
   const [followStatus, setFollowStatus] = useState<'none' | 'following' | 'blocked'>('none')
@@ -281,11 +282,18 @@ function PlayerProfileInner() {
     if (!userId) return
     setLoading(true)
     supabase.rpc('get_public_profile', { p_user_id: userId }).single()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
         setPlayer(data as PlayerData)
         setLoading(false)
-        if ((data as PlayerData | null)?.equipped_profile_effect_url && shouldPlayProfileEffect(userId)) {
-          setShowLiveEffect(true)
+        const effectUrl = (data as PlayerData | null)?.equipped_profile_effect_url
+        if (error) {
+          setEffectDebug(`RPC error: ${error.message}`)
+        } else if (effectUrl) {
+          const allowed = shouldPlayProfileEffect(userId)
+          setEffectDebug(`URL found: ...${effectUrl.slice(-40)} | cooldown allowed: ${allowed}`)
+          if (allowed) setShowLiveEffect(true)
+        } else {
+          setEffectDebug('This profile has no equipped_profile_effect_url.')
         }
       })
   }, [userId])
@@ -542,10 +550,23 @@ function PlayerProfileInner() {
             src={player.equipped_profile_effect_url}
             autoPlay muted playsInline
             onEnded={() => setShowLiveEffect(false)}
+            onError={(e) => {
+              const err = e.currentTarget.error
+              setEffectDebug(`Video failed to load/play — code ${err?.code ?? '?'}: ${err?.message || 'unknown media error'}`)
+            }}
+            onPlaying={() => setEffectDebug((d) => d ? `${d} | ▶ playing` : '▶ playing')}
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', mixBlendMode: 'screen', pointerEvents: 'none', zIndex: 1 }}
           />
         )}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.6) 100%)' }} />
+        {effectDebug && (
+          <div
+            onClick={() => setEffectDebug(null)}
+            style={{ position: 'fixed', bottom: 90, left: 12, right: 12, zIndex: 9999, background: 'rgba(20,20,24,0.97)', border: '1px solid rgba(255,196,66,0.5)', borderRadius: 12, padding: '10px 14px', fontSize: 11.5, fontFamily: 'monospace', color: '#ffd88a', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', wordBreak: 'break-word' }}
+          >
+            🐛 effect debug (tap to dismiss): {effectDebug}
+          </div>
+        )}
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px' }}>
           <button type="button" onClick={() => navigate(-1)}
             style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border-strong)', backdropFilter: 'blur(8px)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>

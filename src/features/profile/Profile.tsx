@@ -571,6 +571,7 @@ export default function Profile() {
   const [bannerUrl, setBannerUrl]                   = useState<string | null>(null)
   const [equippedProfileEffectUrl, setEquippedProfileEffectUrl] = useState<string | null>(null)
   const [showLiveEffect, setShowLiveEffect]         = useState(false)
+  const [effectDebug, setEffectDebug]               = useState<string | null>(null)
   const [favoriteGameRank, setFavoriteGameRank]     = useState<string | null>(null)
   const [recentAchievements, setRecentAchievements] = useState<{ id: string; title: string; icon: string; rarity: string }[]>([])
   const [achievementCount, setAchievementCount]     = useState(0)
@@ -653,13 +654,19 @@ export default function Profile() {
   useEffect(() => {
     if (!profile?.id) return
     supabase.from('profiles').select('equipped_avatar, banner_url, show_follow_counts, equipped_profile_effect_url').eq('id', profile.id).single()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
         if (data?.equipped_avatar) setEquippedAvatar(data.equipped_avatar)
         if (data?.banner_url) setBannerUrl(data.banner_url)
         if (typeof data?.show_follow_counts === 'boolean') setShowFollowCounts(data.show_follow_counts)
-        if (data?.equipped_profile_effect_url) {
+        if (error) {
+          setEffectDebug(`Fetch error: ${error.message}`)
+        } else if (data?.equipped_profile_effect_url) {
           setEquippedProfileEffectUrl(data.equipped_profile_effect_url)
-          if (shouldPlayOwnProfileEffect(profile.id)) setShowLiveEffect(true)
+          const allowed = shouldPlayOwnProfileEffect(profile.id)
+          setEffectDebug(`URL found: ...${data.equipped_profile_effect_url.slice(-40)} | cooldown allowed: ${allowed}`)
+          if (allowed) setShowLiveEffect(true)
+        } else {
+          setEffectDebug('No equipped_profile_effect_url on this profile row.')
         }
       })
     // Load album pics from user_items
@@ -823,10 +830,23 @@ export default function Profile() {
             src={equippedProfileEffectUrl}
             autoPlay muted playsInline
             onEnded={() => setShowLiveEffect(false)}
+            onError={(e) => {
+              const err = e.currentTarget.error
+              setEffectDebug(`Video failed to load/play — code ${err?.code ?? '?'}: ${err?.message || 'unknown media error'}`)
+            }}
+            onPlaying={() => setEffectDebug((d) => d ? `${d} | ▶ playing` : '▶ playing')}
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', mixBlendMode: 'screen', pointerEvents: 'none', zIndex: 1 }}
           />
         )}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.6) 100%)' }} />
+        {effectDebug && (
+          <div
+            onClick={() => setEffectDebug(null)}
+            style={{ position: 'fixed', bottom: 90, left: 12, right: 12, zIndex: 9999, background: 'rgba(20,20,24,0.97)', border: '1px solid rgba(255,196,66,0.5)', borderRadius: 12, padding: '10px 14px', fontSize: 11.5, fontFamily: 'monospace', color: '#ffd88a', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', wordBreak: 'break-word' }}
+          >
+            🐛 effect debug (tap to dismiss): {effectDebug}
+          </div>
+        )}
 
         {/* Topbar over banner */}
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px' }}>
