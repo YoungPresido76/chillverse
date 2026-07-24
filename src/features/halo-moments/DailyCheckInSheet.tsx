@@ -42,7 +42,6 @@ export default function DailyCheckInSheet({
   onClaimChallenge: () => Promise<{ xpReward: number } | null>
   onDismiss: () => void
 }) {
-  const [step, setStep] = useState<Step>(0)
   const [boxPhase, setBoxPhase] = useState<'idle' | 'opening' | 'result'>(
     data.mysteryBox?.opened ? 'result' : 'idle',
   )
@@ -60,7 +59,23 @@ export default function DailyCheckInSheet({
   const [claiming, setClaiming] = useState(false)
   const [challengeClaimed, setChallengeClaimed] = useState(!!data.challenge?.claimed)
 
-  if (!data.fortune) return null
+  // Which steps actually have something to show — a piece failing to load
+  // (e.g. the fortune RPC silently returning nothing because halo_lines has
+  // no seeded rows yet) no longer hides the whole sheet, just that step.
+  const availableSteps: Step[] = [
+    ...(data.fortune ? [0 as Step] : []),
+    ...(data.mysteryBox ? [1 as Step] : []),
+    ...(data.challenge ? [2 as Step] : []),
+  ]
+  const [stepIdx, setStepIdx] = useState(0)
+  const step = availableSteps[stepIdx]
+
+  function advance() {
+    if (stepIdx >= availableSteps.length - 1) onDismiss()
+    else setStepIdx(i => i + 1)
+  }
+
+  if (availableSteps.length === 0) return null
 
   async function handleOpenBox() {
     setBoxPhase('opening')
@@ -123,10 +138,10 @@ export default function DailyCheckInSheet({
       >
         {/* step dots */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 16 }}>
-          {[0, 1, 2].map(i => (
-            <div key={i} style={{
-              width: i === step ? 18 : 6, height: 6, borderRadius: 3,
-              background: i === step ? 'linear-gradient(90deg,#9b6dff,#4f8ef7)' : 'var(--surface2)',
+          {availableSteps.map((s, i) => (
+            <div key={s} style={{
+              width: i === stepIdx ? 18 : 6, height: 6, borderRadius: 3,
+              background: i === stepIdx ? 'linear-gradient(90deg,#9b6dff,#4f8ef7)' : 'var(--surface2)',
               transition: 'all 0.25s',
             }} />
           ))}
@@ -143,7 +158,7 @@ export default function DailyCheckInSheet({
             <p style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, marginBottom: 20, maxWidth: 320, marginLeft: 'auto', marginRight: 'auto' }}>
               {data.fortune.text}
             </p>
-            <button type="button" onClick={() => setStep(1)} style={primaryBtnStyle}>Next</button>
+            <button type="button" onClick={advance} style={primaryBtnStyle}>Next</button>
           </>
         )}
 
@@ -202,7 +217,7 @@ export default function DailyCheckInSheet({
 
             <button
               type="button"
-              onClick={() => setStep(2)}
+              onClick={advance}
               disabled={boxPhase === 'opening'}
               style={{ ...primaryBtnStyle, opacity: boxPhase === 'opening' ? 0.6 : 1, cursor: boxPhase === 'opening' ? 'default' : 'pointer' }}
             >

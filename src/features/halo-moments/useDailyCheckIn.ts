@@ -74,10 +74,12 @@ export function useDailyCheckIn(userId: string | null) {
 
   return {
     ...data,
-    // Sheet only shows once loaded, not dismissed this session, and there's
-    // at least a fortune to show (mirrors the old hook's gate — a totally
-    // failed fetch shouldn't show an empty sheet).
-    shouldShow: loaded && !dismissed && !!data.fortune,
+    // Sheet shows once loaded, not dismissed this session, and at least one
+    // piece actually came back — DailyCheckInSheet itself skips whichever
+    // individual step(s) came back empty (e.g. a not-yet-seeded halo_lines
+    // pool silently returning nothing for one moment type shouldn't hide
+    // the other two).
+    shouldShow: loaded && !dismissed && (!!data.fortune || !!data.mysteryBox || !!data.challenge),
     openBox,
     claimChallenge,
     dismiss,
