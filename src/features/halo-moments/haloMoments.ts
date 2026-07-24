@@ -11,9 +11,13 @@
 // (Streak tie-in), 'halo_saw_that' (achievement-unlock reaction toast),
 // 'mystery_box_win'/'mystery_box_empty' (Daily Mystery Box),
 // 'challenge_intro' (Halo's Daily Challenge), 'random_surprise' (Random
-// Surprise Popup — claimed server-side, see claim_random_surprise() RPC).
-// Remaining: 'lucky_user', 'inactivity_nudge' — content-ready, not yet
-// wired to a feature.
+// Surprise Popup — claimed server-side, see claim_random_surprise() RPC),
+// 'lucky_user' (Lucky User of the Day — picked server-side by
+// pick_lucky_user(), migrations 0075/0076). 'inactivity_nudge' is also
+// wired, but entirely server-side: run_scheduled_notifications() (migration
+// 0081) pulls a line for it and inserts a 'come_back' notification after
+// 2+ days of inactivity — no client call into get_next_halo_line() for
+// this one, so don't expect to find a caller for it in this file.
 
 import { supabase } from '../../shared/lib/supabase'
 
